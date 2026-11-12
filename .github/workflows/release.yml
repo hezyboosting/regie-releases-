@@ -3,6 +3,8 @@ name: Build & Release
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '.github/**'
 
 jobs:
   release:
@@ -11,11 +13,24 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+
+      - name: Bump version automatiquement
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          npm version patch --no-git-tag-version
+          VERSION=$(node -p "require('./package.json').version")
+          git add package.json package-lock.json
+          git commit -m "v${VERSION}" || true
+          git tag "v${VERSION}"
+          git push origin main --tags
 
       - run: npm ci
 
@@ -30,7 +45,7 @@ jobs:
         id: ver
         run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
 
-      - name: Create or update release
+      - name: Publier la release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.ver.outputs.version }}
