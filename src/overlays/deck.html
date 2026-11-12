@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stream Deck Régie</title>
+<style>
+@font-face { font-family: "Onest"; src: url("/assets/fonts/onest.woff2") format("woff2"); font-weight: 100 900; }
+:root { color-scheme: dark; --bg: #14161B; --card: rgba(255,255,255,.07); --line: rgba(255,255,255,.1); --text: #F2F5F9; --dim: #AEB7C4; --accent: #8FD3FF; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { margin: 0; min-height: 100dvh; background: var(--bg); color: var(--text); font: 15px "Onest", system-ui, sans-serif; padding: 16px; }
+h1 { font-size: 18px; margin: 0 0 12px; }
+nav { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 14px; }
+nav button { flex: none; border: 1px solid var(--line); background: var(--card); color: var(--dim); border-radius: 999px; padding: 8px 14px; font: inherit; }
+nav button.on { background: var(--text); border-color: var(--text); color: #101216; }
+#grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+.key { aspect-ratio: 1; border: 0; border-radius: 20px; box-shadow: inset 0 1px 0 rgba(255,255,255,.2); background: var(--c, var(--card)); color: #fff; font: 600 14px system-ui, sans-serif; padding: 8px; display: grid; place-items: center; gap: 4px; text-align: center; transition: transform .08s, filter .08s; }
+.key:active { transform: scale(.94); filter: brightness(1.25); }
+.key img { width: 42px; height: 42px; object-fit: contain; }
+p { color: var(--dim); }
+</style>
+</head>
+<body>
+<h1>Stream Deck</h1>
+<nav id="tabs"></nav>
+<div id="grid"></div>
+<p id="note" hidden></p>
+<script type="module">
+const k = new URLSearchParams(location.search).get('k');
+const tabs = document.getElementById('tabs');
+const grid = document.getElementById('grid');
+const note = document.getElementById('note');
+let state = { pages: [] };
+let page = 0;
+
+function draw() {
+  tabs.textContent = '';
+  grid.textContent = '';
+  state.pages.forEach((p, i) => {
+    const b = document.createElement('button');
+    b.textContent = p.name;
+    b.className = i === page ? 'on' : '';
+    b.onclick = () => { page = i; draw(); };
+    tabs.append(b);
+  });
+  for (const b of state.pages[page]?.buttons || []) {
+    const key = document.createElement('button');
+    key.className = 'key';
+    key.style.setProperty('--c', b.color);
+    if (b.icon) { const i = document.createElement('img'); i.src = `/media/${encodeURIComponent(b.icon)}?k=${encodeURIComponent(k)}`; i.alt = ''; key.append(i); }
+    key.append(document.createTextNode(b.label));
+    key.onclick = () => { navigator.vibrate?.(15); fetch(`/deck/press/${encodeURIComponent(b.id)}?k=${encodeURIComponent(k)}`, { method: 'POST' }); };
+    grid.append(key);
+  }
+}
+
+async function load() {
+  try {
+    const r = await fetch(`/deck/state?k=${encodeURIComponent(k)}`);
+    state = await r.json();
+    const empty = !state.pages.some((x) => x.buttons.length);
+    note.hidden = state.allowed !== false && !empty;
+    note.textContent = state.allowed === false ? 'Le Stream Deck sur téléphone demande une licence PRO.' : 'Ajoute des boutons dans l\'onglet Stream Deck de Régie.';
+    draw();
+  } catch { note.hidden = false; note.textContent = 'Connexion perdue avec Régie.'; }
+}
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>

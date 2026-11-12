@@ -1,0 +1,106 @@
+{
+  "name": "regie",
+  "productName": "Régie",
+  "version": "2.5.0",
+  "description": "Régie : overlays, alertes, cadeaux, classements, battles et outils de live pour TikTok, Twitch et YouTube.",
+  "author": "Régie",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "src/main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "vendor": "node tools/vendor.js",
+    "dist": "electron-builder --win --x64 --publish never"
+  },
+  "build": {
+    "appId": "app.regie.desktop",
+    "productName": "Régie",
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "!**/*.map",
+      "!**/*.md",
+      "!node_modules/uiohook-napi/prebuilds/darwin-*/**",
+      "!node_modules/uiohook-napi/prebuilds/linux-*/**",
+      "!node_modules/uiohook-napi/libuiohook/**",
+      "!node_modules/uiohook-napi/src/**",
+      "!node_modules/@koromix/koffi-linux-*/**",
+      "!node_modules/node-hid/prebuilds/HID-darwin*/**",
+      "!node_modules/node-hid/prebuilds/HID-linux*/**",
+      "!node_modules/node-hid/prebuilds/HID_hidraw*/**",
+      "!node_modules/node-hid/prebuilds/HID-win32-ia32/**",
+      "!node_modules/node-hid/prebuilds/HID-win32-arm64/**",
+      "!node_modules/node-hid/hidapi/**",
+      "!node_modules/node-hid/src/**"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "shortcutName": "Régie",
+      "artifactName": "Regie-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "Regie-Portable-${version}.exe"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "hezyboosting",
+      "repo": "regie-releases-"
+    },
+    "executableName": "Regie",
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false
+    }
+  },
+  "dependencies": {
+    "koffi": "^3.3.7",
+    "node-hid": "^3.4.0",
+    "tiktok-live-connector": "^2.5.0",
+    "uiohook-napi": "^1.5.5",
+    "ws": "^8.22.1",
+    "youtube-chat": "^2.2.0"
+  },
+  "devDependencies": {
+    "@fontsource-variable/archivo": "^5.3.0",
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/syne": "^5.3.0",
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0",
+    "htm": "^3.1.1",
+    "preact": "^11.1.1"
+  },
+  "optionalDependencies": {
+    "@koromix/koffi-win32-x64": "^3.3.7"
+  }
+}

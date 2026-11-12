@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" viewBox="0 0 1240 840" onload="window.PWNED=1">
+  <style>.cls-1{fill:#6b7280}@import url("https://exemple.test/x.css");.cls-2{fill:url(https://exemple.test/x.svg#a)}</style>
+  <script>window.PWNED=2</script>
+  <foreignObject width="10" height="10"><div xmlns="http://www.w3.org/1999/xhtml" onclick="window.PWNED=3">x</div></foreignObject>
+  <image href="https://exemple.test/pixel.png" width="10" height="10"/>
+  <rect id="coque" class="cls-1" x="100" y="200" width="1040" height="460" rx="200"/>
+  <g id="stick_l"><circle cx="360" cy="360" r="70" fill="#374151"/></g>
+  <g inkscape:label="stick_r"><circle cx="760" cy="500" r="70" fill="#374151"/></g>
+  <circle id="a" cx="900" cy="440" r="36" fill="#9ca3af"/>
+  <circle id="b" cx="980" cy="360" r="36" fill="#9ca3af"/>
+  <circle id="x" cx="820" cy="360" r="36" fill="#9ca3af"/>
+  <circle id="y" cx="900" cy="280" r="36" fill="#9ca3af"/>
+  <rect id="lb" x="220" y="150" width="240" height="50" rx="25" fill="#4b5563"/>
+  <rect id="rb" x="780" y="150" width="240" height="50" rx="25" fill="#4b5563"/>
+  <rect id="lt" x="240" y="90" width="200" height="50" rx="25" fill="#4b5563"/>
+  <rect id="rt" x="800" y="90" width="200" height="50" rx="25" fill="#4b5563"/>
+  <rect id="dpad_up" x="460" y="400" width="40" height="50" fill="#9ca3af"/>
+  <rect id="decor" x="600" y="600" width="40" height="10" fill="#111827"/>
+</svg>

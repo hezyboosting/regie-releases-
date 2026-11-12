@@ -1,0 +1,45 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build Windows exe
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y wine64 wine32 xvfb
+          WINEDEBUG=-all WINEPREFIX=/tmp/wine xvfb-run -a npx electron-builder --win --x64 --publish never
+
+      - name: Read version
+        id: ver
+        run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: Régie v${{ steps.ver.outputs.version }}
+          files: |
+            dist/Regie-Setup-*.exe
+            dist/Regie-Setup-*.exe.blockmap
+            dist/latest.yml
+          body: "Mise à jour automatique v${{ steps.ver.outputs.version }}"
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
