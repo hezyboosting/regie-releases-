@@ -216,7 +216,13 @@ export function PredictionView({ s }) {
 // ---------- Plinko ----------
 const PK_PRESETS = [{ id: 'doux', label: 'Petits gains sûrs' }, { id: 'equilibre', label: 'Équilibré' }, { id: 'gros', label: 'Gros gains rares' }];
 const binomial = (rows) => { const out = []; let c = 1; for (let k = 0; k <= rows; k += 1) { out.push(c / 2 ** rows); c = (c * (rows - k)) / (k + 1); } return out; };
-const pct = (p) => (p >= 0.1 ? `${Math.round(p * 100)} %` : p >= 0.001 ? `${(p * 100).toFixed(1).replace('.', ',')} %` : '< 0,1 %');
+// Pourcentage lisible, au format de la langue de l'interface (« 0,3 % » ou « 0.3% »).
+const pct = (p) => {
+  const en = document.documentElement.lang === 'en';
+  const n = (x) => (en ? String(x) : String(x).replace('.', ','));
+  const unit = en ? '%' : ' %';
+  return p >= 0.1 ? `${Math.round(p * 100)}${unit}` : p >= 0.001 ? `${n((p * 100).toFixed(1))}${unit}` : `< ${n(0.1)}${unit}`;
+};
 
 function PlinkoBin({ b, i, odds, mode, up, s, open, setOpen }) {
   return html`<button type="button" class="pkb ${open ? 'on' : ''}" style=${{ '--c': b.color }} onClick=${() => setOpen(open ? -1 : i)} title=${`Case ${i + 1}`}>

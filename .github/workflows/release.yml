@@ -41,30 +41,54 @@ jobs:
           node-version: 22
           cache: npm
 
-      # Si cette version est déjà publiée, on monte le dernier chiffre (2.14.0 → 2.14.1).
+      # Version à publier. Si elle est déjà publiée en entier (avec latest.yml), on monte le dernier
+      # chiffre (2.14.0 → 2.14.1). Si sa release existe mais est incomplète, on la complète.
       - name: Version
         id: ver
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           V=$(node -p "require('./package.json').version")
           if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then
-            npm version patch --no-git-tag-version
-            V=$(node -p "require('./package.json').version")
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package.json package-lock.json
-            git commit -m "v$V"
-            git push origin HEAD:main
+            if gh release view "v$V" --json assets -q '.assets[].name' 2>/dev/null | grep -qx 'latest.yml'; then
+              npm version patch --no-git-tag-version
+              V=$(node -p "require('./package.json').version")
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git add package.json package-lock.json
+              git commit -m "v$V"
+              git push origin HEAD:main
+            else
+              echo "La release v$V existe sans latest.yml : on la complète."
+            fi
           fi
           echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          case "$V" in *-*) echo "pre=true" >> "$GITHUB_OUTPUT" ;; *) echo "pre=false" >> "$GITHUB_OUTPUT" ;; esac
+          # Notes de version : la section du journal des nouveautés qui correspond (x.y).
+          node -e "const {CHANGELOG}=require('./src/shared/changelog');const v='$V'.split('.').slice(0,2).join('.');const c=CHANGELOG.find(x=>x.version.startsWith(v+'.'))||CHANGELOG[0];require('fs').writeFileSync('release-notes.md','## '+c.title+'\n\n'+c.items.map(i=>'- '+i).join('\n')+'\n')"
           echo "Version publiée : $V"
 
       - run: npm ci --ignore-scripts
 
-      - name: Compiler et publier
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          case "${{ steps.ver.outputs.version }}" in *-*) export EP_PRE_RELEASE=true ;; esac
-          npx electron-builder --win --x64 --publish always
+      # Compilation seule : la publication se fait en une fois juste après (deux cibles qui publient
+      # en même temps se marchent dessus et GitHub refuse la seconde).
+      - name: Compiler
+        run: npx electron-builder --win --x64 --publish never
+
+      - name: Publier la release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          target_commitish: ${{ steps.ver.outputs.sha }}
+          name: Régie ${{ steps.ver.outputs.version }}
+          body_path: release-notes.md
+          prerelease: ${{ steps.ver.outputs.pre == 'true' }}
+          make_latest: ${{ steps.ver.outputs.pre == 'true' && 'false' || 'true' }}
+          fail_on_unmatched_files: true
+          files: |
+            dist/Regie-Setup-${{ steps.ver.outputs.version }}.exe
+            dist/Regie-Setup-${{ steps.ver.outputs.version }}.exe.blockmap
+            dist/Regie-Portable-${{ steps.ver.outputs.version }}.exe
+            dist/latest.yml
