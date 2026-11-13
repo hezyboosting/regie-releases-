@@ -464,3 +464,17 @@ test('suivi = rang : passer en mode points ne remontre pas une carte à chaque s
   assert.equal(cards(), 1);
   engine.play.stop();
 });
+
+test('suivi = rang : les effets communs qui gênaient la caisse sont retirés, même d\'anciens réglages', () => {
+  const { file, engine } = rig();
+  const o = file.data.overlays.find((x) => x.type === 'rankcard');
+  Object.assign(o.settings, { fxIdle: 'float', fxItems: true, fxSpeed: 200, fxConfetti: true, stay: 4 });
+  const s = engine.effectiveSettings(o);
+  assert.equal(s.fxIdle, 'none');
+  assert.equal(s.fxItems, false);
+  assert.equal(s.fxSpeed, 100);
+  assert.equal(s.stay, 4);
+  const keys = OVERLAY_TYPES.rankcard.fields.map((f) => f.key);
+  assert.ok(!keys.includes('fxIdle') && keys.includes('spinCustom') && keys.includes('offsetX'));
+  engine.play.stop();
+});

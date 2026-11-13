@@ -7,7 +7,7 @@ import { PointsRates } from './ranks.js';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-function openOverlay(s, type) {
+export function openOverlay(s, type) {
   const o = s.overlays.find((x) => x.type === type);
   if (o) setState({ view: 'overlays', overlayId: o.id, sceneOpen: false });
 }
@@ -58,7 +58,7 @@ function SegPicture({ x, i, up, s }) {
   </div>`;
 }
 
-function WheelPanel({ s }) {
+function WheelPanel({ s, page = false }) {
   const c = s.tools.wheel;
   const save = async (patch) => { const r = await act('wheelControl', 'config', patch); if (r) setState({ tools: { ...s.tools, wheel: r } }); };
   const control = async (action) => { const r = await act('wheelControl', action); if (r) setState({ tools: { ...s.tools, wheel: r } }); };
@@ -66,14 +66,14 @@ function WheelPanel({ s }) {
   const total = segs.reduce((n, x) => n + Number(x.weight || 0), 0);
   const up = (i, patch) => save({ segments: segs.map((x, j) => (i === j ? { ...x, ...patch } : x)) });
   const giftOpts = [{ value: '', label: 'Selon le montant' }, ...s.gifts.map((g) => ({ value: g.id, label: `${g.name} (${g.cost})` }))];
-  return html`<${Bay} title="Roue de la fortune" class="fun-bay" aside=${html`<${Lamp} on=${c.enabled !== false} label="Active" onChange=${(enabled) => save({ enabled })} />`}>
+  return html`<${Bay} title=${page ? 'Réglages' : 'Roue de la fortune'} class="fun-bay" aside=${html`<${Lamp} on=${c.enabled !== false} label="Active" onChange=${(enabled) => save({ enabled })} />`}>
     <div class="fun-top">
       <${WheelStatus} s=${s} />
       <div class="row tight">
         <${Btn} kind="primary" icon=${ICONS.play} onClick=${() => control('spin')}>Faire tourner<//>
         <${Btn} onClick=${() => control('skip')}>Passer<//>
         <${Btn} onClick=${() => control('clear')}>Vider la file<//>
-        <${Btn} icon=${ICONS.overlays} onClick=${() => openOverlay(s, 'wheel')}>Overlay<//>
+        ${!page && html`<${Btn} icon=${ICONS.overlays} onClick=${() => openOverlay(s, 'wheel')}>Overlay<//>`}
       </div>
     </div>
     <h4 class="fun-h">Ce qui la fait tourner</h4>
@@ -115,19 +115,19 @@ function WheelPanel({ s }) {
 }
 
 // ---------- Course aux likes ----------
-function RacePanel({ s }) {
+function RacePanel({ s, page = false }) {
   const c = s.tools.likeRace;
   const r = s.likeRace || { status: 'idle', racers: [] };
   const save = async (patch) => { const x = await act('raceControl', 'config', patch); if (x) setState({ tools: { ...s.tools, likeRace: x } }); };
   const control = (action) => act('raceControl', action);
   const state = r.status === 'running' ? 'En course' : r.status === 'won' ? `Gagnée par ${r.winner?.name || '?'}` : 'Arrêtée';
-  return html`<${Bay} title="Course aux likes" class="fun-bay" aside=${html`<${Lamp} on=${c.enabled} label="Active" onChange=${(enabled) => save({ enabled })} />`}>
+  return html`<${Bay} title=${page ? 'Réglages' : 'Course aux likes'} class="fun-bay" aside=${html`<${Lamp} on=${c.enabled} label="Active" onChange=${(enabled) => save({ enabled })} />`}>
     <div class="fun-top">
       <div class="fun-status ${r.status}"><span class="dot"></span><b>${state}</b>${r.round > 0 && html`<span class="badge">Course n° ${r.round}</span>`}</div>
       <div class="row tight">
         <${Btn} kind="primary" icon=${ICONS.play} onClick=${() => control('start')}>Nouvelle course<//>
         <${Btn} onClick=${() => control('stop')}>Arrêter<//>
-        <${Btn} icon=${ICONS.overlays} onClick=${() => openOverlay(s, 'likerace')}>Overlay<//>
+        ${!page && html`<${Btn} icon=${ICONS.overlays} onClick=${() => openOverlay(s, 'likerace')}>Overlay<//>`}
       </div>
     </div>
     ${r.racers?.length > 0 && html`<ol class="race-mini">
@@ -164,26 +164,35 @@ function RacePanel({ s }) {
   <//>`;
 }
 
-export function InteractiveView({ s }) {
+// Roue de la fortune : sa propre page.
+export function WheelPage({ s }) {
   return html`<div class="page">
-    <${PageHead} title="Live interactif">
-      <${Btn} kind=${s.simulating ? 'danger' : ''} onClick=${() => act('simulateLive', !s.simulating, 60)}>${s.simulating ? 'Arrêter la simulation' : 'Simuler un live (1 min)'}<//>
+    <${PageHead} title="Roue de la fortune">
+      <${Btn} icon=${ICONS.overlays} onClick=${() => openOverlay(s, 'wheel')}>Overlay<//>
       <${Btn} onClick=${() => setState({ view: 'packs' })}>Packs prêts<//>
     <//>
-    <p class="lead">Fais participer le chat à n'importe quel jeu : la roue et la course réagissent aux cadeaux, aux likes et aux commandes, et chaque résultat peut agir dans ton jeu.</p>
-    <${WheelPanel} s=${s} />
-    <${RacePanel} s=${s} />
-    <${TranslateBay} s=${s} />
-    <${Bay} title="Avatars des spectateurs">
-      <p class="note">Chaque spectateur qui écrit, like ou offre un cadeau devient un petit personnage à l'écran. Les spectateurs tapent !saute pour faire sauter le leur.</p>
-      <div class="row tight"><${Btn} icon=${ICONS.overlays} onClick=${() => openOverlay(s, 'avatars')}>Régler l'overlay des avatars<//><${Btn} onClick=${() => act('testOverlay', 'avatars')}>Tester<//></div>
-    <//>
+    <p class="lead">La roue tourne sur un cadeau, une commande payée en points, un palier de likes, un suivi ou un partage. Chaque case peut donner des points et agir dans ton jeu.</p>
+    <${WheelPanel} s=${s} page />
   </div>`;
 }
 
+// Course aux likes : sa propre page.
+export function RacePage({ s }) {
+  return html`<div class="page">
+    <${PageHead} title="Course aux likes">
+      <${Btn} icon=${ICONS.overlays} onClick=${() => openOverlay(s, 'likerace')}>Overlay<//>
+    <//>
+    <p class="lead">Chaque like fait avancer le spectateur ; sur Twitch, YouTube et Kick, ce sont les messages, cadeaux, partages ou suivis. Le premier arrivé gagne.</p>
+    <${RacePanel} s=${s} page />
+  </div>`;
+}
+
+// Compatibilité : l'ancienne page qui réunissait tout.
+export function InteractiveView({ s }) { return html`<${WheelPage} s=${s} />`; }
+
 // ---------- Traduction du chat ----------
 const LANG_OPTS = [['auto', 'Langue de l\'appli'], ['fr', 'Français'], ['en', 'English'], ['es', 'Español'], ['de', 'Deutsch'], ['it', 'Italiano'], ['pt', 'Português'], ['nl', 'Nederlands'], ['pl', 'Polski'], ['tr', 'Türkçe'], ['ar', 'العربية'], ['ru', 'Русский'], ['ja', '日本語'], ['ko', '한국어'], ['zh', '中文']];
-function TranslateBay({ s }) {
+export function TranslateBay({ s }) {
   const c = s.chatTranslate || {};
   const save = async (patch) => { const r = await act('updateChatTranslate', patch); if (r) setState({ chatTranslate: r }); };
   return html`<${Bay} title="Traduction du chat en direct" aside=${html`<${Lamp} on=${c.enabled} label="Active" onChange=${(enabled) => save({ enabled })} />`}>
@@ -247,7 +256,7 @@ export function PacksView({ s }) {
     <${PageHead} title="Packs prêts">
       <${Btn} onClick=${async () => { const p = await act('importPack'); if (p) toast(`Pack ajouté : ${p.name}`); }}>Importer un pack<//>
       <${Btn} onClick=${() => setShare(!share)}>Partager ma config<//>
-      <${Btn} onClick=${() => setState({ view: 'interactive' })}>Live interactif<//>
+      <${Btn} onClick=${() => setState({ view: 'interactive' })}>Roue de la fortune<//>
     <//>
     ${share && html`<${SharePack} onClose=${() => setShare(false)} />`}
     <p class="lead">Un clic installe un live interactif complet : roue, course aux likes, automatisations, commandes et overlays. Tout reste modifiable, et un pack se retire sans toucher au reste.</p>

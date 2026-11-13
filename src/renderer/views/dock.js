@@ -1,8 +1,9 @@
 // Chat unifié : le même chat dans un dock OBS, une fenêtre flottante ou un navigateur.
 import { html, useState, useEffect, act, copy, toast } from '../store.js';
 import { ICONS, Btn, Bay, PageHead } from '../ui.js';
+import { TranslateBay } from './interactive.js';
 
-export function DockView() {
+export function DockView({ s }) {
   const [link, setLink] = useState('');
   useEffect(() => { act('dockLink').then(setLink); }, []);
   return html`<div class="page">
@@ -27,6 +28,7 @@ export function DockView() {
         <${Bay} title="Sur un autre écran">
           <p class="note">Le lien marche aussi dans un navigateur sur ce PC. Garde-le pour toi : il donne accès à ton chat.</p>
         <//>
+        <${TranslateBay} s=${s} />
       </div>
     </div>
   </div>`;

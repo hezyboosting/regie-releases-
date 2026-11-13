@@ -6,7 +6,9 @@ import { ICONS, Btn, Bay, Lamp, Field, Select, Fader, Color, Segments, Lazy, Pro
 import { PadStudio, LiveBadge, STUDIO_KEYS } from './padstudio.js';
 import { SceneEditor } from './scene.js';
 
-const GROUP_ORDER = ['Mes overlays', 'Direct', 'Gaming', 'Entrées', 'Cadeaux et classements', 'Objectifs', 'Interactions', 'Musique', 'Outils'];
+const GROUP_ORDER = ['Mes overlays', 'Alertes et live', 'Cadeaux et classements', 'Jeux avec le chat', 'Objectifs et outils', 'Mon jeu et manette'];
+// Catégories de la galerie : quelques familles claires plutôt que les groupes techniques des overlays.
+const SHELF = { Direct: 'Alertes et live', Musique: 'Alertes et live', Interactions: 'Jeux avec le chat', Objectifs: 'Objectifs et outils', Outils: 'Objectifs et outils', Gaming: 'Mon jeu et manette', 'Entrées': 'Mon jeu et manette' };
 
 // Photo de la manette du streamer : on pose chaque zone sur le vrai bouton, à la souris.
 function SkinField({ s, label, value, set, locked }) {
@@ -314,34 +316,45 @@ export function Overlays({ s }) {
   const [q, setQ] = useState('');
   const [themes, setThemes] = useState(false);
   const [filter, setFilter] = useState('all');
+  const [cat, setCat] = useState('all');
   const scene = s.overlays.find((o) => o.type === 'scene');
   const scenev = s.overlays.find((o) => o.type === 'scenev');
   if (scenev && s.overlayId === scenev.id) return html`<${SceneEditor} key=${scenev.id} s=${s} scene=${scenev} onBack=${() => setState({ sceneOpen: false, overlayId: null })} />`;
   if (scene && (s.sceneOpen || s.overlayId === scene.id)) return html`<${SceneEditor} key=${scene.id} s=${s} scene=${scene} onBack=${() => setState({ sceneOpen: false, overlayId: null })} />`;
   const current = s.overlays.find((o) => o.id === s.overlayId && o.type !== 'custom');
   if (current) return html`<div class="page overlays"><${Customize} s=${s} overlay=${current} /></div>`;
-  const norm = (t) => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const norm = (t) => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const groups = {};
+  const counts = {};
   for (const o of s.overlays) {
     const def = s.overlayTypes[o.type];
     if (!def) continue;
-    const g = o.type === 'custom' ? 'Mes overlays' : def.group;
+    const g = o.type === 'custom' ? 'Mes overlays' : (SHELF[def.group] || def.group);
     if (q && !norm(`${o.name} ${def.blurb} ${def.name}`).includes(norm(q))) continue;
     if (filter === 'on' && o.enabled === false) continue;
     if (filter === 'used' && !o.connected) continue;
+    counts[g] = (counts[g] || 0) + 1;
+    if (cat !== 'all' && cat !== g) continue;
     (groups[g] = groups[g] || []).push(o);
   }
-  const names = Object.keys(groups).sort((a, b) => ((GROUP_ORDER.indexOf(a) + 1) || 99) - ((GROUP_ORDER.indexOf(b) + 1) || 99));
+  const order = (a, b) => ((GROUP_ORDER.indexOf(a) + 1) || 99) - ((GROUP_ORDER.indexOf(b) + 1) || 99);
+  const names = Object.keys(groups).sort(order);
+  const cats = Object.keys(counts).sort(order);
+  const total = Object.values(counts).reduce((n, x) => n + x, 0);
   return html`<div class="page overlays">
-    <${PageHead} title="Overlays">
+    <${PageHead} title="Mes overlays">
       <input class="in gal-search" type="search" value=${q} onInput=${(e) => setQ(e.target.value)} placeholder="Chercher un overlay" aria-label="Chercher un overlay" />
       <${Btn} onClick=${() => setState({ sceneOpen: true })}>Placer sur la scène<//>
       <${Btn} onClick=${() => setThemes(!themes)}>Thème<//>
       <${Btn} onClick=${async () => { const o = await act('importOverlay'); if (o) { await reload(); toast('Overlay importé'); } }}>Importer<//>
       <${Btn} kind="primary" icon=${ICONS.plus} onClick=${() => setState({ view: 'builder' })}>Créer le mien<//>
     <//>
-    <div class="chips">
-      ${[['all', 'Tous'], ['on', 'Activés'], ['used', 'Ouverts dans OBS']].map(([k, l]) => html`<button type="button" key=${k} class="chip ${filter === k ? 'on' : ''}" onClick=${() => setFilter(k)}>${l}</button>`)}
+    <div class="gal-bar">
+      <div class="chips" role="tablist" aria-label="Catégories">
+        <button type="button" class="chip ${cat === 'all' ? 'on' : ''}" onClick=${() => setCat('all')}>Tout<small class="chip-n">${total}</small></button>
+        ${cats.map((g) => html`<button type="button" key=${g} class="chip ${cat === g ? 'on' : ''}" onClick=${() => setCat(g)}>${g}<small class="chip-n">${counts[g]}</small></button>`)}
+      </div>
+      <${Segments} value=${filter} onChange=${setFilter} options=${[{ value: 'all', label: 'Tous' }, { value: 'on', label: 'Activés' }, { value: 'used', label: 'Ouverts dans OBS' }]} />
     </div>
     ${themes && html`<${ThemeBar} s=${s} onDone=${() => setThemes(false)} />`}
     ${names.map((g) => html`<section class="gal-group" key=${g}>

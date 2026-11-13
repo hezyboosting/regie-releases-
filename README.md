@@ -145,7 +145,9 @@ TikTok et Kick écrivent par `src/main/webchat.js` : le streamer se connecte une
 
 ## Menu
 
-La barre latérale range les pages en sections repliables : Démarrer, En direct, Overlays, Alertes et sons, Cadeaux, Communauté, Jeux avec le chat, Automatisation. La section de la page ouverte reste dépliée, les autres se souviennent de leur état (`localStorage.navOpen`). Le fil d'Ariane en haut rappelle la section.
+La barre latérale range les pages en sections repliables : Démarrer, En direct (chat unifié, outils du live, télécommande, scènes, clips, stats), Overlays, Alertes et sons, Cadeaux, Spectateurs (boutique de points, classements, paris), Jeux avec le chat (roue, course, Plinko, le chat joue, mini-jeux, duels), Mon jeu (mes jeux, Suivi = Rang) et Automatisation (commandes, automatisations, Discord, assistant, packs). Chaque page porte le nom de son entrée de menu. La section de la page ouverte reste dépliée, les autres se souviennent de leur état (`localStorage.navOpen`).
+
+Les overlays qui ont leur propre animation déclarent `fxSkip` dans `overlay-schema.js` : ces effets communs n'apparaissent pas dans leur éditeur et `fxLocked` les neutralise même si un ancien réglage existe. L'overlay Suivi = Rang lie le défilement à la durée du résultat (`spinCustom` pour les séparer) et annule une révélation en cours dès qu'on la relance (jeton par révélation).
 
 ## Live interactif et packs prêts
 

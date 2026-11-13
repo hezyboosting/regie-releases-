@@ -38,7 +38,7 @@ export function Shop({ s }) {
   };
   const canAi = s.features.aiOverlays;
   return html`<div class="page">
-    <${PageHead} title="Boutique">
+    <${PageHead} title="Boutique de designs">
       <${Btn} onClick=${async () => { const o = await act('importOverlay'); if (o) open(o); }}>Importer un fichier<//>
     <//>
     <${Bay} title=${html`Créer avec l'IA ${canAi ? '' : html`<${Pro} tier="ULTIMATE" />`}`}>

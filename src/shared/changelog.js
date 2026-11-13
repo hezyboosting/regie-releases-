@@ -1,6 +1,17 @@
 // Nouveautés montrées dans « Quoi de neuf » après une mise à jour. La plus récente en premier.
 const CHANGELOG = [
   {
+    version: '2.16.0',
+    title: 'Suivi = Rang fiable et appli mieux rangée',
+    items: [
+      'Suivi = Rang : la durée du résultat règle aussi le défilement de la caisse. Changer un réglage n\'empile plus plusieurs ouvertures, et les suivis s\'enchaînent un par un.',
+      '« Régler le défilement à part » dans l\'onglet Animation, si tu veux une durée de défilement différente.',
+      'Les effets communs qui gênaient la caisse (apparition, animation continue, confettis en double) sont retirés de cet overlay et du cadre webcam.',
+      'Menu réorganisé : En direct, Overlays, Alertes et sons, Cadeaux, Spectateurs, Jeux avec le chat, Mon jeu, Automatisation. Chaque page porte le nom du menu.',
+      'La roue et la course ont chacune leur page, la traduction du chat est dans Chat unifié, la galerie se filtre par catégorie, et les Réglages passent à 7 onglets.',
+    ],
+  },
+  {
     version: '2.15.0',
     title: 'Le chat unifié écrit partout',
     items: [

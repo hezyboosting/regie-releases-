@@ -1,6 +1,7 @@
 // Mini-jeux du chat : devinette, quiz et roulette.
 import { html, useState, act, setState, toast, copy } from '../store.js';
 import { ICONS, Btn, Bay, Field, Num, Lazy, Text, Select, Color, Segments, PageHead, Pro, Upsell } from '../ui.js';
+import { openOverlay } from './interactive.js';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -93,6 +94,10 @@ export function MiniGamesView({ s }) {
     <${Current} s=${s} />
     <div class="two"><${Guess} locked=${locked} /><${Quiz} s=${s} locked=${locked} /></div>
     <${Roulette} s=${s} locked=${locked} />
+    <${Bay} title="Avatars des spectateurs">
+      <p class="note">Chaque spectateur qui écrit, like ou offre un cadeau devient un petit personnage à l'écran. Les spectateurs tapent !saute pour faire sauter le leur.</p>
+      <div class="row tight"><${Btn} icon=${ICONS.overlays} onClick=${() => openOverlay(s, 'avatars')}>Régler l'overlay des avatars<//><${Btn} onClick=${() => act('testOverlay', 'avatars')}>Tester<//></div>
+    <//>
     <${Upsell}>Les mini-jeux sont inclus dans PRO. Les duels et le combat de boss restent disponibles en FREE.<//>
   </div>`;
 }

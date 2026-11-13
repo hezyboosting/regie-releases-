@@ -212,16 +212,15 @@ function Serveur({ s }) {
 }
 
 export function Settings({ s }) {
-  const tab = s.settingsTab || 'licence';
+  const tab = s.settingsTab === 'diagnostic' ? 'aide' : (s.settingsTab || 'licence');
   return html`<div class="page">
     <${PageHead} title="Réglages" />
-    <${Segments} value=${tab} onChange=${(settingsTab) => setState({ settingsTab })} options=${[{ value: 'licence', label: 'Licence' }, { value: 'apparence', label: 'Apparence' }, { value: 'modules', label: 'Modules' }, { value: 'connexions', label: 'Connexions' }, { value: 'serveur', label: 'Overlays et capture' }, { value: 'diagnostic', label: 'Diagnostic' }, { value: 'sauvegarde', label: 'Sauvegarde' }, { value: 'aide', label: 'Mises à jour et aide' }]} />
+    <${Segments} value=${tab} onChange=${(settingsTab) => setState({ settingsTab })} options=${[{ value: 'licence', label: 'Licence' }, { value: 'apparence', label: 'Apparence' }, { value: 'modules', label: 'Modules' }, { value: 'connexions', label: 'Clés et OBS' }, { value: 'serveur', label: 'Réseau et capture' }, { value: 'sauvegarde', label: 'Sauvegarde' }, { value: 'aide', label: 'Aide et mises à jour' }]} />
     ${tab === 'licence' && html`<${Licence} s=${s} />`}
     ${tab === 'connexions' && html`<${Connexions} s=${s} />`}
     ${tab === 'serveur' && html`<${Serveur} s=${s} />`}
     ${tab === 'apparence' && html`<${Apparence} s=${s} />`}
     ${tab === 'modules' && html`<${Modules} s=${s} />`}
-    ${tab === 'diagnostic' && html`<${Diagnostic} s=${s} />`}
     ${tab === 'sauvegarde' && html`<${Sauvegarde} s=${s} />`}
     ${tab === 'aide' && html`<div class="cols2">
       <div class="col">
@@ -233,7 +232,10 @@ export function Settings({ s }) {
           </div>
         <//>
       </div>
-      <${BugReport} />
+      <div class="col">
+        <${BugReport} />
+        <${Diagnostic} s=${s} />
+      </div>
     </div>`}
   </div>`;
 }

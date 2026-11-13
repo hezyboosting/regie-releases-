@@ -60,7 +60,7 @@ export function Scenes({ s }) {
   const overlay = s.overlays.find((o) => o.type === 'transition');
   const locked = !s.features.customTransitions;
   return html`<div class="page">
-    <${PageHead} title="Scènes">
+    <${PageHead} title="Scènes OBS">
       ${connected && html`<${Btn} onClick=${() => act('obsToggleMic')}>Micro<//>`}
       ${connected && html`<${Btn} onClick=${() => act('obsToggleRecord')}>Enregistrement<//>`}
       ${connected && html`<${Btn} kind=${s.obs.streaming ? 'danger' : 'primary'} onClick=${() => act('obsToggleStream')}>${s.obs.streaming ? 'Arrêter le stream' : 'Lancer le stream'}<//>`}

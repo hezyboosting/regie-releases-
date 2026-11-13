@@ -147,7 +147,7 @@ function Brb({ s }) {
 
 export function Tools({ s }) {
   return html`<div class="page">
-    <${PageHead} title="Outils" />
+    <${PageHead} title="Outils du live" />
     <${Brb} s=${s} />
     <${Counters} s=${s} />
     <${Timers} s=${s} />

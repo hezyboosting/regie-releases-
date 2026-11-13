@@ -176,11 +176,12 @@ SCALE, CSS,
     fields: [TX('title', 'Titre', 'Meilleure série'), C('accent', 'Accent', '#8FD3FF'), C('bg', 'Fond', '#10131A'), C('text', 'Texte', '#F2F5F9'), FONT, SCALE, CSS],
   },
   rankcard: {
-    name: 'Suivi = Rang', size: [960, 340], group: 'Gaming', blurb: 'Chaque personne qui suit la chaîne reçoit son rang à l\'écran, en carte directe ou en ouverture de caisse façon CS2.',
+    name: 'Suivi = Rang', size: [960, 340], group: 'Gaming', fxSkip: ['fxIntro', 'fxIdle', 'fxItems', 'fxItemsAnim', 'fxSpeed', 'fxConfetti'], blurb: 'Chaque personne qui suit la chaîne reçoit son rang à l\'écran, en carte directe ou en ouverture de caisse façon CS2.',
     fields: [
       { key: 'rankSetup', label: 'Rangs', type: 'rankconfig', default: null, tab: 'content' },
       TX('title', 'Texte', 'Nouveau rang'), R('stay', 'Durée du résultat', 6, 2, 20, 1, ' s'),
-      R('spin', 'Durée du défilement', 6.5, 3, 14, 0.5, ' s', { tab: 'anim' }), S('stripMode', 'Rangs dans la bande', 'chance', [{ value: 'chance', label: 'Selon leurs chances (les rares passent rarement)' }, { value: 'mix', label: 'Tous autant' }], { tab: 'anim' }),
+      T('spinCustom', 'Régler le défilement à part', false, { tab: 'anim' }),
+      R('spin', 'Durée du défilement', 6.5, 3, 14, 0.5, ' s', { tab: 'anim', when: { spinCustom: true } }), S('stripMode', 'Rangs dans la bande', 'chance', [{ value: 'chance', label: 'Selon leurs chances (les rares passent rarement)' }, { value: 'mix', label: 'Tous autant' }], { tab: 'anim' }),
       T('showOdds', 'Afficher les chances', true), T('avatars', 'Afficher l\'avatar', true), T('confetti', 'Confettis à l\'arrivée', true, { tab: 'anim' }),
       R('volume', 'Volume', 60, 0, 100, 5, ' %'), C('accent', 'Repère', '#F3C94A'), C('bg', 'Fond', '#10131A'), C('text', 'Texte', '#F2F5F9'), FONT, SCALE, CSS,
     ],
@@ -210,10 +211,10 @@ SCALE, CSS,
     fields: [S('theme', 'Thème', 'arene', [{ value: 'arene', label: 'Arène' }, { value: 'neon', label: 'Néon' }, { value: 'pixel', label: 'Pixel' }, { value: 'espace', label: 'Espace' }]), T('showTop', 'Afficher les meilleurs joueurs', true), FONT, SCALE, CSS],
   },
   webcam: {
-    name: 'Cadre webcam', size: [700, 440], group: 'Direct', blurb: 'Un cadre autour de ta caméra : verre, néon ou coins de visée, pastille LIVE, plaque à ton nom, et il réagit aux soutiens.',
+    name: 'Cadre webcam', size: [700, 440], group: 'Direct', fxSkip: ['fxIdle', 'fxItems', 'fxItemsAnim', 'fxConfetti'], blurb: 'Un cadre autour de ta caméra : verre, néon ou coins de visée, pastille LIVE, plaque à ton nom, et il réagit aux soutiens.',
     fields: [
       S('style', 'Style', 'verre', [{ value: 'verre', label: 'Verre' }, { value: 'neon', label: 'Néon' }, { value: 'degrade', label: 'Dégradé animé' }, { value: 'coins', label: 'Coins de visée' }, { value: 'simple', label: 'Trait fin' }]),
-      R('thickness', 'Épaisseur', 6, 1, 24, 1, ' px'), R('radius', 'Arrondi', 22, 0, 80, 1, ' px'), R('glow', 'Lueur', 60, 0, 100, 5, ' %'),
+      R('thickness', 'Épaisseur', 6, 1, 24, 1, ' px', { tab: 'style' }), R('radius', 'Arrondi', 22, 0, 80, 1, ' px', { tab: 'style' }), R('glow', 'Lueur', 60, 0, 100, 5, ' %', { tab: 'style' }),
       TX('label', 'Texte de la plaque', '{viewers} en direct', { tab: 'content' }), S('labelPos', 'Plaque', 'bas-centre', [{ value: 'bas-centre', label: 'En bas, au centre' }, { value: 'bas-gauche', label: 'En bas, à gauche' }, { value: 'haut-centre', label: 'En haut, au centre' }, { value: 'aucun', label: 'Pas de plaque' }], { tab: 'content' }),
       S('livePos', 'Pastille LIVE', 'haut-gauche', [{ value: 'haut-gauche', label: 'En haut à gauche' }, { value: 'haut-droite', label: 'En haut à droite' }, { value: 'aucun', label: 'Cachée' }], { tab: 'content' }), T('liveViewers', 'Spectateurs dans la pastille', true, { tab: 'content', when: { livePos: ['haut-gauche', 'haut-droite'] } }),
       T('react', 'Réagir aux soutiens', true, { tab: 'anim' }), T('showEvents', 'Afficher qui soutient', true, { tab: 'anim' }), R('toastSeconds', 'Durée de la bulle', 4, 2, 10, 1, ' s', { tab: 'anim', when: { showEvents: true } }),
@@ -465,7 +466,11 @@ const COMMON = [
   R('offsetX', 'Décalage horizontal', 0, -960, 960, 5, ' px', ps), R('offsetY', 'Décalage vertical', 0, -540, 540, 5, ' px', ps),
   R('fxRotate', 'Rotation', 0, -45, 45, 1, '°', ps), T('fxFlip', 'Miroir horizontal', false, ps),
 ];
-for (const def of Object.values(OVERLAY_TYPES)) if (!def.noFx) def.fields.push(...COMMON);
+// fxSkip : effets communs retirés d'un overlay qui a déjà sa propre animation (sinon ils se gênent).
+const FX_NONE = { fxIntro: 'none', fxIdle: 'none', fxItems: false, fxSpeed: 100, fxConfetti: false };
+for (const def of Object.values(OVERLAY_TYPES)) if (!def.noFx) def.fields.push(...COMMON.filter((f) => !(def.fxSkip || []).includes(f.key)));
+// Valeurs neutres imposées pour les effets retirés (un ancien réglage ne doit plus s'appliquer).
+function fxLocked(type) { const skip = OVERLAY_TYPES[type]?.fxSkip || []; return Object.fromEntries(skip.filter((k) => k in FX_NONE).map((k) => [k, FX_NONE[k]])); }
 
 // Coloris : coque, poignées, boutons, sticks, gâchettes, voyant.
 // D'abord des éditions réalistes en deux tons, puis les teintes Régie tirées d'une seule couleur.
@@ -511,4 +516,4 @@ function overlayDefaults(type) {
   return out;
 }
 
-module.exports = { OVERLAY_TYPES, overlayDefaults, COLORWAYS, FINISH_GROUPS, finishFrom, PAD_ZONES, PAD_ZONE_NAMES };
+module.exports = { OVERLAY_TYPES, fxLocked, overlayDefaults, COLORWAYS, FINISH_GROUPS, finishFrom, PAD_ZONES, PAD_ZONE_NAMES };

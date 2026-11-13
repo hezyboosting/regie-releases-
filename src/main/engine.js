@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { uid, EVENT_TYPES, defaultRules, makeOverlay } = require('../shared/defaults');
 const { rankImage } = require('../shared/rank-files');
 const { rankLook } = require('../shared/games');
-const { OVERLAY_TYPES, overlayDefaults } = require('../shared/overlay-schema');
+const { OVERLAY_TYPES, overlayDefaults, fxLocked } = require('../shared/overlay-schema');
 const { withinLimit } = require('../shared/features');
 const { TikTokConnector } = require('./connectors/tiktok');
 const { TwitchConnector } = require('./connectors/twitch');
@@ -1374,7 +1374,7 @@ class Engine {
       const rank = this.s.overlays.filter((x) => x.type === 'custom').findIndex((x) => x.id === o.id);
       return f.customOverlays === -1 || rank < f.customOverlays ? o.settings : { ...o.settings, elements: [] };
     }
-    const out = { ...overlayDefaults(o.type), ...o.settings };
+    const out = { ...overlayDefaults(o.type), ...o.settings, ...fxLocked(o.type) };
     for (const field of OVERLAY_TYPES[o.type].fields) {
       if (!field.feature || f[field.feature]) continue;
       if (field.type === 'select') {

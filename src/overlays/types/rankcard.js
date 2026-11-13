@@ -17,12 +17,27 @@ const pct = (x) => {
 
 export function mount(root) {
   let s = {};
-  let timer = null;
   let busy = false;
   let pool = [];
   let game = '';
   let ctx = null;
   const queue = [];
+  // Chaque révélation a son jeton : quand on relance (réglage changé, nouvel essai), l'ancienne
+  // s'arrête net au lieu de continuer en arrière-plan et de chevaucher la suivante.
+  let token = 0;
+  const timers = new Set();
+  const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || a));
+  // Durée du résultat, et défilement qui la suit (sauf si on le règle à part).
+  const stayMs = () => clamp(s.stay ?? 6, 2, 30) * 1000;
+  const spinMs = () => (s.spinCustom ? clamp(s.spin ?? 6.5, 3, 14) : clamp((s.stay ?? 6) * 1.1, 3, 14)) * 1000;
+  function reset() {
+    token += 1;
+    for (const t of timers) clearTimeout(t);
+    timers.clear();
+    root.querySelectorAll('.rc, .cs').forEach((n) => n.remove());
+    busy = false;
+  }
 
   // Petit clic synthétique à chaque rang qui passe sous le repère (léger, même à grande vitesse).
   function tick(vol) {
@@ -37,15 +52,17 @@ export function mount(root) {
     } catch { /* pas de son possible */ }
   }
 
-  const done = (box) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
+  // Le résultat reste « Durée du résultat », puis sort ; la révélation suivante enchaîne.
+  const done = (box, my) => {
+    later(() => {
+      if (my !== token) return;
       box.classList.add('out');
-      setTimeout(() => { box.remove(); busy = false; next(); }, 450);
-    }, (s.stay || 6) * 1000);
+      later(() => { if (my !== token) return; box.remove(); busy = false; if (!next() && isPreview) later(replay, 900); }, 450);
+    }, stayMs());
   };
 
-  const card = (c, keep) => {
+  const card = (c) => {
+    const my = token;
     root.querySelector('.rc, .cs')?.remove();
     const box = el('div', 'rc scaled');
     box.style.setProperty('--r', c.rank.color);
@@ -57,9 +74,7 @@ export function mount(root) {
     if (s.showOdds && c.rank.chance) text.append(el('span', 'rc-odds', `${pct(c.rank.chance)} de chance`));
     box.append(emblem(c.rank, 104, c.rank.image), text);
     root.append(box);
-    clearTimeout(timer);
-    if (keep) { busy = false; return; }
-    done(box);
+    done(box, my);
   };
 
   // Bande de la caisse : tirée selon les chances (option), le rang gagné posé à sa place.
@@ -92,6 +107,7 @@ export function mount(root) {
   }
 
   function caseOpen(c) {
+    const my = token;
     root.querySelector('.rc, .cs')?.remove();
     const list = c.pool?.length ? c.pool : (pool.length ? pool : [c.rank]);
     const box = el('div', 'cs scaled');
@@ -114,11 +130,12 @@ export function mount(root) {
     const jitter = (Math.random() - 0.5) * CARD * 0.72;
     const target = -(WIN * STEP) + STAGE / 2 - CARD / 2 + jitter;
     const start = performance.now() + 350;
-    const duration = Math.max(3, Math.min(14, s.spin || 6.5)) * 1000;
+    const duration = spinMs();
     const vol = (s.volume ?? 60) / 100;
     let last = -1, lastTick = 0;
     const ease = (t) => 1 - (1 - t) ** 4.4;
     const frame = (now) => {
+      if (my !== token) return;
       const p = Math.max(0, Math.min(1, (now - start) / duration));
       const x = target * ease(p);
       band.style.transform = `translate3d(${x}px,0,0)`;
@@ -133,34 +150,37 @@ export function mount(root) {
       result.append(el('span', 'cs-get', 'obtient'), el('b', 'cs-rank', c.rank.name));
       if (s.showOdds && c.rank.chance) result.append(el('span', 'cs-chance', `${pct(c.rank.chance)} de chance`));
       result.classList.add('on');
-      if (c.demo) { setTimeout(() => { box.remove(); busy = false; next(); }, 3200); return; }
-      done(box);
+      done(box, my);
     };
     requestAnimationFrame(frame);
   }
 
   function next() {
-    if (busy || !queue.length) return;
+    if (busy || !queue.length) return false;
     busy = true;
     const c = queue.shift();
     if (c.roulette) caseOpen(c); else card(c);
+    return true;
   }
 
-  // Aperçu : une ouverture en boucle avec les rangs du jeu choisi.
-  let demoTimer = null;
-  function demo(reveal) {
-    clearInterval(demoTimer);
-    if (!isPreview) return;
+  // Aperçu : la révélation tourne en boucle avec les rangs du jeu choisi, aux vraies durées réglées.
+  let demoReveal = 'roulette';
+  function replay() {
+    if (!isPreview || busy) return;
     const list = pool.length ? pool : DEMO_POOL;
-    const play = () => {
-      if (busy) return;
-      const total = list.reduce((n, x) => n + (x.chance || 0), 0) || 1;
-      let r = Math.random() * total;
-      const rank = list.find((x) => (r -= x.chance || 0) <= 0) || list[0];
-      queue.push({ user: 'Lena', platform: 'tiktok', rank, pool: list, game, roulette: reveal === 'roulette', demo: true });
-      next();
-    };
-    if (reveal === 'roulette') { play(); demoTimer = setInterval(play, 1500); } else card({ user: 'Lena', platform: 'tiktok', rank: list[Math.min(4, list.length - 1)], game }, true);
+    const total = list.reduce((n, x) => n + (x.chance || 0), 0) || 1;
+    let r = Math.random() * total;
+    const rank = list.find((x) => (r -= x.chance || 0) <= 0) || list[0];
+    queue.push({ user: 'Lena', platform: 'tiktok', rank, pool: list, game, roulette: demoReveal === 'roulette', demo: true });
+    next();
+  }
+  let restart = null;
+  function demo(reveal) {
+    if (!isPreview) return;
+    demoReveal = reveal || demoReveal;
+    clearTimeout(restart);
+    // Un curseur qu'on fait glisser envoie plein de réglages : on relance une fois, quand il s'arrête.
+    restart = setTimeout(() => { reset(); queue.length = 0; replay(); }, 280);
   }
 
   return {
@@ -169,12 +189,12 @@ export function mount(root) {
       if (data?.pool) pool = data.pool;
       if (data?.game !== undefined) game = data.game;
       setVars(root, { bg: s.bg, text: s.text, mark: s.accent || '#F3C94A' });
-      if (isPreview) { root.querySelector('.rc, .cs')?.remove(); busy = false; queue.length = 0; demo(data?.reveal || 'roulette'); }
+      if (isPreview) demo(data?.reveal);
     },
     on(msg) {
       if (msg.t === 'rankPool') { pool = msg.pool || []; game = msg.game || ''; return; }
       if (msg.t !== 'rank') return;
-      if (isPreview) { clearInterval(demoTimer); root.querySelector('.rc, .cs')?.remove(); busy = false; queue.length = 0; }
+      if (isPreview) { clearTimeout(restart); reset(); queue.length = 0; }
       queue.push(msg.card);
       next();
     },
