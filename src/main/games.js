@@ -26,18 +26,22 @@ class Games {
   // Pour chaque jeu, le streamer choisit les rangs qui peuvent sortir et leur chance (ranks.picks).
   rankPool(all = false) {
     const r = this.s.ranks;
-    if (r.game === 'custom' || r.mode === 'points') return r.list.map((t, step) => ({ ...t, step, steps: r.list.length }));
+    if (r.game === 'custom') return r.list.map((t, step) => ({ ...t, step, steps: r.list.length }));
     const images = this.e.s.gaming.rankImages?.[r.game] || {};
     const game = gameById(r.game);
     const picks = r.picks?.[r.game] || {};
     const list = game.ranks.map((t, step) => {
       const p = picks[t.id] || {};
-      return { ...t, weight: p.weight ?? t.weight, on: p.on !== false, image: rankImage(images, t.id, 1), step, steps: game.ranks.length, sides: game.sides, divisions: 0 };
+      // En mode « selon les points », chaque vrai rang du jeu a son seuil (par défaut 0, 100, 200, 400…).
+      const min = p.min ?? (step === 0 ? 0 : 100 * 2 ** (step - 1));
+      return { ...t, weight: p.weight ?? t.weight, on: p.on !== false, min, image: rankImage(images, t.id, 1), step, steps: game.ranks.length, sides: game.sides, divisions: 0 };
     });
     if (all) return list;
-    const on = list.filter((t) => t.on && t.weight > 0);
+    const on = list.filter((t) => t.on && (r.mode === 'points' || t.weight > 0));
     return on.length ? on : list;
   }
+
+  rankKey() { return this.s.ranks.mode === 'points' ? `points:${this.s.ranks.game}` : this.s.ranks.game; }
 
   rankById(id) { return this.rankPool(true).find((x) => x.id === id) || null; }
 
@@ -48,7 +52,7 @@ class Games {
     const total = pool.reduce((n, x) => n + Math.max(0, x.weight || 0), 0) || 1;
     return {
       pool: pool.map((x) => ({ id: x.id, name: x.name, color: x.color, image: x.image, step: x.step, steps: x.steps, sides: x.sides, chance: cfg.mode === 'points' ? 0 : Math.max(0, x.weight || 0) / total })),
-      game: cfg.game === 'custom' || cfg.mode === 'points' ? '' : gameById(cfg.game).name,
+      game: cfg.game === 'custom' ? '' : gameById(cfg.game).name,
       reveal: cfg.reveal === 'roulette' && this.e.allowed('rankRoulette') ? 'roulette' : 'classic',
     };
   }
@@ -56,8 +60,10 @@ class Games {
   // Le rang d'un spectateur pour le jeu en cours : chaque jeu garde le sien.
   viewerRank(viewer) {
     if (!viewer) return null;
-    const game = this.s.ranks.mode === 'points' ? 'points' : this.s.ranks.game;
-    const id = viewer.ranks?.[game] ?? (viewer.rankGame === game || !viewer.rankGame ? viewer.rank : null);
+    const game = this.rankKey();
+    // Anciennes versions : rang « points » commun à tous les jeux, ou rang sans jeu noté.
+    const legacy = this.s.ranks.mode === 'points' ? viewer.ranks?.points : null;
+    const id = viewer.ranks?.[game] ?? legacy ?? (viewer.rankGame === game || !viewer.rankGame ? viewer.rank : null);
     return id ? this.rankById(id) : null;
   }
 
@@ -82,7 +88,7 @@ class Games {
     if ((!cfg.enabled && !forced && !ev.test) || !viewer) return null;
     const kept = again ? this.viewerRank(viewer) : null;
     const rank = (forced && this.rankById(forced)) || kept || (cfg.mode === 'points' ? this.rankForPoints(viewer.points) : this.drawRank());
-    const gameKey = cfg.mode === 'points' ? 'points' : cfg.game;
+    const gameKey = this.rankKey();
     viewer.rank = rank.id;
     viewer.rankGame = gameKey;
     viewer.ranks = { ...(viewer.ranks || {}), [gameKey]: rank.id };
@@ -92,7 +98,7 @@ class Games {
     const total = pool.reduce((n, x) => n + Math.max(0, x.weight || 0), 0) || 1;
     const chance = (x) => (cfg.mode === 'points' ? 0 : Math.max(0, x.weight || 0) / total);
     const lite = (x) => ({ id: x.id, name: x.name, color: x.color, image: x.image, step: x.step, steps: x.steps, sides: x.sides, chance: chance(x) });
-    const card = { user: ev.user.display, avatar: ev.user.avatar || '', platform: ev.platform, rank: { ...rank, chance: chance(rank) }, roulette, pool: roulette ? pool.map(lite) : null, game: cfg.game === 'custom' || cfg.mode === 'points' ? '' : gameById(cfg.game).name };
+    const card = { user: ev.user.display, avatar: ev.user.avatar || '', platform: ev.platform, rank: { ...rank, chance: chance(rank) }, roulette, pool: roulette ? pool.map(lite) : null, game: cfg.game === 'custom' ? '' : gameById(cfg.game).name };
     this.e.server.broadcast({ t: 'rank', card }, 'rankcard');
     this.e.push('rankCard', card);
     if (cfg.announce) this.e.reply(ev, renderTemplate(cfg.message, { user: ev.user.display, rank: rank.name }));
@@ -124,10 +130,16 @@ class Games {
     // Dix minutes minimum entre deux révélations pour la même personne : pas de spam si TikTok répète le suivi.
     else if (ev.type === 'follow' && result?.viewer && cfg.enabled && cfg.again !== 'off' && Date.now() - (result.viewer.rankShownAt || 0) > 600000) this.assignRank(ev, result.viewer, { again: cfg.again !== 'new' });
     // Le rang suit les points quand ce mode est choisi.
+    // On compare au rang « points » de ce jeu (pas à un rang tiré au hasard avant) : pas de carte en
+    // rafale après un changement de mode, seulement quand le spectateur monte vraiment de rang.
     if (this.s.ranks.mode === 'points' && result?.viewer && result.gain > 0) {
-      const next = this.rankForPoints(result.viewer.points);
-      if (result.viewer.rank && next.id !== result.viewer.rank) this.assignRank(ev, result.viewer);
-      else result.viewer.rank = next.id;
+      const v = result.viewer;
+      const key = this.rankKey();
+      const next = this.rankForPoints(v.points);
+      const had = v.ranks?.[key];
+      if (!had) v.ranks = { ...(v.ranks || {}), [key]: next.id };
+      else if (next.id !== had && this.rankById(had) && next.step > this.rankById(had).step) this.assignRank(ev, v);
+      else if (next.id !== had) v.ranks = { ...v.ranks, [key]: next.id };
     }
     this.arenaBoost(ev);
     this.bossDamage(ev);

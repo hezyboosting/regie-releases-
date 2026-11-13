@@ -1,6 +1,17 @@
 // Nouveautés montrées dans « Quoi de neuf » après une mise à jour. La plus récente en premier.
 const CHANGELOG = [
   {
+    version: '2.15.0',
+    title: 'Le chat unifié écrit partout',
+    items: [
+      'Le chat unifié écrit sur toutes tes chaînes à la fois, TikTok et Kick compris : connecte ton compte une fois dans Connexions › Écrire dans le chat, sans abonnement.',
+      'Si une chaîne coince, les autres reçoivent quand même le message, et Régie dit laquelle et pourquoi. Les chaînes pas encore prêtes restent visibles dans la liste.',
+      'Cadre webcam refait : verre, néon, dégradé animé ou coins de visée, pastille LIVE avec les spectateurs, plaque à ton nom, et une bulle « Léna envoie Rose ×5 » à chaque soutien.',
+      'Suivi = Rang corrigé : les cases se cochent sans revenir en arrière, et le mode « selon les points » garde les vrais rangs de ton jeu, avec un seuil pour chacun.',
+      'Petites corrections : les cadeaux sans quantité ne montrent plus « undefined », les champs des réglages sont bien alignés, la page Stats affiche son chargement.',
+    ],
+  },
+  {
     version: '2.14.0',
     title: 'Mises à jour automatiques, Plinko et Discord',
     items: [

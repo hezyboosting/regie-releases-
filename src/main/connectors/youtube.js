@@ -226,6 +226,8 @@ class YouTubeConnector extends EventEmitter {
 
   canSend() { return this.mode === 'api'; }
 
+  sendHint() { return this.canSend() ? '' : 'Le chat public se lit sans compte, mais pour écrire, connecte-toi avec Google dans Connexions.'; }
+
   async send(text) {
     if (this.mode !== 'api') throw new Error('Pour répondre sur YouTube, connecte la chaîne en mode API.');
     if (!this.chatId) throw new Error('Aucun live actif.');

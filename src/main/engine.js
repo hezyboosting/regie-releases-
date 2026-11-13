@@ -141,11 +141,11 @@ class Engine {
 
   makeConnector(a) {
     const ids = this.clientIds();
-    if (a.platform === 'tiktok') return new TikTokConnector(a, { vault: this.vault, signKey: ids.euler });
+    if (a.platform === 'tiktok') return new TikTokConnector(a, { vault: this.vault, signKey: ids.euler, webchat: this.webchat });
     if (a.platform === 'twitch' && a.mode === 'pseudo') return new TwitchIrc(a);
     if (a.platform === 'twitch') return new TwitchConnector(a, { vault: this.vault, clientId: ids.twitch });
     if (a.platform === 'youtube') return new YouTubeConnector(a, { vault: this.vault, clientId: ids.ytId, clientSecret: ids.ytSecret, quota: this.quota() });
-    if (a.platform === 'kick') return new KickConnector(a);
+    if (a.platform === 'kick') return new KickConnector(a, { webchat: this.webchat });
     throw new Error('Plateforme inconnue');
   }
 
@@ -264,7 +264,7 @@ class Engine {
     return this.s.accounts.map((a) => ({
       id: a.id, platform: a.platform, label: a.label, avatar: a.avatar || '', enabled: a.enabled !== false, mode: a.mode, username: a.username, channel: a.channel,
       status: this.status[a.id] || { state: 'stopped', detail: '' }, viewers: this.liveCounts[a.id] || 0, muted: Boolean(a.muted),
-      activity: this.stats.activity(a.id), canSend: this.connectors.get(a.id)?.canSend?.() || false, liveSince: this.liveSince[a.id] || 0,
+      activity: this.stats.activity(a.id), canSend: this.connectors.get(a.id)?.canSend?.() || false, sendHint: this.connectors.get(a.id)?.sendHint?.() || '', liveSince: this.liveSince[a.id] || 0,
     }));
   }
 

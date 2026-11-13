@@ -445,3 +445,22 @@ test('quoi de neuf : seulement les versions plus récentes que la dernière vue'
   // La publication automatique peut monter le dernier chiffre (2.14.0 → 2.14.1) : on compare 2.14.
   assert.equal(require('../package.json').version.split('.').slice(0, 2).join('.'), CHANGELOG[0].version.split('.').slice(0, 2).join('.'));
 });
+
+test('suivi = rang : passer en mode points ne remontre pas une carte à chaque spectateur déjà classé', () => {
+  const { file, engine, sent, ev } = rig();
+  file.data.ranks.enabled = true;
+  file.data.ranks.game = 'valorant';
+  const list = engine.viewers.file.data.list;
+  list['tiktok:u1'] = { name: 'lena', points: 50, coins: 0, messages: 0, likes: 0, gifts: 0, follows: 1, rank: 'gold', rankGame: 'valorant', ranks: { valorant: 'gold' } };
+  file.data.ranks.mode = 'points';
+  const cards = () => sent.filter((x) => x.m.t === 'rank').length;
+  engine.handle(ev('chat', { text: 'salut' }));
+  engine.handle(ev('chat', { text: 'encore' }));
+  assert.equal(cards(), 0);
+  assert.ok(list['tiktok:u1'].ranks['points:valorant']);
+  // Il monte vraiment de rang : une carte.
+  list['tiktok:u1'].points = 5000;
+  engine.handle(ev('chat', { text: 'gg' }));
+  assert.equal(cards(), 1);
+  engine.play.stop();
+});

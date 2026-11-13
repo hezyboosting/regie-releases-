@@ -22,7 +22,7 @@ function normalize(event, raw) {
 }
 
 class KickConnector extends EventEmitter {
-  constructor(account, { fetchImpl = fetch } = {}) { super(); this.account = account; this.fetchImpl = fetchImpl; this.stopped = true; }
+  constructor(account, { fetchImpl = fetch, webchat = null } = {}) { super(); this.account = account; this.fetchImpl = fetchImpl; this.webchat = webchat; this.stopped = true; }
 
   status(state, detail = '') { this.emit('status', { state, detail }); }
 
@@ -65,9 +65,15 @@ class KickConnector extends EventEmitter {
 
   stop() { this.stopped = true; clearTimeout(this.retry); try { this.ws?.close(); } catch { /* fermé */ } this.status('stopped'); }
 
-  canSend() { return false; }
+  // Écrit avec ton compte Kick connecté dans Régie (Connexions › Écrire dans le chat).
+  canSend() { return Boolean(this.webchat?.logged?.kick); }
 
-  async send() { throw new Error('Répondre sur Kick n\'est pas encore possible.'); }
+  sendHint() { return this.canSend() ? '' : 'Connecte ton compte Kick pour écrire (Connexions › Écrire dans le chat).'; }
+
+  async send(text) {
+    if (!this.canSend()) throw new Error('Pour écrire sur Kick, connecte ton compte dans Régie : Connexions › Écrire dans le chat.');
+    await this.webchat.send('kick', String(this.account.username || '').replace(/^@/, ''), text);
+  }
 }
 
 module.exports = { KickConnector, normalize };

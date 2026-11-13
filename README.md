@@ -131,6 +131,14 @@ Publier : pousser sur la branche `main` du dépôt de releases. Le workflow `.gi
 
 `src/main/plinko.js` tire le trajet de chaque balle (une suite gauche/droite par rangée) et l'envoie à l'overlay `plinko`, qui l'anime : le résultat ne dépend pas de l'affichage. Deux modes : « comme une vraie planche » (loi binomiale) ou « chances choisies » (poids par case, puis un trajet qui y mène). Les cadeaux lâchent des balles avec leur image officielle ; `!plinko 100` fait miser des points, multipliés par la case. Les cases par défaut (`src/shared/plinko-bins.js`) suivent la rareté de chaque case et la planche rend environ 90 % des mises. Chaque case peut lancer des actions.
 
+Le cadre webcam (`types/webcam.js`, classes `cam-*`) propose verre, néon, dégradé animé, coins de visée et trait fin, une pastille LIVE, une plaque à cheval sur le bord et une bulle pour chaque soutien. Les classes `wc-*` restent celles de l'overlay Bienvenue.
+
+## Écrire dans le chat partout
+
+`api.sendChat` envoie chaque chaîne de son côté (`Promise.allSettled`) et rend `{ sent, failed, skipped }` : une chaîne qui coince n'empêche pas les autres. Chaque connecteur dit s'il peut écrire (`canSend`) et sinon pourquoi (`sendHint`), affiché dans le dock et le journal.
+
+TikTok et Kick écrivent par `src/main/webchat.js` : le streamer se connecte une fois sur la vraie page du site, dans une fenêtre de Régie (partition `persist:webchat-<site>`, la session reste sur le PC). Pour écrire, une fenêtre cachée ouvre la page du live (vidéo bloquée, son coupé), trouve la zone de commentaire, tape le message avec `insertText` puis Entrée (événement clavier réel), un message à la fois. Avec une clé Euler Stream payante et une session, TikTok passe d'abord par l'API du connecteur.
+
 ## Discord et téléphone
 
 `src/main/discord.js` poste par un webhook (gardé dans le coffre chiffré) l'annonce du début de live, au plus une fois par demi-heure, et le récap de fin. La télécommande et le chat s'ouvrent sur un téléphone du même Wi-Fi par QR code (`api.phoneLinks`, paquet `qrcode`) ; `api.setLanLive` ouvre le serveur au réseau local sans redémarrer Régie.

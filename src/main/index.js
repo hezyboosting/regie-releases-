@@ -19,6 +19,7 @@ const { InputHub } = require('./input');
 const { createApi } = require('./api');
 const { GameHub, newGsiToken } = require('./gamehub');
 const { Updater } = require('./updater');
+const { WebChat } = require('./webchat');
 const { GiftCatalog } = require('./giftcatalog');
 const dockEnglish = require('../shared/translate').makeTranslator(require('../shared/i18n-en.json'));
 
@@ -134,14 +135,18 @@ async function boot() {
     onGsi: (body) => hub.gsi(body),
     dock: {
       state: () => ({
-        targets: engine.channels().map((c) => ({ id: c.id, label: c.label, platform: c.platform, canSend: c.canSend })),
+        targets: engine.channels().filter((c) => c.enabled).map((c) => ({ id: c.id, label: c.label, platform: c.platform, canSend: c.canSend, hint: c.sendHint ? (file.data.settings.uiLang === 'en' ? dockEnglish(c.sendHint) : c.sendHint) : '' })),
         feed: engine.feed.slice(-150),
         all: license.features().replyAllChannels,
         lang: file.data.settings.uiLang === 'en' ? 'en' : 'fr',
         tr: { enabled: !!file.data.chatTranslate?.enabled, mode: file.data.chatTranslate?.mode || 'below', showLang: file.data.chatTranslate?.showLang !== false },
       }),
       send: async (text, target) => {
-        try { return await api.sendChat(text, target); } catch (e) { throw new Error(file.data.settings.uiLang === 'en' ? dockEnglish(e.message) : e.message); }
+        const en = file.data.settings.uiLang === 'en';
+        try {
+          const r = await api.sendChat(text, target);
+          return { ...r, failed: (r.failed || []).map((f) => ({ ...f, error: en ? dockEnglish(f.error) : f.error })) };
+        } catch (e) { throw new Error(en ? dockEnglish(e.message) : e.message); }
       },
     },
     clipFile: (id) => file.data.clips.list.find((c) => c.id === id)?.path,
@@ -184,6 +189,8 @@ async function boot() {
   log(`Serveur d'overlays sur le port ${server.port}`);
   engine = new Engine({ file, vault, server, spotify, tts, stats, obs, license, push, log, viewers, input, audio: audioSend });
   engine.vpad = new VirtualPad(log);
+  engine.webchat = new WebChat({ log, parent: () => mainWin });
+  engine.webchat.refreshAll().then(() => engine.pushChannels()).catch(() => {});
   if (file.data.vpad?.enabled) setTimeout(() => engine.vpad.start(), 3000);
   // Catalogue officiel des cadeaux TikTok : chargé au démarrage s'il est vide ou vieux de plus de trois jours.
   engine.catalog = new GiftCatalog({ dir: giftsDir, state: () => file.data, save: () => file.save(), log });
@@ -306,6 +313,7 @@ app.on('before-quit', () => {
   clearInterval(ctx.audioPoll);
   clearInterval(ctx.demo);
   ctx.updater.stop();
+  ctx.engine?.webchat?.closeAll();
   ctx.engine.stop();
   try { ctx.engine.vpad?.stop(); } catch { /* déjà débranchée */ }
   ctx.hub.stop();

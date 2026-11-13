@@ -3207,3 +3207,73 @@ Pas de connexion internet pour vérifier les mises à jour.	No internet connecti
 Aucune version publiée pour le moment.	No version published yet.
 Le téléchargement est abîmé, Régie réessaiera plus tard.	The download is damaged, Régie will try again later.
 La version Portable ne se met pas à jour toute seule : installe Régie avec l'installateur.	The Portable version doesn't update itself: install Régie with the installer.
+# 2.15 : chat partout, cadre webcam, rangs
+Connecte-toi à {0} dans Régie (Connexions › Écrire dans le chat).	Sign in to {0} in Régie (Connections › Write in chat).
+Reconnecte-toi à {0} dans Régie (Connexions) pour écrire dans le chat.	Sign in to {0} again in Régie (Connections) to write in chat.
+Zone de commentaire {0} introuvable : vérifie que ton live est lancé, puis réessaie.	{0} comment box not found: check that your live is running, then try again.
+Zone de commentaire {0} introuvable.	{0} comment box not found.
+{0} n'a pas accepté le message (commentaires coupés, ou message refusé).	{0} didn't accept the message (comments turned off, or message refused).
+La fenêtre du chat a été fermée.	The chat window was closed.
+Site inconnu.	Unknown site.
+Connexion {0}	{0} sign-in
+Chat {0}	{0} chat
+Connecte ton compte TikTok pour écrire (Connexions › Écrire dans le chat).	Connect your TikTok account to write (Connections › Write in chat).
+Connecte ton compte Kick pour écrire (Connexions › Écrire dans le chat).	Connect your Kick account to write (Connections › Write in chat).
+Pour écrire sur TikTok, connecte ton compte dans Régie : Connexions › Écrire dans le chat.	To write on TikTok, connect your account in Régie: Connections › Write in chat.
+Pour écrire sur Kick, connecte ton compte dans Régie : Connexions › Écrire dans le chat.	To write on Kick, connect your account in Régie: Connections › Write in chat.
+Avec le pseudo seul, Régie lit le chat Twitch sans pouvoir y écrire : connecte ton compte Twitch dans Connexions.	With just the username, Régie reads Twitch chat but can't write in it: connect your Twitch account in Connections.
+Le chat public se lit sans compte, mais pour écrire, connecte-toi avec Google dans Connexions.	Public chat can be read without an account, but to write, sign in with Google in Connections.
+Cette chaîne ne peut pas écrire.	This channel can't write.
+Écrire dans le chat {0}	Write in {0} chat
+Ton compte est connecté dans Régie : le chat unifié, les réponses du bot et les commandes écrivent sur ton live.	Your account is connected in Régie: the unified chat, bot replies and commands write on your live.
+Connecte ton compte une fois : Régie pourra écrire dans ton chat, sans abonnement. Ton live doit être lancé.	Connect your account once: Régie can then write in your chat, no subscription needed. Your live must be running.
+Voir la fenêtre	Show the window
+Se connecter pour écrire	Sign in to write
+Connexion…	Signing in…
+{0} : tu peux écrire dans le chat	{0}: you can write in chat
+Connexion non terminée	Sign-in not finished
+Déconnecté	Disconnected
+Message envoyé	Message sent
+👋 Test depuis Régie	👋 Test from Régie
+Chat, abonnements et raids, par un accès non officiel qui peut changer.	Chat, subscriptions and raids, through an unofficial access that may change.
+Connecte une chaîne pour écrire ici	Connect a channel to write here
+{0} : à connecter pour écrire	{0}: connect to write
+s'abonne à nouveau	subscribes again
+un cadeau	a gift
+{0} s'abonne	{0} subscribes
+{0} s'abonne, {1} mois	{0} subscribes, {1} months
+{0} se réabonne, {1} mois	{0} resubscribes, {1} months
+{0} se réabonne	{0} resubscribes
+{0} envoie {1} ×{2}	{0} sends {1} ×{2}
+Raid de {0}, {1} personnes	Raid from {0}, {1} people
+Un cadre autour de ta caméra : verre, néon ou coins de visée, pastille LIVE, plaque à ton nom, et il réagit aux soutiens.	A frame around your camera: glass, neon or HUD corners, LIVE badge, a name plate, and it reacts to support.
+Dégradé animé	Animated gradient
+Coins de visée	HUD corners
+Trait fin	Thin line
+Texte de la plaque	Plate text
+Plaque	Plate
+En bas, au centre	Bottom, centre
+En bas, à gauche	Bottom, left
+En haut, au centre	Top, centre
+Pas de plaque	No plate
+Pastille LIVE	LIVE badge
+En haut à gauche	Top left
+En haut à droite	Top right
+Cachée	Hidden
+Spectateurs dans la pastille	Viewers in the badge
+Afficher qui soutient	Show who supports
+Durée de la bulle	Bubble duration
+Confettis sur un gros soutien	Confetti on big support
+Gros cadeau à partir de	Big gift from
+Fond de la plaque	Plate background
+Rangs et points à atteindre	Ranks and points to reach
+Seuils d'origine	Default thresholds
+Le spectateur monte de rang quand ses points atteignent le seuil. Décoche un rang pour le sauter.	Viewers rank up when their points reach the threshold. Untick a rank to skip it.
+Aucun rang coché : Régie les laisse tous sortir. Coche ceux que tu veux.	No rank ticked: Régie lets them all come out. Tick the ones you want.
+Points pour {0}	Points for {0}
+Le spectateur reçoit le rang de ses points, puis monte quand il atteint le seuil suivant (messages, likes, cadeaux…).	Viewers get the rank matching their points, then rank up when they reach the next threshold (messages, likes, gifts…).
+Points à atteindre	Points to reach
+Chargement des stats…	Loading stats…
+Mieux : le chat unifié écrit partout, cadre webcam refait, Suivi = Rang corrigé	Better: unified chat writes everywhere, webcam frame redone, Follow = Rank fixed
+Le chat unifié peut écrire sur toutes tes chaînes	The unified chat can write on all your channels
+Pas encore d'écriture sur : {0}	Can't write yet on: {0}

@@ -396,9 +396,16 @@ test('Follow = Rank : un rang à la première fois, et pas à chaque follow', ()
 test('rangs par points : le rang suit le total', () => {
   const r = rig();
   r.file.data.ranks.mode = 'points';
+  r.file.data.ranks.game = 'custom';
   assert.equal(r.engine.games.rankForPoints(0).id, 'bronze');
   assert.equal(r.engine.games.rankForPoints(700).id, 'or');
   assert.equal(r.engine.games.rankForPoints(99999).id, 'legende');
+  // Avec un vrai jeu, ce sont ses rangs qui montent avec les points (seuils 0, 100, 200, 400…).
+  r.file.data.ranks.game = 'valorant';
+  const pool = r.engine.games.rankPool(true);
+  assert.equal(r.engine.games.rankForPoints(0).id, pool[0].id);
+  assert.equal(r.engine.games.rankForPoints(150).id, pool[1].id);
+  assert.equal(r.engine.games.rankForPoints(450).id, pool[3].id);
   r.engine.stop();
 });
 

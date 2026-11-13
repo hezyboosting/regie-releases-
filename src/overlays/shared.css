@@ -255,18 +255,77 @@ body.preview { background-color: #39414A; background-image: conic-gradient(#3037
 .bs-call { margin-top: 10px; font-size: 18px; font-weight: 700; text-align: center; } .bs-top { display: flex; justify-content: center; gap: 22px; margin-top: 6px; font-size: 15px; font-variant-numeric: tabular-nums; } .bs-top b { color: var(--a2); }
 .bs-banner { position: absolute; inset: 0; display: none; place-items: center; border-radius: inherit; background: rgba(0,0,0,.66); font-size: 44px; font-weight: 900; text-align: center; padding: 20px; color: var(--a2); } .bs-banner.on { display: grid; animation: fade .4s both; }
 
-/* Webcam */
-.wc { position: absolute; inset: 6px; border-radius: var(--rad); color: var(--text); }
-.wc.degrade { padding: var(--th); background: conic-gradient(from var(--a, 0deg), var(--accent), var(--accent2), var(--accent)); -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: wcSpin 6s linear infinite; }
+/* Webcam : cadre autour de la caméra (préfixe cam-, distinct de l'overlay Bienvenue en wc-) */
 @property --a { syntax: "<angle>"; inherits: false; initial-value: 0deg; } @keyframes wcSpin { to { --a: 360deg; } }
-.wc.neon { border: var(--th) solid var(--accent); box-shadow: 0 0 22px var(--accent), inset 0 0 22px var(--accent); }
-.wc.simple { border: var(--th) solid var(--accent); }
-.wc.coins { background: linear-gradient(var(--accent), var(--accent)) 0 0 / 56px var(--th), linear-gradient(var(--accent), var(--accent)) 0 0 / var(--th) 56px, linear-gradient(var(--accent), var(--accent)) 100% 0 / 56px var(--th), linear-gradient(var(--accent), var(--accent)) 100% 0 / var(--th) 56px, linear-gradient(var(--accent2), var(--accent2)) 0 100% / 56px var(--th), linear-gradient(var(--accent2), var(--accent2)) 0 100% / var(--th) 56px, linear-gradient(var(--accent2), var(--accent2)) 100% 100% / 56px var(--th), linear-gradient(var(--accent2), var(--accent2)) 100% 100% / var(--th) 56px; background-repeat: no-repeat; }
-.wc.bandes { border: var(--th) solid; border-image: repeating-linear-gradient(45deg, var(--accent) 0 14px, var(--accent2) 14px 28px) 1; }
-.wc.pulse { animation: wcPulse .6s ease-out; } .wc.degrade.pulse { animation: wcSpin 6s linear infinite, wcPulse .6s ease-out; }
-@keyframes wcPulse { 40% { filter: brightness(1.8) drop-shadow(0 0 18px var(--accent)); } }
-.wc-label { position: absolute; left: 50%; bottom: -2px; transform: translateX(-50%); padding: 3px 14px; border-radius: 12px 12px 0 0; background: var(--accent); color: var(--text); font-weight: 700; font-size: 16px; white-space: nowrap; }
-.wc.degrade .wc-label { display: none; }
+.cam { position: absolute; inset: 16px 16px 30px; border-radius: var(--rad); color: var(--text); font-family: var(--font); --glowk: .6; }
+.cam.plate-aucun, .cam.plate-haut-centre { inset: 16px; } .cam.plate-haut-centre { top: 30px; }
+.cam-glow, .cam-inner, .cam-ring, .cam-corners { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
+.cam-inner { inset: var(--th); border-radius: max(0px, calc(var(--rad) - var(--th))); box-shadow: inset 0 0 0 1px rgba(255,255,255,.22), inset 0 6px 22px rgba(0,0,0,.22); }
+.cam-ring { padding: var(--th); -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); overflow: hidden; }
+.cam-ring::before { content: ""; position: absolute; inset: -40%; background: linear-gradient(115deg, transparent 42%, rgba(255,255,255,.85) 50%, transparent 58%); transform: translateX(-60%); animation: camSheen 6.5s ease-in-out infinite; opacity: .8; }
+@keyframes camSheen { 0%, 55% { transform: translateX(-60%); } 85%, 100% { transform: translateX(60%); } }
+.cam-corners { display: none; }
+
+/* Verre : un rebord de verre clair, bord intérieur net, lueur douce de la couleur */
+.cam.verre .cam-ring { background: linear-gradient(145deg, rgba(255,255,255,.78), rgba(255,255,255,.16) 30%, color-mix(in srgb, var(--accent) 55%, rgba(255,255,255,.18)) 62%, rgba(255,255,255,.62)); }
+.cam.verre .cam-glow { box-shadow: 0 14px 40px rgba(0,0,0,.38), 0 0 calc(34px * var(--glowk)) color-mix(in srgb, var(--accent) calc(var(--glowk) * 60%), transparent); }
+/* Néon */
+.cam.neon .cam-ring { background: var(--accent); }
+.cam.neon .cam-ring::before { display: none; }
+.cam.neon .cam-glow { box-shadow: 0 0 calc(16px * var(--glowk)) var(--accent), 0 0 calc(48px * var(--glowk)) color-mix(in srgb, var(--accent) 55%, transparent); animation: camNeon 5s steps(1) infinite; }
+.cam.neon .cam-inner { box-shadow: inset 0 0 calc(22px * var(--glowk)) color-mix(in srgb, var(--accent) 55%, transparent), inset 0 0 0 1px rgba(255,255,255,.35); }
+@keyframes camNeon { 0%, 100% { opacity: 1; } 92% { opacity: 1; } 93% { opacity: .55; } 94% { opacity: 1; } 96% { opacity: .7; } 97% { opacity: 1; } }
+/* Dégradé animé */
+.cam.degrade .cam-ring { background: conic-gradient(from var(--a), var(--accent), var(--accent2), var(--accent)); animation: wcSpin 6s linear infinite; }
+.cam.degrade .cam-ring::before { display: none; }
+.cam.degrade .cam-glow { box-shadow: 0 12px 36px rgba(0,0,0,.35), 0 0 calc(30px * var(--glowk)) color-mix(in srgb, var(--accent2) 45%, transparent); }
+/* Coins de visée, façon HUD de jeu */
+.cam.coins .cam-ring { background: color-mix(in srgb, var(--accent) 30%, transparent); padding: 1px; }
+.cam.coins .cam-ring::before { display: none; }
+.cam.coins .cam-corners { display: block; inset: calc(var(--th) * -0.5); }
+.cam-corners i { position: absolute; width: min(18%, 70px); height: min(24%, 70px); border: 0 solid var(--accent); filter: drop-shadow(0 0 calc(10px * var(--glowk)) var(--accent)); animation: camCorner 2.4s ease-in-out infinite; }
+.cam-corners .cc-tl { left: 0; top: 0; border-left-width: var(--th); border-top-width: var(--th); border-top-left-radius: var(--rad); }
+.cam-corners .cc-tr { right: 0; top: 0; border-right-width: var(--th); border-top-width: var(--th); border-top-right-radius: var(--rad); }
+.cam-corners .cc-bl { left: 0; bottom: 0; border-left-width: var(--th); border-bottom-width: var(--th); border-bottom-left-radius: var(--rad); border-color: var(--accent2); }
+.cam-corners .cc-br { right: 0; bottom: 0; border-right-width: var(--th); border-bottom-width: var(--th); border-bottom-right-radius: var(--rad); border-color: var(--accent2); }
+@keyframes camCorner { 50% { transform: scale(1.04); } } .cam-corners .cc-tl { transform-origin: 0 0; } .cam-corners .cc-tr { transform-origin: 100% 0; } .cam-corners .cc-bl { transform-origin: 0 100%; } .cam-corners .cc-br { transform-origin: 100% 100%; }
+.cam.coins .cam-inner { box-shadow: none; }
+/* Trait fin */
+.cam.simple .cam-ring { background: var(--accent); } .cam.simple .cam-ring::before { display: none; } .cam.simple .cam-inner { box-shadow: none; }
+
+/* Pastille LIVE */
+.cam-live { position: absolute; top: calc(var(--th) + 12px); left: calc(var(--th) + 12px); display: flex; align-items: center; gap: 7px; padding: 5px 11px 5px 9px; border-radius: 999px; background: rgba(12,14,20,.62); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), 0 6px 18px rgba(0,0,0,.3); font-size: 13px; font-weight: 800; letter-spacing: .08em; color: #fff; }
+.cam.live-haut-droite .cam-live { left: auto; right: calc(var(--th) + 12px); }
+.cam.live-aucun .cam-live { display: none; }
+.cam-live i { width: 9px; height: 9px; border-radius: 50%; background: #FF3B5C; box-shadow: 0 0 0 0 rgba(255,59,92,.7); animation: camLive 1.6s ease-out infinite; }
+@keyframes camLive { 0% { box-shadow: 0 0 0 0 rgba(255,59,92,.7); } 70% { box-shadow: 0 0 0 9px rgba(255,59,92,0); } 100% { box-shadow: 0 0 0 0 rgba(255,59,92,0); } }
+.cam-live span { letter-spacing: 0; font-weight: 700; opacity: .85; font-variant-numeric: tabular-nums; } .cam-live span:empty { display: none; } .cam-live span::before { content: "· "; }
+
+/* Plaque : posée à cheval sur le bord */
+.cam-plate { position: absolute; left: 50%; bottom: 0; transform: translate(-50%, 50%); display: flex; align-items: center; gap: 9px; max-width: calc(100% - 40px); padding: 8px 18px 8px 12px; border-radius: 999px; background: color-mix(in srgb, var(--bg, #10131A) 78%, transparent); backdrop-filter: blur(14px); box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 0 0 1px rgba(255,255,255,.14), 0 10px 26px rgba(0,0,0,.4), 0 0 calc(22px * var(--glowk)) color-mix(in srgb, var(--accent) 35%, transparent); font-size: 17px; font-weight: 700; white-space: nowrap; }
+.cam-plate span { overflow: hidden; text-overflow: ellipsis; }
+.cam-plate i { width: 10px; height: 10px; flex: none; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); box-shadow: 0 0 10px var(--accent); }
+.cam.plate-bas-gauche .cam-plate { left: calc(var(--rad) + 10px); transform: translate(0, 50%); }
+.cam.plate-haut-centre .cam-plate { top: 0; bottom: auto; transform: translate(-50%, -50%); }
+
+/* Bulle d'événement */
+.cam-toast { position: absolute; left: 50%; bottom: calc(var(--th) + 28px); transform: translate(-50%, 12px) scale(.92); display: flex; align-items: center; gap: 10px; max-width: calc(100% - 40px); padding: 7px 16px 7px 8px; border-radius: 999px; background: rgba(12,14,20,.72); backdrop-filter: blur(12px); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent), 0 10px 26px rgba(0,0,0,.4); font-size: 16px; font-weight: 700; color: #fff; white-space: nowrap; opacity: 0; pointer-events: none; }
+.cam-toast span { overflow: hidden; text-overflow: ellipsis; }
+.cam-toast.on { animation: camToast var(--ts, 4s) cubic-bezier(.2,1.2,.4,1) forwards; }
+@keyframes camToast { 0% { opacity: 0; transform: translate(-50%, 12px) scale(.92); } 8% { opacity: 1; transform: translate(-50%, 0) scale(1); } 88% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; transform: translate(-50%, -8px) scale(.98); } }
+.cam-toast img { width: 30px; height: 30px; object-fit: contain; flex: none; }
+.cam-t-ic { width: 26px; height: 26px; flex: none; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 60%, transparent); }
+.cam.plate-bas-gauche .cam-toast { left: calc(var(--rad) + 10px); transform: none; } .cam.plate-bas-gauche .cam-toast.on { animation-name: camToastL; }
+@keyframes camToastL { 0% { opacity: 0; transform: translateY(12px); } 8%, 88% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-8px); } }
+
+/* Réactions : éclat sur un soutien, grande lueur sur un gros soutien */
+.cam.hit .cam-ring, .cam.hit .cam-corners { animation: camHit .7s ease-out; }
+.cam.big .cam-ring, .cam.big .cam-corners { animation: camBig 1.6s ease-out; }
+.cam.degrade.hit .cam-ring { animation: wcSpin 6s linear infinite, camHit .7s ease-out; } .cam.degrade.big .cam-ring { animation: wcSpin 6s linear infinite, camBig 1.6s ease-out; }
+.cam.big .cam-glow { animation: camBigGlow 1.6s ease-out; }
+@keyframes camHit { 35% { filter: brightness(1.9) saturate(1.3); } }
+@keyframes camBig { 15%, 45% { filter: brightness(2.2) saturate(1.4) hue-rotate(25deg); } 30% { filter: brightness(1.6) hue-rotate(-20deg); } }
+@keyframes camBigGlow { 20%, 50% { box-shadow: 0 0 40px var(--accent), 0 0 90px color-mix(in srgb, var(--accent2) 70%, transparent); } }
 
 /* Transitions */
 .tr { position: fixed; inset: 0; overflow: hidden; display: grid; place-items: center; pointer-events: none; }

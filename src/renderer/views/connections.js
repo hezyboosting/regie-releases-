@@ -33,6 +33,28 @@ function Pseudo({ platform, label, placeholder, build = (username) => ({ platfor
   </form>`;
 }
 
+// Écrire dans le chat avec son propre compte, connecté une fois dans une fenêtre de Régie.
+function WriteChat({ s, site, name }) {
+  const on = Boolean(s.webChat?.[site]);
+  const chans = s.channels.filter((c) => c.platform === site);
+  const [busy, setBusy] = useState(false);
+  const login = async () => { setBusy(true); const r = await act('webChatLogin', site); setBusy(false); if (r) { setState({ webChat: r.status }); toast(r.ok ? `${name} : tu peux écrire dans le chat` : 'Connexion non terminée'); } };
+  const logout = async () => { const st = await act('webChatLogout', site); if (st) { setState({ webChat: st }); toast('Déconnecté'); } };
+  const test = async () => { if (!chans[0]) return; setBusy(true); const r = await act('sendChat', '👋 Test depuis Régie', chans[0].id); setBusy(false); if (r?.sent?.length) toast('Message envoyé'); };
+  return html`<div class="cx-write ${on ? 'on' : ''}">
+    <i class="led ${on ? 'live' : 'stopped'}"></i>
+    <div class="cx-write-txt">
+      <b>${`Écrire dans le chat ${name}`}</b>
+      <span>${on ? 'Ton compte est connecté dans Régie : le chat unifié, les réponses du bot et les commandes écrivent sur ton live.' : 'Connecte ton compte une fois : Régie pourra écrire dans ton chat, sans abonnement. Ton live doit être lancé.'}</span>
+    </div>
+    ${on ? html`<div class="row tight">
+      <${Btn} disabled=${busy || !chans.length} onClick=${test}>${busy ? 'Envoi…' : 'Essayer'}<//>
+      ${chans[0] && html`<${Btn} kind="ghost" onClick=${() => act('webChatShow', chans[0].id)}>Voir la fenêtre<//>`}
+      <${Btn} kind="ghost" onClick=${logout}>Déconnecter<//>
+    </div>` : html`<${Btn} kind="primary" disabled=${busy} onClick=${login}>${busy ? 'Connexion…' : 'Se connecter pour écrire'}<//>`}
+  </div>`;
+}
+
 function TikTok({ s }) {
   const [typed, setTyped] = useState(false);
   return html`<${Service} s=${s} platform="tiktok">
@@ -42,6 +64,7 @@ function TikTok({ s }) {
     </div>
     ${typed && html`<${Pseudo} platform="tiktok" label="Pseudo TikTok" placeholder="@tonpseudo" />`}
     <p class="note">Tu te connectes sur la vraie page TikTok. Régie garde uniquement ton pseudo public.</p>
+    ${s.channels.some((c) => c.platform === 'tiktok') && html`<${WriteChat} s=${s} site="tiktok" name="TikTok" />`}
     ${s.channels.some((c) => c.platform === 'tiktok' && /limite|service de connexion/i.test(c.status?.detail || '')) && html`<div class="code-box">
       <p>TikTok passe par un service de connexion gratuit, limité par réseau. Les autres applis TikTok ouvertes chez toi, comme TikFinity, Social Stream ou Bubbly, utilisent la même limite.</p>
       <p>Une clé Euler Stream gratuite, à ton nom, te donne ta propre limite.</p>
@@ -122,7 +145,8 @@ function YouTube({ s }) {
 function Kick({ s }) {
   return html`<${Service} s=${s} platform="kick">
     <${Pseudo} platform="kick" label="Ton pseudo Kick" placeholder="tonpseudo" />
-    <p class="note">Chat, abonnements et raids en lecture, par un accès non officiel qui peut changer.</p>
+    <p class="note">Chat, abonnements et raids, par un accès non officiel qui peut changer.</p>
+    ${s.channels.some((c) => c.platform === 'kick') && html`<${WriteChat} s=${s} site="kick" name="Kick" />`}
   <//>`;
 }
 

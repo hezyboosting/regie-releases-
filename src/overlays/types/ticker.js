@@ -5,11 +5,11 @@ const line = (e) => {
   switch (e.type) {
     case 'follow': return [u, 'suit la chaîne'];
     case 'sub': return [u, 's\'abonne'];
-    case 'resub': return [u, `${e.months} mois d'abonnement`];
-    case 'giftsub': return [u, `offre ${e.amount} abonnements`];
+    case 'resub': return [u, e.months ? `${e.months} mois d'abonnement` : 'se réabonne'];
+    case 'giftsub': return [u, `offre ${e.amount || 1} abonnements`];
     case 'bits': return [u, `${fmt(e.amount)} bits`];
-    case 'raid': return [u, `raid de ${e.amount}`];
-    case 'gift': return [u, `${e.amount} × ${e.gift?.name}`];
+    case 'raid': return [u, `raid de ${e.amount || 0}`];
+    case 'gift': return [u, (e.amount || 1) > 1 ? `${e.amount} × ${e.gift?.name || 'cadeau'}` : `${e.gift?.name || 'cadeau'}`];
     case 'superchat': case 'supersticker': return [u, e.money];
     case 'member': return [u, 'devient membre'];
     default: return null;

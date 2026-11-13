@@ -112,9 +112,9 @@ const FILTERS = [{ id: 'all', label: 'Tout' }, { id: 'chat', label: 'Chat' }, { 
 
 const describe = (e) => {
   const map = {
-    follow: 'suit la chaîne', sub: 's\'abonne', resub: `se réabonne, ${e.months} mois`, giftsub: `offre ${e.amount} abonnements`, bits: `envoie ${fmt(e.amount)} bits`, raid: `lance un raid de ${e.amount}`,
-    redeem: `utilise ${e.reward}`, hypetrain: 'lance un Hype Train', superchat: `envoie ${e.money}`, supersticker: `envoie un sticker à ${e.money}`, member: 'devient membre', milestone: `membre depuis ${e.months} mois`,
-    gift: `envoie ${e.amount} × ${e.gift?.name}`, like: `envoie ${fmt(e.amount)} likes`, share: 'partage le live', join: 'arrive', superfan: 'devient Super Fan', goal: 'objectif atteint',
+    follow: 'suit la chaîne', sub: 's\'abonne', resub: e.months ? `se réabonne, ${e.months} mois` : 's\'abonne à nouveau', giftsub: `offre ${e.amount || 1} abonnements`, bits: `envoie ${fmt(e.amount)} bits`, raid: `lance un raid de ${fmt(e.amount)}`,
+    redeem: `utilise ${e.reward}`, hypetrain: 'lance un Hype Train', superchat: `envoie ${e.money}`, supersticker: `envoie un sticker à ${e.money}`, member: 'devient membre', milestone: `membre depuis ${e.months || 1} mois`,
+    gift: (e.amount || 1) > 1 ? `envoie ${e.amount} × ${e.gift?.name || 'un cadeau'}` : `envoie ${e.gift?.name || 'un cadeau'}`, like: `envoie ${fmt(e.amount)} likes`, share: 'partage le live', join: 'arrive', superfan: 'devient Super Fan', goal: 'objectif atteint',
   };
   return map[e.type] || e.type;
 };
@@ -122,17 +122,24 @@ const describe = (e) => {
 export function Journal({ s }) {
   const [filter, setFilter] = useState('all');
   const [text, setText] = useState('');
-  const [target, setTarget] = useState('origin');
+  const [target, setTarget] = useState('auto');
+  const [hint, setHint] = useState('');
   const list = useRef(null);
   const items = s.feed.filter((e) => (filter === 'chat' ? e.type === 'chat' : filter === 'events' ? e.type !== 'chat' : !['join', 'like'].includes(e.type)));
   useEffect(() => { if (list.current) list.current.scrollTop = list.current.scrollHeight; }, [s.feed.length, filter]);
+  const channels = s.channels.filter((c) => c.enabled);
+  const senders = channels.filter((c) => c.canSend);
+  const canAll = s.features.replyAllChannels && senders.length > 1;
+  // Par défaut : toutes les chaînes quand c'est possible, sinon la seule qui peut écrire.
+  const dest = target === 'auto' ? (canAll ? 'all' : senders[0]?.id || '') : target;
   const send = async (e) => {
     e.preventDefault();
-    if (!text.trim()) return;
-    const ok = await act('sendChat', text.trim(), target === 'origin' ? senders[0]?.id : target);
-    if (ok) setText('');
+    if (!text.trim() || !dest) return;
+    const r = await act('sendChat', text.trim(), dest);
+    if (!r) return;
+    setText('');
+    setHint((r.failed || []).map((f) => `${f.label} : ${f.error}`).join(' · '));
   };
-  const senders = s.channels.filter((c) => c.canSend);
   return html`<aside class="journal" aria-label="Journal du direct">
     <header>
       <h3>En direct</h3>
@@ -149,12 +156,14 @@ export function Journal({ s }) {
       ${!items.length && html`<li class="feed-empty">Les messages et soutiens de toutes tes chaînes arrivent ici.</li>`}
     </ol>
     <form class="composer" onSubmit=${send}>
-      <${Select} label="Envoyer sur" value=${target} onChange=${setTarget} options=${[
-    ...(!senders.length ? [{ value: 'origin', label: 'Aucune chaîne ne peut écrire' }] : []),
-    ...(s.features.replyAllChannels && senders.length > 1 ? [{ value: 'all', label: 'Toutes les chaînes' }] : []),
-    ...senders.map((c) => ({ value: c.id, label: c.label })),
+      <${Select} label="Envoyer sur" value=${dest || 'none'} onChange=${setTarget} options=${[
+    ...(!senders.length ? [{ value: 'none', label: 'Aucune chaîne ne peut écrire' }] : []),
+    ...(canAll ? [{ value: 'all', label: 'Toutes les chaînes' }] : []),
+    ...senders.map((c) => ({ value: c.id, label: `${PLATFORM[c.platform]?.label || c.platform} : ${c.label}` })),
   ]} />
-      <input class="in" value=${text} onInput=${(e) => setText(e.target.value)} placeholder="Écrire dans le chat" aria-label="Message" disabled=${!senders.length} />
+      <input class="in" value=${text} onInput=${(e) => setText(e.target.value)} placeholder=${senders.length ? 'Écrire dans le chat' : 'Connecte une chaîne pour écrire ici'} aria-label="Message" disabled=${!senders.length} />
+      ${(hint || (!senders.length && channels.find((c) => c.sendHint)?.sendHint)) && html`<p class="composer-hint">${hint || channels.find((c) => c.sendHint).sendHint}</p>`}
+      ${senders.length > 0 && !hint && channels.some((c) => !c.canSend) && html`<button type="button" class="composer-more" onClick=${() => setState({ view: 'connections' })}>${`${[...new Set(channels.filter((c) => !c.canSend).map((c) => PLATFORM[c.platform]?.label || c.platform))].join(', ')} : à connecter pour écrire`}</button>`}
     </form>
   </aside>`;
 }

@@ -38,6 +38,12 @@ function checks(s) {
       ? { id: 'err', level: 'bad', label: broken.length > 1 ? `${broken.length} chaînes en erreur` : `${broken[0].label} en erreur`, hint: broken[0].status.detail || '', fix: ['Voir', () => setState({ view: 'connections' })] }
       : { id: 'err', level: 'ok', label: 'Connexions sans erreur' });
   }
+  const mute = chans.filter((c) => c.enabled !== false && !c.canSend);
+  if (chans.length) {
+    out.push(!mute.length
+      ? { id: 'write', level: 'ok', label: 'Le chat unifié peut écrire sur toutes tes chaînes' }
+      : { id: 'write', level: 'warn', label: `Pas encore d'écriture sur : ${[...new Set(mute.map((c) => c.label))].join(', ')}`, hint: mute[0].sendHint || '', fix: ['Connecter', () => setState({ view: 'connections' })] });
+  }
   out.push(s.obs.state === 'connected'
     ? { id: 'obs', level: 'ok', label: 'OBS connecté' }
     : { id: 'obs', level: 'warn', label: 'OBS pas connecté', hint: 'Facultatif avec TikTok LIVE Studio. Avec OBS, active le serveur WebSocket (Outils › Paramètres WebSocket).', fix: ['Connecter', () => setState({ view: 'settings', settingsTab: 'connexions' })] });

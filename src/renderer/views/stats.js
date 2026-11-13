@@ -91,7 +91,7 @@ export function Stats({ s }) {
   const [metric, setMetric] = useState('chat');
   const [table, setTable] = useState(false);
   useEffect(() => { act('statsReport').then(setR); }, [s.feed.length]);
-  if (!r) return null;
+  if (!r) return html`<div class="page"><${PageHead} title="Stats" /><p class="note">Chargement des stats…</p></div>`;
   const t = r.totals;
   const sum = (k) => Object.values(t).reduce((n, b) => n + (b[k] || 0), 0);
   const peak = Math.max(0, ...Object.values(t).map((b) => b.peak || 0));

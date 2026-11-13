@@ -82,6 +82,8 @@ class TwitchIrc extends EventEmitter {
 
   canSend() { return false; }
 
+  sendHint() { return 'Avec le pseudo seul, Régie lit le chat Twitch sans pouvoir y écrire : connecte ton compte Twitch dans Connexions.'; }
+
   async send() { throw new Error('Connecte-toi avec Twitch pour répondre dans le chat.'); }
 }
 

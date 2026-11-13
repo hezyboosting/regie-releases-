@@ -29,30 +29,42 @@ function Boards({ s }) {
 const imgUrl = (s, file) => (file ? `http://127.0.0.1:${s.port}/media/${encodeURIComponent(file)}?k=${encodeURIComponent(s.overlayToken)}` : '');
 const pct = (x) => `${(x * 100 >= 10 ? Math.round(x * 100) : (x * 100).toFixed(1)).toString().replace('.', ',')} %`;
 
-// Rangs d'un jeu officiel : lesquels peuvent sortir, et avec quelle chance.
-function RankPicks({ s, choices, up, compact = false }) {
+// Rangs d'un jeu officiel : lesquels peuvent sortir et avec quelle chance (rang au hasard),
+// ou à partir de combien de points (rang selon les points).
+// Chaque changement s'affiche tout de suite, puis Régie l'enregistre rang par rang.
+function RankPicks({ s, choices, setChoices, up, compact = false }) {
   const r = s.ranks;
-  const picks = r.picks?.[r.game] || {};
-  const on = choices.filter((x) => x.on && x.weight > 0);
+  const points = r.mode === 'points';
+  const on = choices.filter((x) => x.on && (points || x.weight > 0));
   const total = on.reduce((n, x) => n + x.weight, 0) || 1;
-  const set = (id, patch) => up({ picks: { ...(r.picks || {}), [r.game]: { ...picks, [id]: { ...(picks[id] || {}), ...patch } } } });
-  const all = (fn) => up({ picks: { ...(r.picks || {}), [r.game]: Object.fromEntries(choices.map((x) => [x.id, { ...(picks[x.id] || {}), ...fn(x) }])) } });
+  const set = async (id, patch) => {
+    setChoices((list) => list.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+    const out = await act('updateRankPick', r.game, id, patch);
+    if (out) setState({ ranks: out });
+  };
+  const all = (fn) => {
+    setChoices((list) => list.map((x) => ({ ...x, ...fn(x) })));
+    up({ picks: { ...(r.picks || {}), [r.game]: Object.fromEntries(choices.map((x) => [x.id, { ...(r.picks?.[r.game]?.[x.id] || {}), ...fn(x) }])) } });
+  };
   const tools = html`<div class="row tight wrap">
       <${Btn} onClick=${() => all(() => ({ on: true }))}>Tous<//>
       <${Btn} onClick=${() => all(() => ({ on: false }))}>Aucun<//>
-      <${Btn} onClick=${() => all(() => ({ weight: 10 }))}>Chances égales<//>
-      <${Btn} onClick=${() => up({ picks: { ...(r.picks || {}), [r.game]: {} } })}>Chances d'origine<//>
+      ${!points && html`<${Btn} onClick=${() => all(() => ({ weight: 10 }))}>Chances égales<//>`}
+      <${Btn} onClick=${() => up({ picks: { ...(r.picks || {}), [r.game]: {} } })}>${points ? 'Seuils d\'origine' : 'Chances d\'origine'}<//>
     </div>`;
-  return html`<${Bay} title="Rangs qui peuvent sortir" aside=${compact ? null : tools}>
+  return html`<${Bay} title=${points ? 'Rangs et points à atteindre' : 'Rangs qui peuvent sortir'} aside=${compact ? null : tools}>
     ${compact && tools}
-    <p class="note">Décoche un rang pour qu'il ne sorte jamais. La chance règle la rareté : plus elle est basse, plus le rang est rare.</p>
+    <p class="note">${points ? 'Le spectateur monte de rang quand ses points atteignent le seuil. Décoche un rang pour le sauter.' : 'Décoche un rang pour qu\'il ne sorte jamais. La chance règle la rareté : plus elle est basse, plus le rang est rare.'}</p>
+    ${!on.length && html`<p class="note warn">Aucun rang coché : Régie les laisse tous sortir. Coche ceux que tu veux.</p>`}
     <div class="rp-list">
       ${choices.map((x) => html`<div class="rp ${x.on ? '' : 'off'}" key=${x.id}>
         <${Gem} color=${x.color} step=${x.step} steps=${x.steps} sides=${x.sides} src=${imgUrl(s, x.image)} size=${40} />
         <b class="rp-name">${x.name}</b>
-        <${Lamp} on=${x.on} label=${compact ? '' : 'Peut sortir'} aria-label=${`${x.name} peut sortir`} onChange=${(v) => set(x.id, { on: v })} />
-        <label class="rp-w">${!compact && html`<span>Chance</span>`}<${Num} value=${x.weight} min="0" aria-label=${`Chance de ${x.name}`} onSave=${(weight) => set(x.id, { weight })} /></label>
-        <span class="rp-pct">${x.on && x.weight > 0 ? pct(x.weight / total) : '—'}</span>
+        <${Lamp} on=${x.on} label=${compact ? '' : (points ? 'Compte' : 'Peut sortir')} aria-label=${`${x.name} peut sortir`} onChange=${(v) => set(x.id, { on: v })} />
+        ${points
+    ? html`<label class="rp-w">${!compact && html`<span>Points</span>`}<${Num} value=${x.min} min="0" aria-label=${`Points pour ${x.name}`} onSave=${(min) => set(x.id, { min })} /></label><span class="rp-pct"></span>`
+    : html`<label class="rp-w">${!compact && html`<span>Chance</span>`}<${Num} value=${x.weight} min="0" aria-label=${`Chance de ${x.name}`} onSave=${(weight) => set(x.id, { weight })} /></label>
+        <span class="rp-pct">${x.on && x.weight > 0 ? pct(x.weight / total) : '—'}</span>`}
         ${!compact && html`<${Btn} onClick=${() => act('testRank', x.id)}>Essayer<//>`}
       </div>`)}
     </div>
@@ -89,7 +101,7 @@ export function RankConfig({ s, compact = false }) {
   const up = async (patch) => { const out = await act('updateRanks', patch); if (out) setState({ ranks: out }); };
   const upRow = (i, patch) => up({ list: r.list.map((x, j) => (i === j ? { ...x, ...patch } : x)) });
   const overlay = s.overlays.find((o) => o.type === 'rankcard');
-  const official = r.game !== 'custom' && r.mode !== 'points';
+  const official = r.game !== 'custom';
   return html`<div class="col">
     <${Bay} title=${compact ? 'Rangs et révélation' : 'Réglages'} aside=${compact ? null : overlay ? html`<${Btn} icon=${ICONS.copy} onClick=${() => copy(overlay.link)}>Copier le lien<//>` : html`<${Btn} onClick=${async () => { if (await act('addOverlay', 'rankcard')) reload(); }}>Créer l'overlay<//>`}>
       <div class="row tight">
@@ -98,8 +110,8 @@ export function RankConfig({ s, compact = false }) {
         <${Btn} onClick=${() => act('testRank')}>Essayer<//>
       </div>
       <${Segments} value=${r.mode} onChange=${(mode) => up({ mode })} options=${[{ value: 'random', label: 'Rang au hasard' }, { value: 'points', label: 'Rang selon les points' }]} />
-      <p class="note">${r.mode === 'random' ? 'Chaque nouveau suivi tire un rang parmi ceux que tu laisses sortir, selon leurs chances.' : 'Le spectateur monte de rang quand ses points atteignent le seuil.'}</p>
-      <div class="row wrap">
+      <p class="note">${r.mode === 'random' ? 'Chaque nouveau suivi tire un rang parmi ceux que tu laisses sortir, selon leurs chances.' : 'Le spectateur reçoit le rang de ses points, puis monte quand il atteint le seuil suivant (messages, likes, cadeaux…).'}</p>
+      <div class="form-grid top">
         <${Field} label="Rangs du jeu" hint="Les vrais emblèmes s'installent dans Mes jeux"><${Select} value=${r.game} onChange=${(game) => up({ game })} options=${[...s.gameCatalog.filter((g) => g.ranks.length).map((g) => ({ value: g.id, label: g.name })), { value: 'custom', label: 'Autre jeu (mes rangs)' }]} /><//>
         <${Field} label="Message dans le chat" hint="Variables : {user} {rank}"><${Lazy} value=${r.message} onSave=${(message) => up({ message })} /><//>
       </div>
@@ -110,19 +122,19 @@ export function RankConfig({ s, compact = false }) {
       <${Segments} value=${r.again || 'keep'} onChange=${(again) => up({ again })} options=${[{ value: 'keep', label: 'Remontrer son rang' }, { value: 'new', label: 'Nouveau tirage' }, { value: 'off', label: 'Rien' }]} />
       <p class="note">Chaque jeu garde son propre rang : en changeant de jeu, le spectateur reçoit un rang du nouveau jeu au lieu de garder l'ancien.</p>
     <//>
-    ${official && choices.length > 0 && html`<${RankPicks} s=${s} choices=${choices} up=${up} compact=${compact} />`}
-    ${(r.game === 'custom' || r.mode === 'points') ? html`<${Bay} title="Rangs">
+    ${official && choices.length > 0 && html`<${RankPicks} s=${s} choices=${choices} setChoices=${setChoices} up=${up} compact=${compact} />`}
+    ${r.game === 'custom' ? html`<${Bay} title="Mes rangs">
       <div class="col">
+        <div class="rank-row rank-head"><span></span><span></span><span>Nom</span>${r.mode === 'points' ? html`<span>Points à atteindre</span>` : html`<span>Chance</span>`}<span></span><span></span></div>
         ${r.list.map((x, i) => html`<div class="rank-row" key=${x.id}>
           <span class="emb" style=${{ background: x.color }}>${i + 1}</span>
           <input type="color" value=${x.color} aria-label="Couleur" onChange=${(e) => upRow(i, { color: e.target.value })} style=${{ width: '36px', height: '36px', border: 0, background: 'none' }} />
           <${Lazy} value=${x.name} aria-label="Nom du rang" onSave=${(name) => upRow(i, { name })} />
-          <${Num} value=${x.weight} min="0" aria-label="Poids" onSave=${(weight) => upRow(i, { weight })} />
-          <${Num} value=${x.min} min="0" aria-label="Seuil de points" onSave=${(min) => upRow(i, { min })} />
+          ${r.mode === 'points' ? html`<${Num} value=${x.min} min="0" aria-label="Points à atteindre" onSave=${(min) => upRow(i, { min })} />` : html`<${Num} value=${x.weight} min="0" aria-label="Chance" onSave=${(weight) => upRow(i, { weight })} />`}
           <${Btn} onClick=${() => act('testRank', x.id)}>Essayer<//>
-          <button class="icon" aria-label="Retirer" onClick=${() => up({ list: r.list.filter((_, j) => j !== i) })}>${ICONS.x}</button>
+          <button class="icon" aria-label="Retirer" disabled=${r.list.length <= 1} onClick=${() => up({ list: r.list.filter((_, j) => j !== i) })}>${ICONS.x}</button>
         </div>`)}
-        <div class="row tight"><${Btn} icon=${ICONS.plus} onClick=${() => up({ list: [...r.list, { id: `r${Date.now()}`, name: 'Nouveau rang', color: '#FF3D71', weight: 1, min: 100000 }] })}>Ajouter un rang<//><span class="note">Colonnes : poids, puis seuil de points.</span></div>
+        <div class="row tight"><${Btn} icon=${ICONS.plus} onClick=${() => up({ list: [...r.list, { id: `r${Date.now()}`, name: 'Nouveau rang', color: '#FF3D71', weight: 1, min: (Math.max(0, ...r.list.map((x) => x.min || 0)) || 100) * 2 }] })}>Ajouter un rang<//></div>
       </div>
     <//>` : null}
     ${choices.length > 0 && !compact && html`<${GiveRank} s=${s} choices=${choices} up=${up} />`}

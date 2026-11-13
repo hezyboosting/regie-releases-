@@ -1,9 +1,9 @@
 import { el, tag, setVars, rgba, PLATFORM, isPreview, avatar } from '../lib.js';
 
 const EVENT_TEXT = {
-  follow: (e) => `${e.user.display} suit la chaîne`, sub: (e) => `${e.user.display} s'abonne`, resub: (e) => `${e.user.display} se réabonne (${e.months} mois)`,
-  giftsub: (e) => `${e.user.display} offre ${e.amount} abonnements`, bits: (e) => `${e.user.display} envoie ${e.amount} bits`, raid: (e) => `Raid de ${e.user.display} avec ${e.amount} personnes`,
-  gift: (e) => `${e.user.display} envoie ${e.amount} × ${e.gift?.name}`, superchat: (e) => `${e.user.display} envoie ${e.money}`, supersticker: (e) => `${e.user.display} envoie ${e.money}`,
+  follow: (e) => `${e.user.display} suit la chaîne`, sub: (e) => `${e.user.display} s'abonne`, resub: (e) => (e.months ? `${e.user.display} se réabonne (${e.months} mois)` : `${e.user.display} se réabonne`),
+  giftsub: (e) => `${e.user.display} offre ${e.amount || 1} abonnements`, bits: (e) => `${e.user.display} envoie ${e.amount || 0} bits`, raid: (e) => `Raid de ${e.user.display} avec ${e.amount || 0} personnes`,
+  gift: (e) => ((e.amount || 1) > 1 ? `${e.user.display} envoie ${e.amount} × ${e.gift?.name || 'un cadeau'}` : `${e.user.display} envoie ${e.gift?.name || 'un cadeau'}`), superchat: (e) => `${e.user.display} envoie ${e.money}`, supersticker: (e) => `${e.user.display} envoie ${e.money}`,
   member: (e) => `${e.user.display} devient membre`, share: (e) => `${e.user.display} partage le live`, superfan: (e) => `${e.user.display} devient Super Fan`,
 };
 

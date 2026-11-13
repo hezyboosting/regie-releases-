@@ -105,11 +105,12 @@ function frenchError(msg, wait = 60000) {
 }
 
 class TikTokConnector extends EventEmitter {
-  constructor(account, { vault, signKey }) {
+  constructor(account, { vault, signKey, webchat }) {
     super();
     this.account = account;
     this.vault = vault;
     this.signKey = signKey;
+    this.webchat = webchat;
     this.conn = null;
     this.stopped = true;
     this.retry = null;
@@ -213,11 +214,20 @@ class TikTokConnector extends EventEmitter {
     this.status('stopped');
   }
 
-  canSend() { return Boolean(this.signKey && this.vault.get(`tiktok:${this.account.id}`)?.sessionId); }
+  // Deux façons d'écrire : le service Euler Stream (clé payante + session), ou ton compte TikTok
+  // connecté dans Régie (Connexions › Écrire dans le chat), qui tape le message sur la page de ton live.
+  get viaEuler() { return Boolean(this.signKey && this.vault.get(`tiktok:${this.account.id}`)?.sessionId); }
+
+  canSend() { return this.viaEuler || Boolean(this.webchat?.logged?.tiktok); }
+
+  sendHint() { return this.canSend() ? '' : 'Connecte ton compte TikTok pour écrire (Connexions › Écrire dans le chat).'; }
 
   async send(text) {
-    if (!this.canSend() || !this.conn) throw new Error('Pour répondre sur TikTok, ajoute ta clé Euler Stream et ta session dans la chaîne.');
-    await this.conn.sendMessage(text);
+    if (this.viaEuler && this.conn) {
+      try { await this.conn.sendMessage(text); return; } catch (e) { if (!this.webchat?.logged?.tiktok) throw e; }
+    }
+    if (!this.webchat?.logged?.tiktok) throw new Error('Pour écrire sur TikTok, connecte ton compte dans Régie : Connexions › Écrire dans le chat.');
+    await this.webchat.send('tiktok', this.username, text);
   }
 
   async fetchGifts() {

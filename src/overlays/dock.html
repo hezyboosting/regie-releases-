@@ -61,7 +61,7 @@ const EN = {
   'Masquer les traductions': 'Hide translations', 'Afficher les traductions': 'Show translations', 'Texte d\'origine': 'Original text',
   'Toutes mes chaînes': 'All my channels', 'Aucune chaîne ne peut écrire pour le moment': 'No channel can write right now', 'Écrire dans le chat': 'Write in chat',
   'Connecte Twitch pour écrire ici': 'Connect Twitch to write here', 'Les messages de tes chaînes arriveront ici.': 'Messages from your channels will show up here.',
-  'Régie ne répond pas.': 'Régie isn\'t responding.', 'Anonyme': 'Anonymous', 'Live': 'Live', 'Modo': 'Mod', 'VIP': 'VIP', 'Abo': 'Sub',
+  'Régie ne répond pas.': 'Régie isn\'t responding.', 'à connecter': 'not connected', 'Connecte une chaîne pour écrire ici': 'Connect a channel to write here', 'Anonyme': 'Anonymous', 'Live': 'Live', 'Modo': 'Mod', 'VIP': 'VIP', 'Abo': 'Sub',
 };
 let lang = 'fr';
 const t = (fr) => (lang === 'en' && EN[fr]) || fr;
@@ -205,12 +205,22 @@ function fillTargets() {
   sel.textContent = '';
   const usable = targets.filter((c) => c.canSend);
   if (usable.length > 1 && canAll) sel.append(new Option(t('Toutes mes chaînes'), 'all'));
-  for (const c of usable) sel.append(new Option(`${NAMES[c.platform]} : ${c.label}`, c.id));
-  if (!usable.length) sel.append(new Option(t('Aucune chaîne ne peut écrire pour le moment'), ''));
-  if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
+  for (const c of usable) sel.append(new Option(`${NAMES[c.platform] || c.platform} : ${c.label}`, c.id));
+  // Les chaînes qui ne peuvent pas encore écrire restent visibles, grisées, avec la raison au survol.
+  for (const c of targets.filter((x) => !x.canSend)) {
+    const o = new Option(`${NAMES[c.platform] || c.platform} : ${c.label} (${t('à connecter')})`, c.id);
+    o.disabled = true;
+    o.title = c.hint || '';
+    sel.append(o);
+  }
+  if (!usable.length) sel.prepend(new Option(t('Aucune chaîne ne peut écrire pour le moment'), ''));
+  if ([...sel.options].some((o) => o.value === keep && !o.disabled)) sel.value = keep;
+  else if (!keep && usable.length > 1 && canAll) sel.value = 'all';
+  else if (usable.length) sel.value = sel.querySelector('option:not([disabled])')?.value || '';
   $('send').disabled = !usable.length;
   $('text').disabled = !usable.length;
-  $('text').placeholder = t(usable.length ? 'Écrire dans le chat' : 'Connecte Twitch pour écrire ici');
+  $('text').placeholder = t(usable.length ? 'Écrire dans le chat' : 'Connecte une chaîne pour écrire ici');
+  $('err').textContent = usable.length ? $('err').textContent : (targets.find((c) => c.hint)?.hint || '');
 }
 
 async function state(first) {
@@ -237,11 +247,17 @@ $('feed').addEventListener('scroll', () => { if (stuck()) $('more').hidden = tru
 $('more').onclick = toEnd;
 $('form').onsubmit = async (e) => {
   e.preventDefault();
-  const t = $('text');
-  if (!t.value.trim()) return;
-  const r = await (await fetch(q('/dock/send'), { method: 'POST', body: JSON.stringify({ text: t.value, target: $('target').value }) })).json().catch(() => ({ ok: false, error: t('Régie ne répond pas.') }));
-  $('err').textContent = r.ok ? '' : r.error;
-  if (r.ok) t.value = '';
+  const box = $('text');
+  const msg = box.value.trim();
+  if (!msg) return;
+  $('send').disabled = true;
+  const r = await fetch(q('/dock/send'), { method: 'POST', body: JSON.stringify({ text: msg, target: $('target').value }) }).then((x) => x.json()).catch(() => ({ ok: false, error: t('Régie ne répond pas.') }));
+  $('send').disabled = false;
+  if (r.ok) {
+    box.value = '';
+    $('err').textContent = (r.failed || []).map((f) => `${NAMES[f.platform] || f.platform} : ${f.error}`).join(' · ');
+  } else $('err').textContent = r.error || '';
+  box.focus();
 };
 state(true);
 setInterval(() => state(false), 10000);

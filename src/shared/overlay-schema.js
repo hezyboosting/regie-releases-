@@ -210,10 +210,15 @@ SCALE, CSS,
     fields: [S('theme', 'Thème', 'arene', [{ value: 'arene', label: 'Arène' }, { value: 'neon', label: 'Néon' }, { value: 'pixel', label: 'Pixel' }, { value: 'espace', label: 'Espace' }]), T('showTop', 'Afficher les meilleurs joueurs', true), FONT, SCALE, CSS],
   },
   webcam: {
-    name: 'Cadre webcam', size: [640, 400], group: 'Direct', blurb: 'Un cadre animé qui réagit aux soutiens.',
+    name: 'Cadre webcam', size: [700, 440], group: 'Direct', blurb: 'Un cadre autour de ta caméra : verre, néon ou coins de visée, pastille LIVE, plaque à ton nom, et il réagit aux soutiens.',
     fields: [
-      S('style', 'Style', 'degrade', [{ value: 'degrade', label: 'Dégradé' }, { value: 'neon', label: 'Néon' }, { value: 'coins', label: 'Coins' }, { value: 'bandes', label: 'Bandes' }, { value: 'simple', label: 'Simple' }]),
-      TX('label', 'Texte', '{viewers} en direct'), R('thickness', 'Épaisseur', 6, 1, 24, 1, ' px'), R('radius', 'Arrondi', 18, 0, 80, 1, ' px'), C('accent', 'Couleur', '#8FD3FF'), C('accent2', 'Couleur 2', '#B9A7FF'), C('text', 'Texte', '#F2F5F9'), T('react', 'Réagir aux soutiens', true), FONT, CSS,
+      S('style', 'Style', 'verre', [{ value: 'verre', label: 'Verre' }, { value: 'neon', label: 'Néon' }, { value: 'degrade', label: 'Dégradé animé' }, { value: 'coins', label: 'Coins de visée' }, { value: 'simple', label: 'Trait fin' }]),
+      R('thickness', 'Épaisseur', 6, 1, 24, 1, ' px'), R('radius', 'Arrondi', 22, 0, 80, 1, ' px'), R('glow', 'Lueur', 60, 0, 100, 5, ' %'),
+      TX('label', 'Texte de la plaque', '{viewers} en direct', { tab: 'content' }), S('labelPos', 'Plaque', 'bas-centre', [{ value: 'bas-centre', label: 'En bas, au centre' }, { value: 'bas-gauche', label: 'En bas, à gauche' }, { value: 'haut-centre', label: 'En haut, au centre' }, { value: 'aucun', label: 'Pas de plaque' }], { tab: 'content' }),
+      S('livePos', 'Pastille LIVE', 'haut-gauche', [{ value: 'haut-gauche', label: 'En haut à gauche' }, { value: 'haut-droite', label: 'En haut à droite' }, { value: 'aucun', label: 'Cachée' }], { tab: 'content' }), T('liveViewers', 'Spectateurs dans la pastille', true, { tab: 'content', when: { livePos: ['haut-gauche', 'haut-droite'] } }),
+      T('react', 'Réagir aux soutiens', true, { tab: 'anim' }), T('showEvents', 'Afficher qui soutient', true, { tab: 'anim' }), R('toastSeconds', 'Durée de la bulle', 4, 2, 10, 1, ' s', { tab: 'anim', when: { showEvents: true } }),
+      T('confetti', 'Confettis sur un gros soutien', true, { tab: 'anim' }), R('bigCoins', 'Gros cadeau à partir de', 100, 1, 5000, 1, ' pièces', { tab: 'anim' }),
+      C('accent', 'Couleur', '#8FD3FF'), C('accent2', 'Couleur 2', '#B9A7FF'), C('bg', 'Fond de la plaque', '#10131A'), C('text', 'Texte', '#F2F5F9'), FONT, CSS,
     ],
   },
   transition: {

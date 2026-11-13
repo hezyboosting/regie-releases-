@@ -82,8 +82,8 @@ class OverlayServer {
       req.on('end', async () => {
         try {
           const { text, target } = JSON.parse(body);
-          await this.dock.send(String(text || '').slice(0, 500), String(target || ''));
-          this.send(res, 200, '{"ok":true}', 'application/json');
+          const r = await this.dock.send(String(text || '').slice(0, 500), String(target || ''));
+          this.send(res, 200, JSON.stringify({ ok: true, sent: r?.sent || [], failed: r?.failed || [] }), 'application/json');
         } catch (e) { this.send(res, 200, JSON.stringify({ ok: false, error: e.message }), 'application/json'); }
       });
       return undefined;

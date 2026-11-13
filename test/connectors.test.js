@@ -307,3 +307,23 @@ test('TikTok : le cadeau garde sa vraie image avec le format actuel de la biblio
   assert.equal(ev.user.avatar, 'https://p16/avatar.webp');
   assert.equal(ev.value, 3);
 });
+
+test('écrire sur TikTok et Kick passe par le compte connecté dans Régie quand il n\'y a pas de clé Euler', async () => {
+  const { TikTokConnector } = require('../src/main/connectors/tiktok');
+  const { KickConnector } = require('../src/main/connectors/kick');
+  const sent = [];
+  const webchat = { logged: { tiktok: false, kick: false }, send: async (site, user, text) => { sent.push([site, user, text]); return true; } };
+  const vault = { get: () => null };
+  const tt = new TikTokConnector({ id: 't', platform: 'tiktok', username: '@lena' }, { vault, signKey: '', webchat });
+  const kk = new KickConnector({ id: 'k', platform: 'kick', username: 'lena' }, { webchat });
+  assert.equal(tt.canSend(), false);
+  assert.match(tt.sendHint(), /Écrire dans le chat/);
+  await assert.rejects(() => tt.send('salut'), /connecte ton compte/i);
+  webchat.logged.tiktok = true;
+  webchat.logged.kick = true;
+  assert.equal(tt.canSend(), true);
+  assert.equal(kk.canSend(), true);
+  await tt.send('salut');
+  await kk.send('yo');
+  assert.deepEqual(sent, [['tiktok', 'lena', 'salut'], ['kick', 'lena', 'yo']]);
+});

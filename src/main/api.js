@@ -59,7 +59,7 @@ function createApi(ctx) {
     timers: s().tools.timers.map((t) => engine.timerView(t)), obs: { ...s().obs, password: '', hasPassword: Boolean(s().obs.password), state: obs.state, detail: obs.detail, streaming: obs.streaming },
     settings: s().settings, keys: keyStatus(), feed: engine.feed.slice(-120), gifts: engine.giftsForApp(), giftCacheAt: s().giftCacheAt || 0, port: server.port, quota: { used: engine.quota().used(), max: DAILY_QUOTA }, inputAvailable: input.available,
     media: listMedia(), admin: license.realRole() === 'admin' && license.isAdmin() ? { draft: s().adminDraft, issued: s().issuedKeys } : null,
-    ranks: s().ranks, rewards: s().rewards, chatPlays: s().chatPlays, plinko: s().plinko, discord: { ...s().discord, hasHook: Boolean(vault.get('key:discordWebhook')) }, arena: s().arena, boss: s().boss, gaming: s().gaming, sounds: s().sounds, deck: s().deck, clips: s().clips, scenes: s().scenes, keysCfg: s().keys, recapCfg: s().recap, chatTranslate: s().chatTranslate, hasDeepl: Boolean(vault.get('key:deeplKey')), vpadCfg: { ...(s().vpad || {}), ...(engine.vpad ? engine.vpad.status() : { state: 'off', error: '' }) }, padInputs: PAD_INPUTS, rconPresets: RCON_PRESETS,
+    ranks: s().ranks, rewards: s().rewards, chatPlays: s().chatPlays, plinko: s().plinko, webChat: engine.webchat ? engine.webchat.status() : {}, discord: { ...s().discord, hasHook: Boolean(vault.get('key:discordWebhook')) }, arena: s().arena, boss: s().boss, gaming: s().gaming, sounds: s().sounds, deck: s().deck, clips: s().clips, scenes: s().scenes, keysCfg: s().keys, recapCfg: s().recap, chatTranslate: s().chatTranslate, hasDeepl: Boolean(vault.get('key:deeplKey')), vpadCfg: { ...(s().vpad || {}), ...(engine.vpad ? engine.vpad.status() : { state: 'off', error: '' }) }, padInputs: PAD_INPUTS, rconPresets: RCON_PRESETS,
     session: viewers.giftView(), boards: viewers.boards(10), vars: engine.liveVars(), templates: allTemplates(), themes: THEMES, bosses: BOSSES, keyNames: keyNames(), overlayToken: s().settings.overlayToken,
     gameCatalog: GAMES, statLabels: STAT_LABEL, gameView: engine.gameView(), gameRunning: hub.running, gameLinks: hub.linked, gameLive: engine.gameLive, goalHistory: s().goalHistory, minigame: engine.minigames.view(), minigames: s().minigames,
     padPacks: s().padPacks || [], packParts: PACK_PARTS.map(({ key, label }) => ({ key, label })), packRights: RIGHTS, pads: input.pads(), colorways: COLORWAYS, finishGroups: FINISH_GROUPS, padZones: PAD_ZONES, padZoneNames: PAD_ZONE_NAMES, modules: MODULES, tiers: TIERS, deckLink: server.deckLink(), spotifyHistory: spotify.history,
@@ -376,14 +376,43 @@ function createApi(ctx) {
       return engine.channels();
     },
 
+    // Écrit sur une chaîne, ou sur toutes à la fois. Chaque chaîne part de son côté : si l'une échoue,
+    // les autres reçoivent quand même le message, et on dit laquelle a coincé et pourquoi.
     async sendChat(text, target) {
-      const list = target === 'all' ? [...engine.connectors.values()] : [engine.connectors.get(target)].filter(Boolean);
-      if (target === 'all') need('replyAllChannels', 'Écrire sur toutes les chaînes est réservé à PRO.');
+      const msg = String(text || '').trim();
+      if (!msg) return { sent: [], failed: [] };
+      const all = target === 'all';
+      if (all) need('replyAllChannels', 'Écrire sur toutes les chaînes est réservé à PRO.');
+      const ids = all ? [...engine.connectors.keys()] : [target];
+      const list = ids.map((id) => ({ id, c: engine.connectors.get(id), a: s().accounts.find((x) => x.id === id) })).filter((x) => x.c && x.a && x.a.enabled !== false);
       if (!list.length) throw new Error('Choisis une chaîne pour envoyer ce message.');
-      const usable = list.filter((c) => c.canSend?.());
-      if (!usable.length) throw new Error('Cette chaîne ne peut pas écrire dans le chat.');
-      await Promise.all(usable.map((c) => c.send(text)));
-      return true;
+      const usable = list.filter((x) => x.c.canSend?.());
+      const skipped = list.filter((x) => !x.c.canSend?.()).map((x) => ({ platform: x.a.platform, label: x.a.label, error: x.c.sendHint?.() || 'Cette chaîne ne peut pas écrire.' }));
+      if (!usable.length) throw new Error(skipped[0]?.error || 'Cette chaîne ne peut pas écrire dans le chat.');
+      const res = await Promise.allSettled(usable.map((x) => x.c.send(msg)));
+      const sent = [];
+      const failed = [...(all ? [] : skipped)];
+      res.forEach((r, i) => {
+        const x = usable[i];
+        if (r.status === 'fulfilled') sent.push({ platform: x.a.platform, label: x.a.label });
+        else { failed.push({ platform: x.a.platform, label: x.a.label, error: String(r.reason?.message || r.reason).split('\n')[0] }); engine.log(`Chat ${x.a.platform} : ${r.reason?.message || r.reason}`); }
+      });
+      if (!sent.length) throw new Error(failed.map((f) => `${f.label} : ${f.error}`).join(' · '));
+      return { sent, failed, skipped: all ? skipped : [] };
+    },
+
+    // ---- Écrire dans le chat TikTok et Kick avec son compte connecté dans Régie
+    webChatStatus() { return engine.webchat ? engine.webchat.status() : {}; },
+    async webChatLogin(site) {
+      if (!engine.webchat) throw new Error('Indisponible.');
+      const ok = await engine.webchat.login(site);
+      engine.pushChannels();
+      return { ok, status: engine.webchat.status() };
+    },
+    async webChatLogout(site) { const st = await engine.webchat.logout(site); engine.pushChannels(); return st; },
+    async webChatShow(id) {
+      const a = find(s().accounts, id, 'Chaîne');
+      return engine.webchat.show(a.platform, a.username || a.channel || '');
     },
 
     // ---- Overlays
@@ -728,6 +757,16 @@ function createApi(ctx) {
       // Les overlays Suivi = Rang reprennent tout de suite le jeu, les rangs et le mode choisis.
       for (const o of s().overlays.filter((x) => x.type === 'rankcard')) engine.pushOverlayConfig(o);
       return s().ranks;
+    },
+    // Un rang à la fois : fusionné côté Régie, pour que deux clics rapides ne s'écrasent pas.
+    updateRankPick(game, id, patch = {}) {
+      const r = s().ranks;
+      r.picks = r.picks || {};
+      const g = (r.picks[game] = r.picks[game] || {});
+      g[id] = { ...(g[id] || {}), ...patch };
+      file.save();
+      for (const o of s().overlays.filter((x) => x.type === 'rankcard')) engine.pushOverlayConfig(o);
+      return r;
     },
     testRank(rankId = '') { engine.simulate('follow', 'twitch', rankId ? { fields: { forceRank: rankId } } : {}); return true; },
     giveRank(name, rankId) { return engine.games.giveRank(name, rankId); },
