@@ -3,7 +3,7 @@ import { ICONS, Btn, Bay, Field, Select, Text, Num, Lazy, Platforms, PageHead, E
 import { Actions } from './commands.js';
 
 const METRICS = [
-  { value: 'follow', label: 'Follows' }, { value: 'sub', label: 'Abonnements et membres' }, { value: 'likes', label: 'Likes' }, { value: 'coins', label: 'Pièces TikTok' }, { value: 'gifts', label: 'Cadeaux TikTok' }, { value: 'onegift', label: 'Un cadeau précis' },
+  { value: 'follow', label: 'Suivis' }, { value: 'sub', label: 'Abonnements et membres' }, { value: 'likes', label: 'Likes' }, { value: 'coins', label: 'Pièces TikTok' }, { value: 'gifts', label: 'Cadeaux TikTok' }, { value: 'onegift', label: 'Un cadeau précis' },
   { value: 'bits', label: 'Bits' }, { value: 'money', label: 'Super Chats (montant)' }, { value: 'shares', label: 'Partages' }, { value: 'chat', label: 'Messages' }, { value: 'viewers', label: 'Spectateurs en direct' }, { value: 'custom', label: 'Manuel' },
 ];
 
@@ -13,7 +13,7 @@ function Goal({ g, s }) {
   const pct = Math.min(100, (g.current / Math.max(1, g.target)) * 100);
   return html`<li class="goal-card">
     <div class="goal-line">
-      <${Lazy} value=${g.title} aria-label="Nom du goal" onSave=${(v) => up({ title: v })} />
+      <${Lazy} value=${g.title} aria-label="Nom de l'objectif" onSave=${(v) => up({ title: v })} />
       <b class="goal-val">${fmt(g.current)} / ${fmt(g.target)}</b>
     </div>
     <div class="thin big"><i style=${{ width: `${pct}%` }}></i></div>
@@ -46,21 +46,21 @@ export function Goals({ s }) {
   const add = async (e) => {
     e.preventDefault();
     const r = await act('addGoal', { title: title || 'Objectif', metric, target });
-    if (r) { await reload(); setTitle(''); toast('Goal créé, avec son overlay'); }
+    if (r) { await reload(); setTitle(''); toast('Objectif créé, avec son overlay'); }
   };
   const limit = s.features.goals;
   return html`<div class="page">
-    <${PageHead} title="Goals"><span class="count">${s.goals.length}${limit !== -1 ? ` sur ${limit}` : ''}</span><//>
-    <${Bay} title="Nouveau goal">
+    <${PageHead} title="Objectifs"><span class="count">${s.goals.length}${limit !== -1 ? ` sur ${limit}` : ''}</span><//>
+    <${Bay} title="Nouvel objectif">
       <form class="row wrap" onSubmit=${add}>
-        <${Field} label="Nom"><${Text} value=${title} onChange=${setTitle} placeholder="500 followers avant vendredi" /><//>
+        <${Field} label="Nom"><${Text} value=${title} onChange=${setTitle} placeholder="500 suivis avant vendredi" /><//>
         <${Field} label="Compte"><${Select} value=${metric} onChange=${setMetric} options=${METRICS} /><//>
         <${Field} label="Objectif"><${Text} type="number" value=${target} onChange=${(v) => setTarget(Number(v))} /><//>
-        <${Btn} kind="primary" type="submit">Créer le goal<//>
+        <${Btn} kind="primary" type="submit">Créer l'objectif<//>
       </form>
     <//>
-    ${s.goals.length ? html`<ul class="goals">${s.goals.map((g) => html`<${Goal} key=${g.id} g=${g} s=${s} />`)}</ul>` : html`<${Empty} title="Aucun goal">Crée un objectif : il avance tout seul avec les événements de tes chaînes.<//>`}
-    ${s.goalHistory?.length > 0 && html`<${Bay} title="Goals atteints"><ul class="tool-list">${s.goalHistory.slice(0, 20).map((h, i) => html`<li key=${i}><b>${h.title}</b><span class="tagline">${fmt(h.target)}, le ${new Date(h.at).toLocaleDateString('fr-FR')}</span></li>`)}</ul><//>`}
-    <${Upsell}>FREE : trois goals. PRO : autant que tu veux, avec les thèmes Anneau, Pile et Vumètre.<//>
+    ${s.goals.length ? html`<ul class="goals">${s.goals.map((g) => html`<${Goal} key=${g.id} g=${g} s=${s} />`)}</ul>` : html`<${Empty} title="Aucun objectif">Crée un objectif : il avance tout seul avec les événements de tes chaînes.<//>`}
+    ${s.goalHistory?.length > 0 && html`<${Bay} title="Objectifs atteints"><ul class="tool-list">${s.goalHistory.slice(0, 20).map((h, i) => html`<li key=${i}><b>${h.title}</b><span class="tagline">${fmt(h.target)}, le ${new Date(h.at).toLocaleDateString(document.documentElement.lang === 'en' ? 'en-GB' : 'fr-FR')}</span></li>`)}</ul><//>`}
+    <${Upsell}>FREE : trois objectifs. PRO : autant que tu veux, avec les thèmes Anneau, Pile et Vumètre.<//>
   </div>`;
 }

@@ -1,8 +1,8 @@
-import { html, useState, useEffect, useRef, act, fmt, toast, PLATFORM } from '../store.js';
-import { Btn, Bay, PageHead, Segments, Empty, Tag, Upsell } from '../ui.js';
+import { html, useState, useEffect, useRef, act, fmt, toast, PLATFORM, setState, getLang } from '../store.js';
+import { Btn, Bay, PageHead, Segments, Empty, Tag, Upsell, Lamp, Field, Select } from '../ui.js';
 
 const METRICS = [
-  { value: 'chat', label: 'Messages' }, { value: 'follow', label: 'Follows' }, { value: 'sub', label: 'Abonnements' }, { value: 'coins', label: 'Pièces' }, { value: 'bitsTotal', label: 'Bits' }, { value: 'money', label: 'Super Chats' }, { value: 'peak', label: 'Pic de spectateurs' },
+  { value: 'chat', label: 'Messages' }, { value: 'follow', label: 'Suivis' }, { value: 'sub', label: 'Abonnements' }, { value: 'coins', label: 'Pièces' }, { value: 'bitsTotal', label: 'Bits' }, { value: 'money', label: 'Super Chats' }, { value: 'peak', label: 'Pic de spectateurs' },
 ];
 const W = 760; const H = 260; const PAD = { l: 48, r: 86, t: 14, b: 28 };
 
@@ -66,14 +66,14 @@ function Lives({ s }) {
   useEffect(() => { act('statsLives').then((l) => l && setList(l)); }, [s.channels.filter((c) => c.status.state === 'live').length]);
   if (!list.length) return html`<${Bay} title="Mes lives"><p class="note">Chaque live terminé apparaîtra ici.</p><//>`;
   const mins = (l) => Math.round((l.end - l.start) / 60000);
-  const COLS = [['Durée (min)', mins], ['Pic', (l) => l.peak || 0], ['Follows', (l) => l.follows || 0], ['Messages', (l) => l.messages || 0], ['Pièces', (l) => l.coins || 0], ['Likes', (l) => l.likes || 0]];
-  const opts = list.map((l, i) => ({ value: String(i), label: new Date(l.start).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) }));
+  const COLS = [['Durée (min)', mins], ['Pic', (l) => l.peak || 0], ['Suivis', (l) => l.follows || 0], ['Messages', (l) => l.messages || 0], ['Pièces', (l) => l.coins || 0], ['Likes', (l) => l.likes || 0]];
+  const opts = list.map((l, i) => ({ value: String(i), label: new Date(l.start).toLocaleString(getLang() === 'en' ? 'en-GB' : 'fr-FR', { dateStyle: 'short', timeStyle: 'short' }) }));
   const x = list[a];
   const y = list[b];
   return html`<${Bay} title="Mes lives">
     <div class="table-wrap"><table>
-      <thead><tr><th>Date</th>${COLS.map(([n]) => html`<th key=${n}>${n}</th>`)}</tr></thead>
-      <tbody>${list.slice(0, 15).map((l) => html`<tr key=${l.start}><td>${new Date(l.start).toLocaleDateString('fr-FR')}</td>${COLS.map(([n, f]) => html`<td key=${n}>${fmt(f(l))}</td>`)}</tr>`)}</tbody>
+      <thead><tr><th>Date</th>${COLS.map(([n]) => html`<th key=${n}>${n}</th>`)}<th></th></tr></thead>
+      <tbody>${list.slice(0, 15).map((l) => html`<tr key=${l.start}><td>${new Date(l.start).toLocaleDateString(getLang() === 'en' ? 'en-GB' : 'fr-FR')}</td>${COLS.map(([n, f]) => html`<td key=${n}>${fmt(f(l))}</td>`)}<td>${l.recap && html`<button type="button" class="linkish" onClick=${() => setState({ liveRecap: l.recap })}>Récap</button>`}</td></tr>`)}</tbody>
     </table></div>
     ${s.features.liveCompare && list.length > 1 && html`<div class="row wrap">
       <${Field} label="Live A"><${Select} value=${String(a)} options=${opts} onChange=${(v) => setA(Number(v))} /><//>
@@ -96,10 +96,13 @@ export function Stats({ s }) {
   const sum = (k) => Object.values(t).reduce((n, b) => n + (b[k] || 0), 0);
   const peak = Math.max(0, ...Object.values(t).map((b) => b.peak || 0));
   const tiles = [
-    ['Messages', sum('chat')], ['Follows', sum('follow')], ['Abonnements', sum('sub') + sum('resub') + sum('subsGifted') + sum('member')], ['Pièces TikTok', sum('coins')], ['Bits', sum('bitsTotal')], ['Pic de spectateurs', peak],
+    ['Messages', sum('chat')], ['Suivis', sum('follow')], ['Abonnements', sum('sub') + sum('resub') + sum('subsGifted') + sum('member')], ['Pièces TikTok', sum('coins')], ['Bits', sum('bitsTotal')], ['Pic de spectateurs', peak],
   ];
   return html`<div class="page">
     <${PageHead} title="Stats">
+      <${Btn} onClick=${async () => { const r2 = await act('recapNow'); if (r2) setState({ liveRecap: r2 }); }}>Récap du live en cours<//>
+      <${Lamp} on=${s.recapCfg?.open !== false} label="Ouvrir le récap à la fin du live" onChange=${async (open) => { const x = await act('updateRecap', { open }); if (x) setState({ recapCfg: x }); }} />
+      <${Lamp} on=${Boolean(s.recapCfg?.thanks)} label="Remercier les meilleurs soutiens dans le chat" onChange=${async (thanks) => { const x = await act('updateRecap', { thanks }); if (x) setState({ recapCfg: x }); }} />
       <${Btn} disabled=${!s.features.statsExport} onClick=${async () => { const p = await act('statsExport'); if (p) toast('Stats exportées'); }}>Exporter en CSV<//>
     <//>
     <div class="tiles">${tiles.map(([l, v]) => html`<div class="tile" key=${l}><b>${fmt(v)}</b><span>${l}</span></div>`)}</div>

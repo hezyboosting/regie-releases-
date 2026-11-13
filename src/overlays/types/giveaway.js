@@ -1,6 +1,6 @@
 import { el, tag, fmt, setVars, isPreview } from '../lib.js';
 
-const DEMO = { status: 'open', title: 'Giveaway', keyword: '!participe', entrants: [{ name: 'Lena', platform: 'twitch' }, { name: 'kenza.live', platform: 'tiktok' }, { name: 'Nolan', platform: 'youtube' }], winner: null };
+const DEMO = { status: 'open', title: 'Tirage au sort', keyword: '!participe', entrants: [{ name: 'Lena', platform: 'twitch' }, { name: 'kenza.live', platform: 'tiktok' }, { name: 'Nolan', platform: 'youtube' }], winner: null };
 
 export function mount(root) {
   const box = el('div', 'panel scaled');

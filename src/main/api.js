@@ -6,14 +6,22 @@ const { readObsConfig, loginWindow } = require('./logins');
 const { uid, EVENT_TYPES, ALL, makeOverlay } = require('../shared/defaults');
 const { OVERLAY_TYPES, COLORWAYS, FINISH_GROUPS, finishFrom, PAD_ZONES, PAD_ZONE_NAMES } = require('../shared/overlay-schema');
 const { GAMES, STAT_LABEL } = require('../shared/games');
+const { SOURCES: RANK_SOURCES, cs2Plate, hasOfficial } = require('../shared/rank-sources');
 const { rankFromFile, gameFromFolder } = require('../shared/rank-files');
 const { PACK_PARTS, RIGHTS, readNames, autoMap, layersToSvg } = require('../shared/pad-pack');
 const { FEATURES, TIERS, withinLimit } = require('../shared/features');
 const brand = require('../shared/brand');
+const { CHANGELOG, newerThan } = require('../shared/changelog');
+const { Discord } = require('./discord');
+const os = require('os');
 const lic = require('./license');
 const twitch = require('./connectors/twitch');
 const { oauthFlow, DAILY_QUOTA } = require('./connectors/youtube');
 const { TEMPLATES } = require('../shared/templates');
+const { PACKS, packInfo, sanitizePack } = require('../shared/packs');
+const { PAD_INPUTS } = require('./vpad');
+const { rconCall } = require('./rcon');
+const { RCON_PRESETS } = require('../shared/rcon-presets');
 const { THEMES } = require('../shared/themes');
 const { generateOverlay, sanitize, assistant, adaptElements } = require('./ai');
 const { BOSSES } = require('./games');
@@ -21,7 +29,7 @@ const { installRl, installCs2, rconSend, findRocketLeague, findCs2 } = require('
 
 const MEDIA_EXT = { image: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'], sound: ['mp3', 'wav', 'ogg', 'm4a'], video: ['mp4', 'webm'], visual: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'webm'] };
 
-const MODULES = [['goals', 'Goals'], ['battles', 'Battles'], ['chatgames', 'Mini-jeux et combats'], ['gifts', 'Cadeaux'], ['ranks', 'Classements et rangs'], ['gaming', 'Jeux'], ['sounds', 'Sons'], ['tts', 'TTS'], ['spotify', 'Spotify'], ['deck', 'Stream Deck'], ['scenes', 'Scènes OBS'], ['clips', 'Clips'], ['automations', 'Automatisations'], ['shop', 'Boutique'], ['assistant', 'Assistant IA']];
+const MODULES = [['goals', 'Objectifs'], ['battles', 'Duels'], ['chatgames', 'Mini-jeux et combats'], ['interactive', 'Live interactif'], ['gifts', 'Cadeaux'], ['ranks', 'Classements et rangs'], ['gaming', 'Jeux'], ['sounds', 'Sons'], ['tts', 'Synthèse vocale'], ['spotify', 'Spotify'], ['deck', 'Télécommande'], ['scenes', 'Scènes OBS'], ['clips', 'Clips'], ['automations', 'Automatisations'], ['shop', 'Boutique'], ['assistant', 'Assistant IA']];
 
 function createApi(ctx) {
   const { file, vault, engine, server, spotify, tts, stats, obs, license, input, mediaDir, push, win, viewers, applyHotkeys, hub, logs, statsFile, viewersFile, openDock, updater } = ctx;
@@ -30,20 +38,33 @@ function createApi(ctx) {
   const needAdmin = () => { if (license.realRole() !== 'admin') throw new Error('Réservé à l\'admin.'); };
   const find = (list, id, what) => { const x = list.find((i) => i.id === id); if (!x) throw new Error(`${what} introuvable.`); return x; };
 
+  // Liens et QR codes pour ouvrir la télécommande et le chat sur un téléphone du même Wi-Fi.
+  async function phoneLinks() {
+    const QR = require('qrcode');
+    const host = server.lan ? server.lanHost() : '';
+    const base = host ? `http://${host}:${server.port}` : '';
+    const deck = base ? `${base}/deck?k=${server.token}` : '';
+    const dock = base ? `${base}/dock?k=${server.token}` : '';
+    const opt = { margin: 1, width: 320, errorCorrectionLevel: 'M', color: { dark: '#0B0D12', light: '#FFFFFF' } };
+    return { lan: Boolean(server.lan), host, deck, dock, deckQr: deck ? await QR.toDataURL(deck, opt) : '', dockQr: dock ? await QR.toDataURL(dock, opt) : '' };
+  }
+
   const snapshot = () => ({
     brand: { name: brand.name, tagline: brand.tagline, version: brand.version, spotifyRedirect: brand.spotifyRedirect },
+    changelog: CHANGELOG, whatsNew: s().settings.onboarded && s().settings.lastSeenVersion !== brand.version ? newerThan(s().settings.lastSeenVersion, brand.version) : [],
     role: license.role(), realRole: license.realRole(), licenseInfo: license.info(), machineId: license.machine, features: engine.features(), featureDefs: FEATURES,
     remote: license.publicRemote(), channels: engine.channels(), overlays: s().overlays.map(overlayView), overlayTypes: OVERLAY_TYPES,
     alerts: s().alerts, eventTypes: EVENT_TYPES, goals: s().goals, battle: s().battle, commands: s().commands, triggers: s().triggers, tts: s().tts,
     spotify: { ...s().spotify, connected: spotify.connected, state: spotify.state }, tools: s().tools, poll: engine.pollView(),
     timers: s().tools.timers.map((t) => engine.timerView(t)), obs: { ...s().obs, password: '', hasPassword: Boolean(s().obs.password), state: obs.state, detail: obs.detail, streaming: obs.streaming },
-    settings: s().settings, keys: keyStatus(), feed: engine.feed.slice(-120), gifts: engine.gifts, port: server.port, quota: { used: engine.quota().used(), max: DAILY_QUOTA }, inputAvailable: input.available,
+    settings: s().settings, keys: keyStatus(), feed: engine.feed.slice(-120), gifts: engine.giftsForApp(), giftCacheAt: s().giftCacheAt || 0, port: server.port, quota: { used: engine.quota().used(), max: DAILY_QUOTA }, inputAvailable: input.available,
     media: listMedia(), admin: license.realRole() === 'admin' && license.isAdmin() ? { draft: s().adminDraft, issued: s().issuedKeys } : null,
-    ranks: s().ranks, rewards: s().rewards, arena: s().arena, boss: s().boss, gaming: s().gaming, sounds: s().sounds, deck: s().deck, clips: s().clips, scenes: s().scenes, keysCfg: s().keys,
+    ranks: s().ranks, rewards: s().rewards, chatPlays: s().chatPlays, plinko: s().plinko, discord: { ...s().discord, hasHook: Boolean(vault.get('key:discordWebhook')) }, arena: s().arena, boss: s().boss, gaming: s().gaming, sounds: s().sounds, deck: s().deck, clips: s().clips, scenes: s().scenes, keysCfg: s().keys, recapCfg: s().recap, chatTranslate: s().chatTranslate, hasDeepl: Boolean(vault.get('key:deeplKey')), vpadCfg: { ...(s().vpad || {}), ...(engine.vpad ? engine.vpad.status() : { state: 'off', error: '' }) }, padInputs: PAD_INPUTS, rconPresets: RCON_PRESETS,
     session: viewers.giftView(), boards: viewers.boards(10), vars: engine.liveVars(), templates: allTemplates(), themes: THEMES, bosses: BOSSES, keyNames: keyNames(), overlayToken: s().settings.overlayToken,
     gameCatalog: GAMES, statLabels: STAT_LABEL, gameView: engine.gameView(), gameRunning: hub.running, gameLinks: hub.linked, gameLive: engine.gameLive, goalHistory: s().goalHistory, minigame: engine.minigames.view(), minigames: s().minigames,
     padPacks: s().padPacks || [], packParts: PACK_PARTS.map(({ key, label }) => ({ key, label })), packRights: RIGHTS, pads: input.pads(), colorways: COLORWAYS, finishGroups: FINISH_GROUPS, padZones: PAD_ZONES, padZoneNames: PAD_ZONE_NAMES, modules: MODULES, tiers: TIERS, deckLink: server.deckLink(), spotifyHistory: spotify.history,
     updater: updater ? updater.status : { state: 'idle' }, brb: engine.brb || { active: false, startedAt: 0, elapsed: 0 },
+    wheel: engine.fun.wheelView(), likeRace: engine.fun.raceView(), shop: engine.games.shopView(), packs: [...PACKS, ...(s().customPacks || [])].map(packInfo), installedPacks: s().installedPacks || {},
   });
 
   const allTemplates = () => [...TEMPLATES, ...(license.remoteConfig().templates || []).map((t) => ({ ...t, community: true }))];
@@ -64,13 +85,26 @@ function createApi(ctx) {
   };
 
   const overlayView = (o) => ({ ...o, link: server.link(o.id), lanLink: server.lanLink(o.id), connected: server.connectedCount(o.id) });
+  // Copie de sécurité automatique avant un changement en masse (pack, import) : les dix dernières sont gardées.
+  const backupDir = () => { try { return path.join(app.getPath('userData'), 'backups'); } catch { return path.join(require('os').tmpdir(), 'regie-backups'); } };
+  function backupConfig(why) {
+    try {
+      const dir = backupDir();
+      fs.mkdirSync(dir, { recursive: true });
+      const { issuedKeys, adminDraft, ...state } = s();
+      const name = `auto-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+      fs.writeFileSync(path.join(dir, name), JSON.stringify({ format: 'regie-backup-1', version: brand.version, why, state }));
+      const old = fs.readdirSync(dir).filter((f) => f.startsWith('auto-')).sort().reverse().slice(10);
+      for (const f of old) fs.unlinkSync(path.join(dir, f));
+    } catch { /* une copie ratée ne bloque rien */ }
+  }
 
   const keyStatus = () => {
     const d = license.apiDefaults();
     const has = (k) => Boolean(vault.get(`key:${k}`));
     const out = {};
     for (const k of ['twitchClientId', 'youtubeClientId', 'spotifyClientId']) out[k] = vault.get(`key:${k}`) || '';
-    for (const k of ['youtubeClientSecret', 'eulerKey', 'elevenKey', 'anthropicKey']) out[k] = has(k);
+    for (const k of ['youtubeClientSecret', 'eulerKey', 'elevenKey', 'anthropicKey', 'deeplKey']) out[k] = has(k);
     out.provided = { twitchClientId: Boolean(d.twitchClientId), youtubeClientId: Boolean(d.youtubeClientId), spotifyClientId: Boolean(d.spotifyClientId) };
     return out;
   };
@@ -101,6 +135,81 @@ function createApi(ctx) {
     copy(text) { clipboard.writeText(String(text)); return true; },
     openExternal(url) { if (/^https:\/\//.test(url)) shell.openExternal(url); return true; },
     finishOnboarding() { s().settings.onboarded = true; file.save(); return true; },
+    // Scène verticale tirée de la scène horizontale : les overlays gardent leur ordre de haut en bas,
+    // empilés et centrés dans 1080 de large, réduits ensemble si la colonne dépasse 1920 de haut.
+    autoVertical(layout = '') {
+      const st = s();
+      const h = st.overlays.find((x) => x.type === 'scene');
+      let v = st.overlays.find((x) => x.type === 'scenev');
+      if (!v) v = engine.addOverlay('scenev');
+      const src = ((layout && h?.settings.layouts?.[layout]) || h?.settings.items || []).filter((it) => st.overlays.some((o) => o.id === it.id));
+      const sizeOf = (o) => (o.type === 'custom' && o.settings.format === '9:16' ? [1080, 1920] : OVERLAY_TYPES[o.type]?.size || [1920, 1080]);
+      const rows = [...src].sort((a, b) => (a.y - b.y) || (a.x - b.x)).map((it) => {
+        const o = st.overlays.find((x) => x.id === it.id);
+        const [w, hh] = sizeOf(o);
+        const k = Math.min(1, Math.max(it.k || 1, 0.5) * 1.15, 1020 / w);
+        return { id: it.id, w, h: hh, k };
+      });
+      const GAP = 24;
+      const total = rows.reduce((n, r) => n + r.h * r.k, 0) + GAP * Math.max(0, rows.length - 1) + 120;
+      const shrink = total > 1920 ? 1920 / total : 1;
+      let y = 60 * shrink;
+      const items = rows.map((r, i) => {
+        const k = Math.round(r.k * shrink * 100) / 100;
+        const it = { id: r.id, x: Math.round((1080 - r.w * k) / 2), y: Math.round(y), k, z: i + 1 };
+        y += r.h * k + GAP * shrink;
+        return it;
+      });
+      if (layout) v.settings.layouts = { ...(v.settings.layouts || {}), [layout]: items }; else v.settings.items = items;
+      v.enabled = true;
+      file.save();
+      engine.pushOverlayConfig(v);
+      push('snapshot', snapshot());
+      return overlayView(v);
+    },
+    // Assistant de démarrage : chaînes, jeu, style de live et thème, puis packs, overlays et scène posés d'un coup.
+    runSetup(cfg = {}) {
+      const st = s();
+      const done = { accounts: [], packs: [], errors: [] };
+      backupConfig('avant l\'assistant de démarrage');
+      if (cfg.lang) api.setUiLang(cfg.lang);
+      for (const a of (cfg.accounts || []).slice(0, 4)) {
+        if (!a.username || st.accounts.some((x) => x.platform === a.platform)) continue;
+        try {
+          const field = a.platform === 'youtube' ? { channel: a.username } : { username: a.username };
+          api.addAccount({ platform: a.platform, ...field });
+          done.accounts.push(a.platform);
+        } catch (e) { done.errors.push(e.message); }
+      }
+      const game = GAMES.find((g) => g.id === cfg.game) ? cfg.game : null;
+      if (game) engine.setActiveGame(game, false);
+      // Packs choisis selon le style et le jeu.
+      const fam = { minecraft: 'minecraft', rocketleague: 'rocketleague', valorant: 'fps', cs2: 'fps', cod: 'fps', fortnite: 'fps', apex: 'fps', r6: 'fps', overwatch: 'fps', rivals: 'fps' }[game] || null;
+      const packs = [];
+      if (cfg.style !== 'calme') packs.push(fam === 'minecraft' ? 'minecraft' : fam === 'rocketleague' ? 'rocketleague' : fam === 'fps' ? 'fps' : 'defis');
+      if (cfg.style === 'max') packs.push((cfg.accounts || []).some((a) => a.platform === 'tiktok') ? 'tiktok' : 'soiree');
+      for (const id of packs) { try { api.installPack(id); done.packs.push(id); } catch (e) { done.errors.push(e.message); } }
+      // Overlays de base, puis la scène complète : chaque overlay posé à sa place sur 1920 × 1080.
+      const want = ['alerts', 'chat', 'goal', ...(cfg.style !== 'calme' ? ['wheel'] : []), ...(cfg.style === 'max' ? ['likerace', 'avatars'] : [])];
+      for (const t of want) { let o = st.overlays.find((x) => x.type === t); if (!o) o = engine.addOverlay(t); o.enabled = true; }
+      if (cfg.theme) engine.applyTheme(cfg.theme);
+      const SPOTS = { alerts: [560, 40, 0.8], chat: [1460, 300, 0.75], goal: [40, 40, 0.7], wheel: [1500, 640, 0.48], likerace: [40, 760, 0.55], avatars: [0, 760, 0.85] };
+      const scene = st.overlays.find((x) => x.type === 'scene');
+      if (scene) {
+        const items = want.map((t, i) => { const o = st.overlays.find((x) => x.type === t); const [x, y, k] = SPOTS[t] || [100, 100, 0.6]; return o ? { id: o.id, x, y, k, z: i + 1 } : null; }).filter(Boolean);
+        if (!(scene.settings.items || []).length) scene.settings.items = items;
+        if (game) scene.settings.layouts = { ...(scene.settings.layouts || {}), [game]: items };
+        api.autoVertical('');
+        if (game) api.autoVertical(game);
+      }
+      st.settings.onboarded = true;
+      st.settings.setupDone = true;
+      file.save();
+      engine.refreshAllOverlays();
+      push('snapshot', snapshot());
+      const vscene = st.overlays.find((x) => x.type === 'scenev');
+      return { ...done, scene: scene ? overlayView(scene) : null, vscene: vscene ? overlayView(vscene) : null };
+    },
 
     // ---- Rôles
     activateLicense(key) {
@@ -169,7 +278,7 @@ function createApi(ctx) {
 
     // ---- Clés d'API
     setKey(name, value) {
-      const allowed = ['twitchClientId', 'youtubeClientId', 'youtubeClientSecret', 'spotifyClientId', 'eulerKey', 'elevenKey', 'anthropicKey'];
+      const allowed = ['twitchClientId', 'youtubeClientId', 'youtubeClientSecret', 'spotifyClientId', 'eulerKey', 'elevenKey', 'anthropicKey', 'deeplKey'];
       if (!allowed.includes(name)) throw new Error('Clé inconnue');
       vault.set(`key:${name}`, String(value || '').trim());
       return keyStatus();
@@ -293,7 +402,159 @@ function createApi(ctx) {
       if (type === 'stage') server.broadcast({ t: 'show', item: { kind: 'text', text: 'Ceci est un essai', file: '', seconds: 4 } }, 'stage');
       if (type === 'gamecard') engine.pushGame();
       if (type === 'transition') server.broadcast({ t: 'transition', style: s().scenes.transitionStyle, ms: s().scenes.transitionMs }, 'transition');
+      if (type === 'wheel') engine.fun.wheelRequest({ type: 'custom', platform: 'tiktok', accountId: 'demo', user: { display: 'Léna', name: 'lena', id: 'demo-lena' } }, 'test');
+      if (type === 'likerace') {
+        if (engine.fun.race.status !== 'running') engine.fun.raceStart();
+        for (const n of ['Léna', 'Marius', 'Kenza', 'Yanis', 'Inès']) engine.simulate('like', 'tiktok', { user: n, fields: { amount: 20 + Math.floor(Math.random() * 120) } });
+      }
+      if (type === 'avatars') for (const k of ['chat', 'like', 'gift', 'follow']) engine.simulate(k, k === 'chat' || k === 'follow' ? 'twitch' : 'tiktok');
+      if (type === 'giftcannon' || type === 'coinjar') for (let i = 0; i < 4; i += 1) engine.simulate('gift', 'tiktok');
+      if (type === 'likefountain') for (let i = 0; i < 5; i += 1) engine.simulate('like', 'tiktok', { fields: { amount: 15 } });
+      if (type === 'lastx') { engine.simulate('follow', 'tiktok'); engine.simulate('gift', 'tiktok'); }
+      if (type === 'rankcard') engine.simulate('follow', 'twitch');
+      if (type === 'chatplays') {
+        const v = engine.play.playsView();
+        const c = v.commands;
+        const tallies = {};
+        c.forEach((x, i) => { tallies[x.id] = [9, 4, 2, 1][i] || 0; });
+        const first = c[0] || { id: 'x', label: 'Sauter', emoji: '🦘' };
+        server.broadcast({ t: 'chatplays', view: { ...v, enabled: true, tallies, voters: 16, round: v.mode === 'vote' ? { n: 1, endsAt: Date.now() + 4000 } : null, recent: [{ id: first.id, label: first.label, emoji: first.emoji, user: 'Léna', votes: 9, at: Date.now() }] }, fired: true }, 'chatplays');
+        setTimeout(() => engine.play.push(), 7000);
+      }
+      if (type === 'prediction') {
+        const demo = { status: 'open', question: 'On gagne cette partie ?', total: 4850, count: 23, closesAt: Date.now() + 60000, winner: -1, command: s().rewards.commandBet || '!parier', options: [{ label: 'Oui, facile', total: 3200, count: 15, pct: 0.66, ratio: 1.52, top: [{ name: 'Léna', amount: 1000 }] }, { label: 'Non, on perd', total: 1650, count: 8, pct: 0.34, ratio: 2.94, top: [{ name: 'Marius', amount: 500 }] }] };
+        server.broadcast({ t: 'prediction', view: demo }, 'prediction');
+        setTimeout(() => server.broadcast({ t: 'prediction', view: { ...demo, status: 'done', winner: 0 } }, 'prediction'), 4000);
+        setTimeout(() => engine.play.pushPrediction(), 10000);
+      }
+      if (type === 'welcome') {
+        const names = ['Kenza', 'Marius', 'Lena'];
+        names.forEach((n, i) => server.broadcast({ t: 'welcome', kind: 'join', who: { name: n, avatar: '', platform: 'tiktok', coins: [5400, 120, 0][i], gifts: 0, messages: [300, 40, 0][i], follows: 1, sub: i === 0, mod: false, top: i === 0 } }, 'welcome'));
+      }
       return true;
+    },
+    // ---- Packs prêts : tout ce qu'un pack ajoute porte son nom, pour le retirer proprement.
+    installPack(id) {
+      const pack = [...PACKS, ...(s().customPacks || [])].find((p) => p.id === id);
+      if (!pack) throw new Error('Pack introuvable.');
+      backupConfig(`avant le pack ${pack.name}`);
+      const st = s();
+      st.triggers = st.triggers.filter((t) => t.pack !== id);
+      st.commands = st.commands.filter((c) => c.pack !== id);
+      const copy = (x) => JSON.parse(JSON.stringify(x));
+      for (const t of pack.triggers) st.triggers.push({ enabled: true, cooldown: 0, conditions: [], ...copy(t), id: uid('d'), pack: id });
+      for (const c of pack.commands) {
+        st.commands = st.commands.filter((x) => x.trigger.toLowerCase() !== c.trigger.toLowerCase());
+        st.commands.push({ enabled: true, perm: 'all', cooldown: 30, userCooldown: 60, platforms: ALL, replyTo: 'origin', perPlatform: {}, actions: [], uses: 0, ...copy(c), id: uid('k'), pack: id });
+      }
+      if (pack.wheel) {
+        const w = st.tools.wheel;
+        const { segments, ...cfg } = copy(pack.wheel);
+        Object.assign(w, cfg, { enabled: true });
+        if (segments) w.segments = segments.map((x) => ({ ...x, id: uid('w') }));
+      }
+      if (pack.likeRace) Object.assign(st.tools.likeRace, copy(pack.likeRace));
+      if (pack.needs.includes('keys')) st.keys.enabled = true;
+      st.settings.modules = { ...(st.settings.modules || {}), interactive: true };
+      for (const type of pack.overlays) {
+        let o = st.overlays.find((x) => x.type === type);
+        if (!o) o = engine.addOverlay(type);
+        o.enabled = true;
+      }
+      st.installedPacks = { ...(st.installedPacks || {}), [id]: { at: Date.now() } };
+      file.save();
+      engine.fun.pushWheel();
+      engine.fun.pushRace();
+      engine.refreshAllOverlays();
+      push('snapshot', snapshot());
+      return { overlays: pack.overlays.map((t) => st.overlays.find((x) => x.type === t)).filter(Boolean).map(overlayView) };
+    },
+    // Actions par cadeau : une automatisation par cadeau, repérée par son identifiant ou son nom.
+    saveGiftAction(gift, patch = {}) {
+      need('giftTriggers', 'Les actions par cadeau sont réservées à PRO.');
+      const st = s();
+      const key = String(gift.id || gift.name || '');
+      if (!key) throw new Error('Cadeau inconnu.');
+      let t = st.triggers.find((x) => x.giftAction === key);
+      if (!t) {
+        t = { id: uid('d'), name: `🎁 ${gift.name || key}`, enabled: true, cooldown: 0, conditions: [], on: { type: 'gift', platforms: [], minAmount: 0, giftId: gift.id ? String(gift.id) : '', giftName: gift.id ? '' : String(gift.name || '') }, actions: [], giftAction: key, repeat: false };
+        st.triggers.push(t);
+      }
+      for (const k of ['actions', 'enabled', 'cooldown', 'repeat']) if (patch[k] !== undefined) t[k] = patch[k];
+      file.save();
+      return st.triggers;
+    },
+    deleteGiftAction(key) {
+      s().triggers = s().triggers.filter((x) => x.giftAction !== key);
+      file.save();
+      return s().triggers;
+    },
+    // Partage : ta config (ou une partie) devient un fichier .regiepack qu'un autre streamer importe.
+    async exportPack(opts = {}) {
+      const st = s();
+      const inc = { triggers: true, commands: true, wheel: true, likeRace: true, overlays: true, ...(opts.include || {}) };
+      const strip = (x) => { const { id, pack, uses, ...rest } = x; return rest; };
+      const d = {
+        format: 'regie-pack-1', id: String(opts.name || 'pack').toLowerCase().replace(/[^\w]+/g, '-').slice(0, 30), name: opts.name || 'Mon pack', blurb: opts.blurb || '', color: opts.color || '#8FD3FF', game: opts.game || 'any', author: opts.author || '',
+        needs: [], overlays: inc.overlays ? [...new Set(st.overlays.filter((o) => o.enabled !== false && o.type !== 'scene' && o.type !== 'scenev' && o.type !== 'custom').map((o) => o.type))] : [],
+        triggers: inc.triggers ? st.triggers.filter((t) => t.enabled !== false).map(strip) : [], commands: inc.commands ? st.commands.filter((c) => c.enabled !== false).map(strip) : [],
+        wheel: inc.wheel ? { ...st.tools.wheel } : null, likeRace: inc.likeRace ? { ...st.tools.likeRace } : null,
+      };
+      const all = JSON.stringify(d);
+      if (all.includes('"type":"key"')) d.needs.push('keys');
+      if (all.includes('"type":"rcon"')) d.needs.push('rcon');
+      if (all.includes('"type":"pad"')) d.needs.push('pad');
+      sanitizePack(d);
+      const r = await dialog.showSaveDialog(win(), { defaultPath: `${d.id || 'pack'}.regiepack`, filters: [{ name: 'Pack Régie', extensions: ['regiepack'] }] });
+      if (r.canceled) return false;
+      fs.writeFileSync(r.filePath, JSON.stringify(d, null, 1));
+      return true;
+    },
+    async importPack() {
+      const r = await dialog.showOpenDialog(win(), { filters: [{ name: 'Pack Régie', extensions: ['regiepack', 'json'] }], properties: ['openFile'] });
+      if (r.canceled) return null;
+      if (fs.statSync(r.filePaths[0]).size > 2e6) throw new Error('Ce fichier est trop gros pour un pack.');
+      let d;
+      try { d = JSON.parse(fs.readFileSync(r.filePaths[0], 'utf8')); } catch { throw new Error('Ce fichier n\'est pas un pack Régie.'); }
+      const pack = sanitizePack(d);
+      pack.overlays = pack.overlays.filter((t) => OVERLAY_TYPES[t]);
+      const st = s();
+      st.customPacks = [...(st.customPacks || []).filter((p) => p.id !== pack.id), pack].slice(-40);
+      file.save();
+      push('snapshot', snapshot());
+      return packInfo(pack);
+    },
+    deleteCustomPack(id) {
+      const st = s();
+      st.triggers = st.triggers.filter((t) => t.pack !== id);
+      st.commands = st.commands.filter((c) => c.pack !== id);
+      st.customPacks = (st.customPacks || []).filter((p) => p.id !== id);
+      if (st.installedPacks) delete st.installedPacks[id];
+      file.save();
+      push('snapshot', snapshot());
+      return true;
+    },
+    removePack(id) {
+      const st = s();
+      st.triggers = st.triggers.filter((t) => t.pack !== id);
+      st.commands = st.commands.filter((c) => c.pack !== id);
+      if (st.installedPacks) delete st.installedPacks[id];
+      file.save();
+      push('snapshot', snapshot());
+      return true;
+    },
+    wheelControl(action, arg) { const r = engine.fun.wheelControl(action, arg); return { ...r }; },
+    wheelView() { return engine.fun.wheelView(); },
+    raceControl(action, arg) { const r = engine.fun.raceControl(action, arg); return { ...r }; },
+    raceView() { return engine.fun.raceView(); },
+    // Langue de l'interface : les overlays en « Comme l'appli » suivent.
+    setUiLang(lang) {
+      const l = lang === 'en' ? 'en' : 'fr';
+      if (s().settings.uiLang === l) return l;
+      s().settings.uiLang = l;
+      file.save();
+      engine.refreshAllOverlays();
+      return l;
     },
     removeOverlay(id) { s().overlays = s().overlays.filter((o) => o.id !== id); file.save(); return s().overlays.map(overlayView); },
     duplicateOverlay(id) {
@@ -373,6 +634,14 @@ function createApi(ctx) {
       return s().overlays.map(overlayView);
     },
     setLan(lan) { s().settings.lan = Boolean(lan); file.save(); return { restart: true }; },
+    phoneLinks() { return phoneLinks(); },
+    // Ouvre (ou ferme) le serveur au Wi-Fi sans redémarrer Régie : les overlays se reconnectent seuls.
+    async setLanLive(on) {
+      s().settings.lan = Boolean(on);
+      file.save();
+      if (server.lan !== Boolean(on)) { server.lan = Boolean(on); await server.stop(); await server.start(); }
+      return phoneLinks();
+    },
     setInputPaused(p) { s().settings.inputPaused = Boolean(p); input.setPaused(Boolean(p)); file.save(); return true; },
 
     // ---- Overlays personnalisés
@@ -447,23 +716,35 @@ function createApi(ctx) {
     async aiAssist(kind, prompt) {
       need('aiAssistant', 'L\'assistant est réservé à ULTIMATE.');
       const context = { jeu: engine.gameView().name, lives: stats.lives(10).map((l) => ({ duree_min: Math.round((l.end - l.start) / 60000), pic: l.peak, follows: l.follows, messages: l.messages, pieces: l.coins })), commandes: s().commands.map((c) => c.trigger), overlays: s().overlays.filter((o) => o.enabled !== false).length, automatisations: s().triggers.length };
-      return assistant({ key: vault.get('key:anthropicKey'), kind, prompt, context });
+      return assistant({ key: vault.get('key:anthropicKey'), kind, prompt, context, lang: s().settings.uiLang });
     },
-    applyTheme(id) { engine.applyTheme(id); return s().overlays.map(overlayView); },
+    applyTheme(id, overlayId) { engine.applyTheme(id, overlayId); return s().overlays.map(overlayView); },
 
     // ---- Spectateurs, rangs, récompenses
     resetSession() { viewers.reset(); engine.pushLive(); return true; },
-    updateRanks(patch) { Object.assign(s().ranks, patch); file.save(); return s().ranks; },
-    testRank() { engine.simulate('follow', 'twitch'); return true; },
-    updateRewards(patch) { Object.assign(s().rewards, patch); file.save(); return s().rewards; },
+    updateRanks(patch) {
+      Object.assign(s().ranks, patch);
+      file.save();
+      // Les overlays Suivi = Rang reprennent tout de suite le jeu, les rangs et le mode choisis.
+      for (const o of s().overlays.filter((x) => x.type === 'rankcard')) engine.pushOverlayConfig(o);
+      return s().ranks;
+    },
+    testRank(rankId = '') { engine.simulate('follow', 'twitch', rankId ? { fields: { forceRank: rankId } } : {}); return true; },
+    giveRank(name, rankId) { return engine.games.giveRank(name, rankId); },
+    // Rangs du jeu choisi, avec leur réglage (peut sortir, chance) et l'image installée.
+    rankChoices() { return engine.games.rankPool(true); },
+    updateRewards(patch) { Object.assign(s().rewards, patch); file.save(); engine.games.pushShop(); return s().rewards; },
+    shopView() { return engine.games.shopView(); },
+    testShop(id) { const r = s().rewards.list.find((x) => x.id === id) || s().rewards.list[0]; if (!r) throw new Error('Ajoute une récompense.'); engine.games.redeem({ type: 'chat', platform: 'twitch', accountId: 'demo', channel: 'Régie', user: { id: 'demo-lena', name: 'lena', display: 'Léna' } }, { ...r, cost: 0, cooldown: 0, userCooldown: 0 }, 'Un message de test'); return true; },
     saveReward(r) {
       const list = s().rewards.list;
       const i = list.findIndex((x) => x.id === r.id);
-      if (i >= 0) list[i] = { ...list[i], ...r }; else list.push({ enabled: true, actions: [], ...r, id: uid('w') });
+      if (i >= 0) list[i] = { ...list[i], ...r }; else list.push({ enabled: true, actions: [], emoji: '🎁', ...r, id: uid('w') });
       file.save();
+      engine.games.pushShop();
       return s().rewards;
     },
-    removeReward(id) { s().rewards.list = s().rewards.list.filter((r) => r.id !== id); file.save(); return s().rewards; },
+    removeReward(id) { s().rewards.list = s().rewards.list.filter((r) => r.id !== id); file.save(); engine.games.pushShop(); return s().rewards; },
 
     // ---- Chat Battle et Boss Battle
     arena(action, cfg) {
@@ -526,6 +807,67 @@ function createApi(ctx) {
       engine.pushGame();
       return { gaming: s().gaming, ...out };
     },
+    // Vrais emblèmes : téléchargés depuis leurs sources publiques et rangés rang par rang.
+    async installOfficialRanks(gameId, opts = {}) {
+      const { net } = require('electron');
+      const ids = gameId === 'all' ? GAMES.map((g) => g.id).filter(hasOfficial) : [gameId].filter(hasOfficial);
+      const out = { done: 0, failed: [], games: 0 };
+      const EXT = { 'image/png': 'png', 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/svg+xml': 'svg' };
+      // En automatique, une image importée par le streamer (pas « off_ ») reste en place.
+      const keepsOwn = (store, key) => opts.auto && store[key] && !String(store[key]).startsWith('off_');
+      const put = (store, key, name) => {
+        const old = store[key];
+        if (old && old !== name && old.startsWith('off_')) { try { fs.unlinkSync(path.join(mediaDir, old)); } catch { /* déjà parti */ } }
+        store[key] = name;
+      };
+      const grab = async (url) => {
+        const res = await net.fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Regie', Accept: 'image/png,image/*;q=0.9' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const type = String(res.headers.get('content-type') || '').split(';')[0].trim();
+        if (!EXT[type]) throw new Error(`pas une image (${type || 'inconnu'})`);
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length < 200 || buf.length > 8 * 1024 * 1024) throw new Error('taille inattendue');
+        return { buf, ext: EXT[type] };
+      };
+      for (const id of ids) {
+        const game = GAMES.find((g) => g.id === id);
+        if (!game) continue;
+        const store = s().gaming.rankImages[id] || (s().gaming.rankImages[id] = {});
+        out.games += 1;
+        if (id === 'cs2') {
+          for (const t of game.ranks) { if (keepsOwn(store, t.id)) continue; const name = `off_cs2_${t.id}.svg`; fs.writeFileSync(path.join(mediaDir, name), cs2Plate(t.id)); put(store, t.id, name); out.done += 1; }
+          continue;
+        }
+        const jobs = [];
+        for (const [tier, v] of Object.entries(RANK_SOURCES[id].tiers)) {
+          if (typeof v === 'string') jobs.push({ key: tier, url: v });
+          else { jobs.push({ key: tier, url: v.tier }); for (const [d, u] of Object.entries(v.div || {})) jobs.push({ key: `${tier}:${d}`, url: u }); }
+        }
+        for (let j = jobs.length - 1; j >= 0; j -= 1) if (keepsOwn(store, jobs[j].key) || keepsOwn(store, jobs[j].key.split(':')[0])) jobs.splice(j, 1);
+        const cache = new Map();
+        let i = 0;
+        const worker = async () => {
+          while (i < jobs.length) {
+            const job = jobs[i]; i += 1;
+            try {
+              if (!cache.has(job.url)) cache.set(job.url, grab(job.url));
+              const { buf, ext } = await cache.get(job.url);
+              const name = `off_${id}_${job.key.replace(':', '-')}.${ext}`;
+              fs.writeFileSync(path.join(mediaDir, name), buf);
+              put(store, job.key, name);
+              out.done += 1;
+            } catch (e) {
+              out.failed.push(`${game.name} ${job.key} (${e.message})`);
+            }
+          }
+        };
+        await Promise.all([1, 2, 3, 4, 5, 6].map(worker));
+        file.save();
+      }
+      file.save();
+      engine.pushGame();
+      return { gaming: s().gaming, ...out };
+    },
     removeRankImage(gameId, tierId) {
       const images = s().gaming.rankImages[gameId] || {};
       for (const key of Object.keys(images)) if (key === tierId || key.startsWith(`${tierId}:`)) delete images[key];
@@ -544,6 +886,22 @@ function createApi(ctx) {
       const rl = findRocketLeague();
       const cs = findCs2();
       return { rl: Boolean(rl) && fs.existsSync(path.join(rl, 'TAGame', 'Config', 'TAStatsAPI.ini')), rlFound: Boolean(rl), cs2: Boolean(cs) && fs.existsSync(path.join(cs, 'gamestate_integration_regie.cfg')), cs2Found: Boolean(cs) };
+    },
+    saveServers(list) {
+      need('rcon', 'Les serveurs de jeu sont réservés à PRO.');
+      s().gaming.servers = (Array.isArray(list) ? list : []).slice(0, 20).map((x) => ({
+        id: String(x.id || uid('srv')), preset: RCON_PRESETS[x.preset] ? x.preset : 'other', name: String(x.name || RCON_PRESETS[x.preset]?.name || 'Serveur').slice(0, 60),
+        kind: ['source', 'webrcon', 'telnet'].includes(x.kind) ? x.kind : (RCON_PRESETS[x.preset]?.kind || 'source'),
+        host: String(x.host || '127.0.0.1').slice(0, 200), port: Math.max(1, Math.min(65535, Number(x.port) || RCON_PRESETS[x.preset]?.port || 27015)), password: String(x.password || '').slice(0, 200),
+      }));
+      file.save();
+      return s().gaming;
+    },
+    async testServer(id) {
+      need('rcon', 'Les serveurs de jeu sont réservés à PRO.');
+      const srv = (s().gaming.servers || []).find((x) => x.id === id);
+      if (!srv) throw new Error('Serveur introuvable.');
+      return rconCall(srv, srv.kind === 'webrcon' ? 'serverinfo' : srv.kind === 'telnet' ? 'version' : (srv.preset === 'ark' ? 'ListPlayers' : srv.preset === 'palworld' ? 'Info' : 'status'));
     },
     async testRcon() {
       need('rcon', 'Les actions Minecraft sont réservées à PRO.');
@@ -586,6 +944,19 @@ function createApi(ctx) {
 
     // ---- Touches simulées
     setKeysEnabled(enabled) { s().keys.enabled = Boolean(enabled); file.save(); return s().keys; },
+    setVpadEnabled(enabled) {
+      s().vpad = { ...(s().vpad || {}), enabled: Boolean(enabled) };
+      file.save();
+      if (!engine.vpad) return { ...s().vpad, state: 'off', error: '' };
+      const st = enabled ? engine.vpad.start() : engine.vpad.stop();
+      return { ...s().vpad, ...st };
+    },
+    vpadStatus() { return { ...(s().vpad || {}), ...(engine.vpad ? engine.vpad.status() : { state: 'off', error: '' }) }; },
+    testPad(input) {
+      if (!s().vpad?.enabled) throw new Error('Active d\'abord la manette virtuelle.');
+      if (!engine.allowed('keystrokes')) throw new Error('La manette virtuelle est réservée à PRO.');
+      return engine.vpad.press(input || 'a', 150);
+    },
     testKey(key) { if (!engine.pressKey(key, 60)) throw new Error('Active d\'abord les touches simulées.'); return true; },
 
     // ---- Stream Deck
@@ -637,7 +1008,7 @@ function createApi(ctx) {
 
     // ---- Goals
     addGoal(cfg) {
-      if (!withinLimit(engine.features().goals, s().goals.length)) throw new Error('La version FREE gère un goal. Passe en PRO pour en ajouter.');
+      if (!withinLimit(engine.features().goals, s().goals.length)) throw new Error('La version FREE gère un objectif. Passe en PRO pour en ajouter.');
       const g = { id: uid('g'), title: cfg.title || 'Objectif', metric: cfg.metric || 'follow', platforms: cfg.platforms || [], current: Number(cfg.current) || 0, target: Number(cfg.target) || 100, autoStep: Number(cfg.autoStep) || 0, reached: false };
       s().goals.push(g);
       let o = null;
@@ -650,7 +1021,7 @@ function createApi(ctx) {
       return { goals: s().goals, overlay: o ? overlayView(o) : null };
     },
     updateGoal(id, patch) {
-      const g = find(s().goals, id, 'Goal');
+      const g = find(s().goals, id, 'Objectif');
       Object.assign(g, patch);
       if (g.current < g.target) g.reached = false;
       engine.pushGoals();
@@ -665,7 +1036,7 @@ function createApi(ctx) {
 
     // ---- Battles
     updateBattle(patch) {
-      if (patch.mode && patch.mode !== 'chat') need('battleAllModes', 'Ce mode de battle est réservé à PRO.');
+      if (patch.mode && patch.mode !== 'chat') need('battleAllModes', 'Ce mode de duel est réservé à PRO.');
       Object.assign(s().battle, patch);
       engine.pushBattle();
       return s().battle;
@@ -773,7 +1144,7 @@ function createApi(ctx) {
       return s().tools;
     },
     updateTimer(id, patch) {
-      if (patch.subathon?.enabled) need('subathon', 'Le minuteur Giftathon est réservé à PRO.');
+      if (patch.subathon?.enabled) need('subathon', 'Le minuteur de marathon de cadeaux est réservé à PRO.');
       const t = find(s().tools.timers, id, 'Minuteur');
       if (patch.subathon) patch.subathon = { ...t.subathon, ...patch.subathon };
       Object.assign(t, patch);
@@ -786,6 +1157,7 @@ function createApi(ctx) {
     startPoll(cfg) { engine.startPoll(cfg); return engine.pollView(); },
     endPoll() { engine.endPoll(); return engine.pollView(); },
     giveaway(action, cfg) { engine.giveawayControl(action, cfg); return s().tools.giveaway; },
+    queue(action, arg) { return engine.queueControl(action, arg); },
 
     // ---- OBS
     openDock() { openDock(); return true; },
@@ -839,16 +1211,36 @@ function createApi(ctx) {
     updateScenes(patch) { if (patch.useTransition) need('customTransitions', 'Les transitions personnalisées sont réservées à PRO.'); Object.assign(s().scenes, patch); file.save(); return s().scenes; },
 
     // ---- Cadeaux
+    // Catalogue officiel des cadeaux TikTok, images gardées sur le PC.
     async loadGifts() {
-      const c = [...engine.connectors.values()].find((x) => x.fetchGifts);
-      const account = s().accounts.find((a) => a.platform === 'tiktok');
-      if (!c && !account) throw new Error('Connecte une chaîne TikTok pour charger le catalogue.');
-      const list = await (c || engine.makeConnector(account)).fetchGifts();
-      engine.gifts = list;
-      s().giftCache = list;
-      file.save();
-      return list;
+      await engine.refreshGiftCatalog(null, true);
+      return engine.giftsForApp();
     },
+    // ---- Le chat joue, paris
+    playsControl(action, patch) { return engine.play.playsControl(action, patch); },
+    playsView() { return engine.play.playsView(); },
+    predictionView() { return engine.play.predictionView(); },
+    predictionOpen(data) { return engine.play.predictionOpen(data || {}); },
+    predictionLock() { return engine.play.predictionLock(); },
+    predictionResolve(i) { return engine.play.predictionResolve(i); },
+    predictionCancel() { return engine.play.predictionCancel(); },
+    predictionSimulate() { return engine.play.predictionSimulate(); },
+    updateDiscord(patch = {}) {
+      const d = s().discord;
+      for (const k of ['enabled', 'onLive', 'onRecap', 'mention', 'roleId', 'liveText', 'liveTitle', 'recapText', 'botName']) if (patch[k] !== undefined) d[k] = patch[k];
+      if (patch.webhook !== undefined) {
+        const url = String(patch.webhook || '').trim();
+        if (url && !Discord.valid(url)) throw new Error('Ce lien ne ressemble pas à un webhook Discord (https://discord.com/api/webhooks/…).');
+        vault.set('key:discordWebhook', url || null);
+      }
+      file.save();
+      return { ...d, hasHook: Boolean(vault.get('key:discordWebhook')) };
+    },
+    async testDiscord(kind) { await engine.discord.test(kind); return true; },
+    plinkoControl(action, patch) { return engine.plinko.control(action, patch); },
+    plinkoView() { return engine.plinko.view(); },
+    plinkoTest(n = 1) { return engine.plinko.test(n); },
+    giftCatalogInfo() { return { count: (engine.gifts || []).length, updatedAt: s().giftCacheAt || 0, local: (engine.gifts || []).filter((g) => g.file).length }; },
 
     // ---- Stats
     statsReport() { return stats.report(engine.features().statsDays); },
@@ -916,6 +1308,25 @@ function createApi(ctx) {
       fs.writeFileSync(r.filePath, JSON.stringify({ format: 'regie-backup-1', version: brand.version, state, stats: statsFile.data, viewers: viewersFile.data }));
       return true;
     },
+    recapNow() { return engine.buildRecap(); },
+    updateChatTranslate(patch) { s().chatTranslate = { ...(s().chatTranslate || {}), ...patch }; file.save(); return s().chatTranslate; },
+    async testTranslate(text) { const c = s().chatTranslate || {}; const target = !c.target || c.target === 'auto' ? (s().settings.uiLang === 'en' ? 'en' : 'fr') : c.target; const r = await engine.translator.translate(text || (target === 'fr' ? 'Hello everyone, how are you today?' : 'Bonjour tout le monde, ça va ?'), target, c.engine); if (!r) throw new Error('Pas de traduction : vérifie ta connexion ou ta clé.'); return r; },
+    simulateLive(on, seconds) { return engine.simulateLive(on, seconds); },
+    updateRecap(patch) { s().recap = { ...(s().recap || {}), ...patch }; file.save(); return s().recap; },
+    autoBackups() {
+      try { return fs.readdirSync(backupDir()).filter((f) => f.startsWith('auto-')).sort().reverse().map((f) => { const d = JSON.parse(fs.readFileSync(path.join(backupDir(), f), 'utf8')); return { file: f, why: d.why || '', at: fs.statSync(path.join(backupDir(), f)).mtimeMs }; }); } catch { return []; }
+    },
+    restoreAutoBackup(name) {
+      if (!/^auto-[\w-]+\.json$/.test(name)) throw new Error('Copie introuvable.');
+      const d = JSON.parse(fs.readFileSync(path.join(backupDir(), name), 'utf8'));
+      if (d.format !== 'regie-backup-1') throw new Error('Copie illisible.');
+      backupConfig('avant une restauration');
+      Object.assign(file.data, d.state);
+      file.flush();
+      app.relaunch();
+      app.exit(0);
+      return true;
+    },
     async restore() {
       const r = await dialog.showOpenDialog(win(), { filters: [{ name: 'Sauvegarde Régie', extensions: ['json'] }], properties: ['openFile'] });
       if (r.canceled) return false;
@@ -940,6 +1351,40 @@ function createApi(ctx) {
 
     // ---- Mises à jour
     async checkUpdate() { if (updater) await updater.check(); return updater ? updater.status : { state: 'idle' }; },
+    markSeen() { s().settings.lastSeenVersion = brand.version; file.save(); return true; },
+
+    // Un seul fichier à m'envoyer quand quelque chose ne marche pas : versions, journal et config,
+    // sans jetons, mots de passe, clés ni liens privés.
+    async bugReport(note = '') {
+      const SECRET = /token|secret|password|passwd|pass$|apikey|api_key|key$|^key|cookie|session|auth|webhook|bearer|refresh|clientsecret|license|vault|deepl|openai|stream_?key/i;
+      const clean = (v, k = '', depth = 0) => {
+        if (depth > 12) return '…';
+        if (SECRET.test(k) && v !== '' && v !== false && v != null && typeof v !== 'object') return '•••';
+        if (Array.isArray(v)) return v.slice(0, 300).map((x) => clean(x, '', depth + 1));
+        if (v && typeof v === 'object') { const o = {}; for (const [kk, vv] of Object.entries(v)) o[kk] = SECRET.test(kk) && vv && typeof vv === 'object' ? '•••' : clean(vv, kk, depth + 1); return o; }
+        if (typeof v === 'string') return v.replace(/(https?:\/\/[^\s"']*?[?&](k|key|token|t)=)[^&\s"']+/gi, '$1•••').replace(/discord(app)?\.com\/api\/webhooks\/[^\s"']+/gi, 'discord.com/api/webhooks/•••').slice(0, 4000);
+        return v;
+      };
+      let logText = '';
+      try { const f = path.join(app.getPath('userData'), 'regie.log'); if (fs.existsSync(f)) logText = fs.readFileSync(f, 'utf8').split('\n').slice(-1500).join('\n'); } catch { /* journal facultatif */ }
+      const { overlayToken, ...settings } = s().settings;
+      const report = {
+        kind: 'regie-bug-report', createdAt: new Date().toISOString(), note: String(note).slice(0, 2000),
+        app: { version: brand.version, electron: process.versions.electron, node: process.versions.node, chrome: process.versions.chrome, packaged: app.isPackaged, updater: updater?.status || null },
+        system: { platform: process.platform, release: os.release(), arch: process.arch, cpus: os.cpus().length, memoryGb: Math.round(os.totalmem() / 1e9), lang: app.getLocale?.() },
+        state: { role: license.role(), channels: engine.channels().map((c) => ({ platform: c.platform, state: c.status?.state, error: c.status?.error || '' })), obs: { state: obs.state, detail: obs.detail }, overlays: s().overlays.map((o) => ({ type: o.type, enabled: o.enabled })), gifts: (s().giftCache || []).length, clients: server.clients?.size || 0 },
+        settings: clean(settings),
+        config: clean(Object.fromEntries(Object.entries(s()).filter(([k]) => !['settings', 'giftCache', 'license', 'issuedKeys', 'adminDraft', 'remote', 'viewers', 'history'].includes(k)))),
+        log: clean(logText.replace(/[?&](k|key|token)=[^&\s]+/gi, '?$1=•••')),
+      };
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+      const r = await dialog.showSaveDialog(win(), { title: 'Enregistrer le rapport', defaultPath: path.join(app.getPath('desktop'), `regie-rapport-${stamp}.json`), filters: [{ name: 'Rapport Régie', extensions: ['json'] }] });
+      if (r.canceled || !r.filePath) return null;
+      fs.writeFileSync(r.filePath, JSON.stringify(report, null, 1));
+      shell.showItemInFolder(r.filePath);
+      return r.filePath;
+    },
+    setBetaUpdates(on) { s().settings.betaUpdates = Boolean(on); file.save(); updater?.setBeta(on); return s().settings; },
     async downloadUpdate() { if (!updater) throw new Error('Les mises à jour ne sont pas disponibles.'); await updater.download(); return updater.status; },
     installUpdate() { if (!updater) throw new Error('Les mises à jour ne sont pas disponibles.'); updater.installAndRestart(); return true; },
 
@@ -952,6 +1397,16 @@ function createApi(ctx) {
       return engine.brb;
     },
   };
+
+  // Après un changement d'images de rangs, les overlays Suivi = Rang reprennent les nouvelles tout de suite.
+  for (const name of ['importRankImages', 'importRankFolder', 'installOfficialRanks', 'removeRankImage']) {
+    const fn = api[name];
+    api[name] = async (...args) => {
+      const out = await fn(...args);
+      for (const o of s().overlays.filter((x) => x.type === 'rankcard')) engine.pushOverlayConfig(o);
+      return out;
+    };
+  }
 
   return { api, snapshot, overlayView, makeOverlay };
 }

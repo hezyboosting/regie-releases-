@@ -1,3 +1,5 @@
 private/
 dist/
 node_modules/
+*.log
+regie-admin-key*.txt

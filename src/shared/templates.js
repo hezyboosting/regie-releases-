@@ -14,7 +14,7 @@ const TEMPLATES = [
     id: 'bandeau', name: 'Bandeau du live', blurb: 'Une barre d\'infos en bas de l\'écran.', premium: false,
     elements: [
       shape(40, 960, 1840, 84, { fill: '#10131A', radius: 22, backdrop: 12 }), shape(40, 960, 12, 84, { ...GRAD, radius: 6 }),
-      text(84, 982, 420, 44, '{viewers} spectateurs', { size: 30 }), text(520, 982, 640, 44, 'Dernier follow : {lastFollower}', { size: 30, weight: 500 }), text(1180, 982, 680, 44, 'Top don : {topGifter}', { size: 30, weight: 500, align: 'right' }),
+      text(84, 982, 420, 44, '{viewers} spectateurs', { size: 30 }), text(520, 982, 640, 44, 'Dernier suivi : {lastFollower}', { size: 30, weight: 500 }), text(1180, 982, 680, 44, 'Meilleur donateur : {topGifter}', { size: 30, weight: 500, align: 'right' }),
     ],
   },
   {
@@ -35,18 +35,18 @@ const TEMPLATES = [
     id: 'fin', name: 'Fin de live', blurb: 'Le remerciement final avec les meilleurs soutiens.', premium: false,
     elements: [
       shape(0, 0, 1920, 1080, { fill: '#1A1F2B', fill2: '#10131A' }), text(260, 300, 1400, 160, 'Merci d\'être venus', { font: 'onest', size: 92, weight: 600, align: 'center' }),
-      text(360, 500, 1200, 64, 'Top don : {topGifter}', { size: 46, align: 'center', color: '#F3D38A' }), text(360, 580, 1200, 64, 'Meilleure série : {topStreakUser}, {topStreak}', { size: 40, weight: 500, align: 'center' }), text(360, 660, 1200, 64, '{follows} nouveaux follows ce soir', { size: 40, weight: 500, align: 'center' }),
+      text(360, 500, 1200, 64, 'Meilleur donateur : {topGifter}', { size: 46, align: 'center', color: '#F3D38A' }), text(360, 580, 1200, 64, 'Meilleure série : {topStreakUser}, {topStreak}', { size: 40, weight: 500, align: 'center' }), text(360, 660, 1200, 64, '{follows} nouveaux suivis ce soir', { size: 40, weight: 500, align: 'center' }),
     ],
   },
   {
-    id: 'cadeaux', name: 'Panneau cadeaux', blurb: 'Le top don, la meilleure série et le total.', premium: false,
+    id: 'cadeaux', name: 'Panneau cadeaux', blurb: 'Le meilleur don, la meilleure série et le total.', premium: false,
     elements: [
       shape(1480, 40, 400, 250, { fill: '#10131A', radius: 24, opacity: 92, backdrop: 14 }), text(1510, 62, 340, 30, 'Cadeaux du live', { size: 22, color: '#F3D38A' }), text(1510, 94, 340, 70, '{coins}', { font: 'onest', size: 58, weight: 600 }),
-      text(1510, 176, 340, 40, 'Top : {topGifter}', { size: 26, weight: 600 }), text(1510, 222, 340, 40, 'Série : {topStreakUser} ×{topStreak}', { size: 24, weight: 500, opacity: 85 }),
+      text(1510, 176, 340, 40, 'Meilleur don : {topGifter}', { size: 26, weight: 600 }), text(1510, 222, 340, 40, 'Série : {topStreakUser} ×{topStreak}', { size: 24, weight: 500, opacity: 85 }),
     ],
   },
   {
-    id: 'goal', name: 'Objectif du live', blurb: 'Le nom du goal et sa barre.', premium: false,
+    id: 'goal', name: 'Objectif du live', blurb: 'Le nom de l\'objectif et sa barre.', premium: false,
     elements: [
       text(560, 40, 800, 44, '{goalName}', { size: 30, align: 'center' }), bar(560, 92, 800, 30, { fill: '#10131A', color: '#8FD3FF', fill2: '#F3D38A', radius: 15 }), text(560, 128, 800, 36, '{goal} sur {goalTarget}', { size: 24, weight: 500, align: 'center' }),
     ],
@@ -54,7 +54,7 @@ const TEMPLATES = [
   {
     id: 'neon', name: 'Néon', blurb: 'Des infos lumineuses, façon enseigne.', premium: true,
     elements: [
-      text(60, 40, 700, 80, '{viewers} en ligne', { font: 'onest', size: 58, weight: 600, color: '#FFFFFF', glow: 22, glowColor: '#FF2E97' }), text(60, 124, 900, 50, 'Dernier follow {lastFollower}', { size: 34, color: '#00F0FF', glow: 16, glowColor: '#00F0FF' }),
+      text(60, 40, 700, 80, '{viewers} en ligne', { font: 'onest', size: 58, weight: 600, color: '#FFFFFF', glow: 22, glowColor: '#FF2E97' }), text(60, 124, 900, 50, 'Dernier suivi {lastFollower}', { size: 34, color: '#00F0FF', glow: 16, glowColor: '#00F0FF' }),
       shape(60, 184, 520, 4, { fill: '#FF2E97', glow: 18, glowColor: '#FF2E97', anim: 'breathe' }),
     ],
   },
@@ -87,12 +87,12 @@ TEMPLATES.push(
   {
     id: 'hudjeu', name: 'Bandeau de jeu', blurb: 'Infos discrètes pendant la partie.', cat: 'Gaming', premium: false,
     elements: [
-      shape(1420, 24, 476, 120, { fill: '#10131A', radius: 20, backdrop: 10, opacity: 90 }), text(1448, 42, 420, 40, '{viewers} spectateurs', { size: 28 }), text(1448, 90, 420, 36, 'Dernier follow : {lastFollower}', { size: 24, weight: 500, opacity: 80 }),
+      shape(1420, 24, 476, 120, { fill: '#10131A', radius: 20, backdrop: 10, opacity: 90 }), text(1448, 42, 420, 40, '{viewers} spectateurs', { size: 28 }), text(1448, 90, 420, 36, 'Dernier suivi : {lastFollower}', { size: 24, weight: 500, opacity: 80 }),
     ],
   },
   vertical('v-bandeau', 'Bandeau vertical', 'Infos en bas, pour TikTok.', [
     shape(40, 1640, 1000, 220, { fill: '#10131A', radius: 36, backdrop: 12, opacity: 92 }), shape(40, 1640, 14, 220, { ...GRAD, radius: 7 }),
-    text(90, 1670, 900, 64, 'Dernier follow : {lastFollower}', { size: 44 }), text(90, 1750, 900, 64, 'Top don : {topGifter}', { size: 44, weight: 500 }),
+    text(90, 1670, 900, 64, 'Dernier suivi : {lastFollower}', { size: 44 }), text(90, 1750, 900, 64, 'Meilleur donateur : {topGifter}', { size: 44, weight: 500 }),
   ]),
   vertical('v-goal', 'Objectif vertical', 'Une barre d\'objectif en haut.', [
     shape(40, 150, 1000, 150, { fill: '#10131A', radius: 30, opacity: 92 }), text(80, 170, 920, 54, '{goalName}', { size: 38 }), bar(80, 240, 920, 32, { fill: 'rgba(255,255,255,.15)', color: '#8FD3FF', radius: 16 }),

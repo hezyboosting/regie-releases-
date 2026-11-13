@@ -13,7 +13,7 @@ export function Onboarding({ s }) {
       <h1 id="ob-title">Bienvenue dans ${s.brand.name}</h1>
       <p>Trois gestes pour être prêt avant ton prochain live :</p>
       <ol class="steps">
-        <li>Ajoute tes chaînes TikTok, Twitch ou YouTube dans le Dashboard.</li>
+        <li>Ajoute tes chaînes TikTok, Twitch ou YouTube dans le tableau de bord.</li>
         <li>Copie un lien d'overlay et colle-le dans OBS ou TikTok LIVE Studio.</li>
         <li>Essaie une alerte pour vérifier que tout s'affiche.</li>
       </ol>

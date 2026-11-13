@@ -1,4 +1,4 @@
-import { el, tag, setVars, rgba, PLATFORM, isPreview } from '../lib.js';
+import { el, tag, setVars, rgba, PLATFORM, isPreview, avatar } from '../lib.js';
 
 const EVENT_TEXT = {
   follow: (e) => `${e.user.display} suit la chaîne`, sub: (e) => `${e.user.display} s'abonne`, resub: (e) => `${e.user.display} se réabonne (${e.months} mois)`,
@@ -8,9 +8,10 @@ const EVENT_TEXT = {
 };
 
 const DEMO = [
-  { platform: 'twitch', type: 'chat', user: { display: 'Marius' }, text: 'Bien joué pour la dernière manche' },
-  { platform: 'tiktok', type: 'chat', user: { display: 'kenza.live' }, text: 'Salut depuis TikTok' },
-  { platform: 'youtube', type: 'chat', user: { display: 'Nolan' }, text: 'Il reste combien de temps ?' },
+  { platform: 'twitch', type: 'chat', user: { display: 'Marius', sub: true }, color: '#8FD3FF', text: 'Bien joué pour la dernière manche' },
+  { platform: 'tiktok', type: 'follow', user: { display: 'Lena' } },
+  { platform: 'tiktok', type: 'chat', user: { display: 'kenza.live', mod: true }, color: '#FF8FB1', text: 'Salut depuis TikTok, trop fort ce clutch !' },
+  { platform: 'youtube', type: 'chat', user: { display: 'Nolan' }, color: '#FFD166', text: 'Il reste combien de temps ?' },
 ];
 
 export function mount(root) {
@@ -24,22 +25,42 @@ export function mount(root) {
     if (isChat && blockedWords().some((w) => String(e.text || '').toLowerCase().includes(w))) return;
     const hl = isChat && s.highlight && (e.user?.mod || e.user?.owner || e.user?.sub || e.user?.vip);
     const row = el('div', `msg${isChat ? '' : ' event'}${hl ? ' hl' : ''}`);
+    if (e.id) row.dataset.id = e.id;
     row.style.setProperty('--pf', PLATFORM[e.platform]?.color || '#F0392B');
-    if (s.platformTag && PLATFORM[e.platform]) row.append(tag(e.platform));
-    if (s.avatar && e.user?.avatar) { const i = el('img'); i.src = e.user.avatar; i.alt = ''; i.referrerPolicy = 'no-referrer'; row.append(i); }
+    // Carte de message : photo à gauche, puis le pseudo (plateforme, badge) et le texte en dessous.
+    if (s.avatar && isChat) row.append(avatar(e.user?.avatar, e.user?.display, 'cx-av'));
+    const body = el('div', 'cx-body');
     if (isChat) {
-      if (s.badges) {
-        const b = e.user?.owner ? 'Live' : e.user?.mod ? 'Modo' : e.user?.vip ? 'VIP' : e.user?.sub ? 'Abo' : '';
-        if (b) row.append(el('span', 'bdg', b));
-      }
+      const head = el('div', 'cx-head');
+      if (s.platformTag && PLATFORM[e.platform]) head.append(tag(e.platform));
       const who = el('span', 'who', e.user?.display || '');
       if (e.color) who.style.color = e.color;
-      row.append(who, el('span', 'txt', e.text));
-    } else row.append(el('span', 'txt', EVENT_TEXT[e.type](e)));
+      head.append(who);
+      if (s.badges) {
+        const b = e.user?.owner ? 'Live' : e.user?.mod ? 'Modo' : e.user?.vip ? 'VIP' : e.user?.sub ? 'Abo' : '';
+        if (b) head.append(el('span', `bdg b-${b.toLowerCase()}`, b));
+      }
+      body.append(head, el('span', 'txt', e.text));
+    } else {
+      if (s.platformTag && PLATFORM[e.platform]) body.append(tag(e.platform));
+      body.append(el('span', 'txt sys', EVENT_TEXT[e.type](e)));
+    }
+    row.append(body);
+    if (e.translation) addTranslation(row, { translation: e.translation, mode: 'below', showLang: true });
     root.append(row);
     while (root.children.length > s.maxLines) root.firstChild.remove();
     if (s.fade > 0) setTimeout(() => { row.classList.add('gone'); setTimeout(() => row.remove(), 700); }, s.fade * 1000);
   };
+  // Traduction arrivée après le message : sous le texte, ou à sa place.
+  function addTranslation(row, x) {
+    if (!row || row.querySelector('.cx-tr')) return;
+    const t = el('span', 'txt cx-tr');
+    t.setAttribute('translate', 'no');
+    if (x.showLang !== false && x.translation.from) t.append(el('b', 'cx-lang', x.translation.from.toUpperCase()));
+    t.append(document.createTextNode(x.translation.text));
+    if (x.mode === 'replace') { const orig = row.querySelector('.txt:not(.cx-tr)'); if (orig) { orig.replaceWith(t); return; } }
+    (row.querySelector('.cx-body') || row).append(t);
+  }
   return {
     update(settings, data) {
       const fresh = !s.theme;
@@ -51,6 +72,9 @@ export function mount(root) {
         if (isPreview && !root.children.length) DEMO.forEach(add);
       }
     },
-    on(msg) { if (msg.t === 'ev') add(msg.ev); },
+    on(msg) {
+      if (msg.t === 'ev') add(msg.ev);
+      if (msg.t === 'evx' && s.translate !== false) addTranslation(root.querySelector(`.msg[data-id="${CSS.escape(msg.id)}"]`), msg);
+    },
   };
 }

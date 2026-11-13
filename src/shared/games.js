@@ -76,7 +76,7 @@ const GAMES = [
 ];
 
 const STAT_LABEL = {
-  wins: 'Victoires', losses: 'Défaites', draws: 'Nuls', kills: 'Kills', deaths: 'Morts', assists: 'Assists', goals: 'Buts', saves: 'Arrêts', demos: 'Démolitions', matches: 'Parties',
+  wins: 'Victoires', losses: 'Défaites', draws: 'Nuls', kills: 'Éliminations', deaths: 'Morts', assists: 'Assists', goals: 'Buts', saves: 'Arrêts', demos: 'Démolitions', matches: 'Parties',
   mvps: 'MVP', escapes: 'Fuites', sacrifices: 'Sacrifices', arrests: 'Arrestations', topics: 'Sujets',
 };
 

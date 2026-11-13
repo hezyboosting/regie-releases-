@@ -1,10 +1,10 @@
 // Mes jeux : un profil par jeu, ses rangs, sa session, ses données en direct et ses overlays.
 import { html, useState, useEffect, act, setState, reload, copy, toast, fmt } from '../store.js';
-import { Btn, Bay, Field, Lazy, Num, Select, Lamp, PageHead, Pro, Gem } from '../ui.js';
+import { ICONS, Btn, Bay, Field, Lazy, Num, Select, Lamp, PageHead, Pro, Gem } from '../ui.js';
 import { ThemeBar } from './overlays.js';
 
 const KIND = { wins: 'win', losses: 'loss', draws: 'draw', kills: 'kill', deaths: 'death', assists: 'assist', goals: 'goal', saves: 'save', demos: 'demo', mvps: 'mvp' };
-const TOOLS = [['gamecard', 'Carte de jeu'], ['gamelive', 'Score en direct'], ['gamepad', 'Manette'], ['keyboard', 'Clavier'], ['mouse', 'Souris'], ['rankcard', 'Follow = Rank']];
+const TOOLS = [['gamecard', 'Carte de jeu'], ['gamelive', 'Score en direct'], ['gamepad', 'Manette'], ['keyboard', 'Clavier'], ['mouse', 'Souris'], ['rankcard', 'Suivi = Rang']];
 
 function Tile({ g, s, on, onPick }) {
   const running = s.gameRunning === g.id;
@@ -21,6 +21,33 @@ const imgUrl = (s, file) => (file ? `http://127.0.0.1:${s.port}/media/${encodeUR
 const tierHas = (images, id) => Object.keys(images).some((k) => k === id || k.startsWith(`${id}:`));
 const tierImage = (images, id) => images[id] || images[Object.keys(images).find((k) => k.startsWith(`${id}:`))];
 
+// Jeux dont Régie sait récupérer les vrais emblèmes (voir src/shared/rank-sources.js).
+const OFFICIAL = new Set(['valorant', 'rocketleague', 'lol', 'fortnite', 'apex', 'r6', 'rivals', 'dbd', 'overwatch', 'dota2', 'minecraft', 'cs2', 'cod']);
+
+function OfficialRanks({ game, done }) {
+  const [busy, setBusy] = useState('');
+  const run = async (which) => {
+    setBusy(which);
+    try {
+      const r = await act('installOfficialRanks', which);
+      if (r) {
+        setState({ gaming: { ...r.gaming } });
+        toast(r.failed.length ? `${r.done} emblèmes installés, ${r.failed.length} introuvables (connexion ?)` : `${r.done} emblèmes officiels installés${r.games > 1 ? ` pour ${r.games} jeux` : ''}`);
+      }
+    } finally { setBusy(''); }
+  };
+  if (!OFFICIAL.has(game.id)) {
+    return html`<p class="note">Pas d'emblème officiel disponible en ligne pour ${game.name} : importe tes images ci-dessous.</p>`;
+  }
+  return html`<div class="rk-official">
+    <div><b>Vrais emblèmes de ${game.name}</b><small>Téléchargés en un clic depuis leur source officielle, rang par rang${game.id === 'cs2' ? ' (plaques de classement Premier)' : ''}.</small></div>
+    <div class="row tight">
+      <${Btn} kind="primary" disabled=${Boolean(busy)} onClick=${() => run(game.id)}>${busy === game.id ? 'Téléchargement…' : 'Installer'}<//>
+      <${Btn} disabled=${Boolean(busy)} onClick=${() => run('all')}>${busy === 'all' ? 'Téléchargement…' : 'Tous les jeux'}<//>
+    </div>
+  </div>`;
+}
+
 function RankImages({ s, game }) {
   const images = s.gaming.rankImages?.[game.id] || {};
   const done = (r) => {
@@ -31,7 +58,8 @@ function RankImages({ s, game }) {
   };
   if (!game.ranks.length) return null;
   return html`<${Bay} title="Images des rangs" aside=${html`<div class="row tight"><${Btn} onClick=${async () => done(await act('importRankFolder', game.id))}>Importer un dossier<//><${Btn} onClick=${async () => done(await act('importRankImages', game.id))}>Choisir des images<//></div>`}>
-    <p class="note">Par défaut, Régie affiche ses propres blasons. Tu peux les remplacer par tes images : nomme chaque fichier comme le rang, avec la division si tu veux, par exemple diamant.png ou gold-2.png. Un dossier peut contenir un sous-dossier par jeu. Vérifie que tu as le droit d'utiliser ces images, surtout si tu vends ton offre.</p>
+    <${OfficialRanks} game=${game} done=${done} />
+    <p class="note">Tu peux aussi mettre tes propres images : nomme chaque fichier comme le rang, avec la division si tu veux, par exemple diamant.png ou gold-2.png. Un dossier peut contenir un sous-dossier par jeu.</p>
     <div class="rk-grid">
       ${game.ranks.map((t, step) => html`<div class="rk" key=${t.id}>
         <button type="button" class="rk-pick" title="Choisir une image" aria-label=${`Choisir une image pour ${t.name}`} onClick=${async () => done(await act('importRankImages', game.id, t.id))}><${Gem} color=${t.color} step=${step} steps=${game.ranks.length} sides=${game.sides} src=${imgUrl(s, tierImage(images, t.id))} size=${54} /></button>
@@ -153,8 +181,12 @@ function GameAuto({ s, game }) {
     <div class="row wrap">
       <${Field} label="Scène OBS" hint="Vide pour ne rien changer"><${Lazy} value=${p.scene} onSave=${(scene) => up({ scene })} placeholder="Nom de la scène" /><//>
       <${Field} label="Thème des overlays"><${Select} value=${p.theme || ''} onChange=${(theme) => up({ theme })} options=${[{ value: '', label: 'Ne rien changer' }, ...s.themes.map((t) => ({ value: t.id, label: t.name }))]} /><//>
-      <${Field} label="Page du Stream Deck"><${Select} value=${p.deckPage || ''} onChange=${(deckPage) => up({ deckPage })} options=${[{ value: '', label: 'Ne rien changer' }, ...s.deck.pages.map((x) => ({ value: x.id, label: x.name }))]} /><//>
+      <${Field} label="Page de la télécommande"><${Select} value=${p.deckPage || ''} onChange=${(deckPage) => up({ deckPage })} options=${[{ value: '', label: 'Ne rien changer' }, ...s.deck.pages.map((x) => ({ value: x.id, label: x.name }))]} /><//>
       <${Field} label="Pseudo en jeu" hint=${game.live === 'rl' ? 'Sert à reconnaître tes buts' : ''}><${Lazy} value=${p.pseudo} onSave=${(pseudo) => up({ pseudo })} /><//>
+    </div>
+    <div class="row tight wrap">
+      <${Btn} onClick=${() => setState({ view: 'overlays', overlayId: null, sceneOpen: true, sceneLayout: game.id })}>${s.overlays.find((o) => o.type === 'scene')?.settings?.layouts?.[game.id] ? 'Modifier la scène de ce jeu' : 'Créer la scène de ce jeu'}<//>
+      <span class="note">Les overlays se placent autrement pour ce jeu, et la scène bascule toute seule quand il démarre.</span>
     </div>
   <//>`;
 }
@@ -174,8 +206,52 @@ function Keys({ s }) {
   const on = s.keysCfg.enabled;
   return html`<${Bay} title="Touches simulées">
     <${Lamp} on=${on} label="Autoriser Régie à presser des touches" onChange=${async (v) => { const r = await act('setKeysEnabled', v); if (r) setState({ keysCfg: r }); }} />
-    <p class="note">Une fois activé, un cadeau, une commande ou un bouton du Stream Deck peut presser une touche dans ton jeu. Évite les touches qui peuvent gêner ta partie, et vérifie les règles du jeu en classé. Limite : dix par seconde.</p>
+    <p class="note">Une fois activé, un cadeau, une commande ou un bouton de la télécommande peut presser une touche dans ton jeu. Évite les touches qui peuvent gêner ta partie, et vérifie les règles du jeu en classé. Limite : dix par seconde.</p>
     <div class="row tight"><${Btn} disabled=${!on} onClick=${() => { act('testKey', 'F13'); toast('Touche F13 envoyée'); }}>Envoyer une touche d'essai<//></div>
+  <//>`;
+}
+
+// Serveurs de jeu : Rust, ARK, Palworld, GMod, CS2… reçoivent des commandes à chaque cadeau ou case de roue.
+function RconBay({ s }) {
+  const list = s.gaming.servers || [];
+  const presets = s.rconPresets || {};
+  const save = async (next) => { const r = await act('saveServers', next); if (r) setState({ gaming: { ...r } }); };
+  const up = (i, patch) => save(list.map((x, j) => (i === j ? { ...x, ...patch } : x)));
+  const add = () => save([...list, { id: `srv${Date.now().toString(36)}`, preset: 'rust', name: presets.rust?.name || 'Rust', kind: 'webrcon', host: '127.0.0.1', port: presets.rust?.port || 28016, password: '' }]);
+  return html`<${Bay} title=${html`Serveurs de jeu (RCON)${!s.features.rcon ? html` <${Pro} />` : ''}`}>
+    <p class="note">Rust, ARK, Palworld, Garry's Mod, CS2, Squad, Conan Exiles, Factorio, 7 Days to Die… Un cadeau ou une case de la roue envoie une commande à ton serveur. Minecraft se règle dans sa propre fiche.</p>
+    ${list.map((x, i) => html`<div class="srv" key=${x.id}>
+      <div class="row wrap">
+        <${Field} label="Jeu"><${Select} value=${x.preset} onChange=${(preset) => up(i, { preset, name: presets[preset]?.name || x.name, kind: presets[preset]?.kind || 'source', port: presets[preset]?.port || x.port })} options=${Object.entries(presets).filter(([k]) => k !== 'minecraft').map(([value, p]) => ({ value, label: p.name }))} /><//>
+        <${Field} label="Adresse"><${Lazy} value=${x.host} onSave=${(host) => up(i, { host })} /><//>
+        <${Field} label="Port"><${Num} value=${x.port} min="1" max="65535" onSave=${(port) => up(i, { port })} /><//>
+        <${Field} label="Mot de passe"><${Lazy} type="password" value=${x.password} onSave=${(password) => up(i, { password })} /><//>
+      </div>
+      <div class="row tight wrap">
+        <${Btn} disabled=${!s.features.rcon} onClick=${async () => { const r = await act('testServer', x.id); if (r !== undefined) toast(`Réponse du serveur : ${String(r || 'OK').slice(0, 120)}`); }}>Tester<//>
+        <${Btn} kind="danger" onClick=${() => save(list.filter((_, j) => j !== i))}>Retirer<//>
+        <span class="note">${x.kind === 'webrcon' ? 'WebRCON' : x.kind === 'telnet' ? 'Telnet' : 'RCON Source'}</span>
+      </div>
+      <p class="note">Exemples : ${(presets[x.preset]?.examples || []).map((e, k) => html`<code key=${k} class="ex" onClick=${() => copy(e, 'Commande copiée')}>${e}</code>`)}</p>
+    </div>`)}
+    <div class="row tight"><${Btn} icon=${ICONS.plus} disabled=${!s.features.rcon} onClick=${add}>Ajouter un serveur<//></div>
+  <//>`;
+}
+
+// Manette virtuelle : une manette Xbox branchée par logiciel, pour les jeux qui ignorent le clavier.
+function VirtualPadBay({ s }) {
+  const v = s.vpadCfg || { enabled: false, state: 'off' };
+  const set = async (on) => { const r = await act('setVpadEnabled', on); if (r) setState({ vpadCfg: r }); };
+  const label = v.state === 'on' ? 'Branchée' : v.state === 'error' ? 'Problème' : 'Débranchée';
+  return html`<${Bay} title="Manette virtuelle">
+    <${Lamp} on=${v.enabled} label="Autoriser Régie à piloter une manette virtuelle" onChange=${set} />
+    <p class="note">Une manette Xbox apparaît dans Windows : le chat peut appuyer sur ses boutons, ses gâchettes et ses sticks. Idéal pour les jeux qui ignorent les touches du clavier. Il faut le pilote gratuit ViGEmBus, à installer une fois.</p>
+    <div class="row tight wrap">
+      <span class="badge ${v.state === 'on' ? 'ok' : ''}"><i></i>${label}</span>
+      <${Btn} disabled=${!v.enabled} onClick=${async () => { if (await act('testPad', 'a')) toast('Bouton A envoyé'); }}>Appuyer sur A<//>
+      <${Btn} onClick=${() => act('openExternal', 'https://github.com/nefarius/ViGEmBus/releases')}>Installer ViGEmBus<//>
+    </div>
+    ${v.error && html`<p class="note warn">${v.error}</p>`}
   <//>`;
 }
 
@@ -207,5 +283,6 @@ export function Games({ s }) {
       <${GameAuto} s=${s} game=${game} />
     `}
     <div class="two"><${Tools} s=${s} /><${Keys} s=${s} /></div>
+    <div class="two"><${VirtualPadBay} s=${s} /><${RconBay} s=${s} /></div>
   </div>`;
 }

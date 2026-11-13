@@ -1,7 +1,7 @@
 import { html, useState, useEffect, act, setState, toast } from '../store.js';
 import { ICONS, Btn, Bay, Field, Select, Lazy, Segments, PageHead, Empty } from '../ui.js';
 
-const BUILTIN = [['chime', 'Carillon'], ['pop', 'Pop'], ['coins', 'Pièces'], ['fanfare', 'Fanfare'], ['horn', 'Corne'], ['tally', 'Top antenne']];
+const BUILTIN = [['chime', 'Carillon'], ['pop', 'Pop'], ['coins', 'Pièces'], ['fanfare', 'Fanfare'], ['horn', 'Corne'], ['tally', 'Top antenne'], ['drumroll', 'Roulement de tambour'], ['ding', 'Ding']];
 
 export const soundOptions = (s) => [...BUILTIN.map(([value, label]) => ({ value, label })), ...s.sounds.library.map((x) => ({ value: x.file, label: x.name }))];
 
@@ -63,7 +63,7 @@ export function Sounds({ s }) {
         <${Lazy} value=${x.name} aria-label="Nom du son" onSave=${async (name) => set(await act('renameSound', x.id, name))} />
         <${Select} value=${x.category || ''} onChange=${async (category) => set(await act('setSoundField', x.id, { category }))} options=${[{ value: '', label: 'Sans catégorie' }, ...s.sounds.categories.map((c) => ({ value: c, label: c }))]} />
         <button class="icon" aria-label="Supprimer" onClick=${async () => set(await act('removeSound', x.id))}>${ICONS.trash}</button>
-      </li>`)}</ul>` : html`<${Empty} title="Aucun son importé">Ajoute tes MP3 ou WAV : ils seront disponibles dans les alertes, les automatisations et le Stream Deck.<//>`}
+      </li>`)}</ul>` : html`<${Empty} title="Aucun son importé">Ajoute tes MP3 ou WAV : ils seront disponibles dans les alertes, les automatisations et la télécommande.<//>`}
     <//>
   </div>`;
 }

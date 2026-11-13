@@ -1,5 +1,6 @@
-import { html, useState, useEffect, act, reload, setState, copy, toast } from '../store.js';
-import { Btn, Bay, Field, Lamp, Lazy, Segments, PageHead } from '../ui.js';
+import { html, useState, useEffect, act, reload, setState, copy, toast, getLang } from '../store.js';
+import { Btn, Bay, Field, Lamp, Lazy, Segments, PageHead, Select } from '../ui.js';
+import { UpdaterPanel, BugReport } from './help.js';
 
 const ROLE_TEXT = { free: 'Offre FREE', pro: 'Offre PRO active', ultimate: 'Offre ULTIMATE active', admin: 'Admin' };
 
@@ -25,7 +26,7 @@ function Licence({ s }) {
     const r = await act('activateLicense', key);
     if (r) { toast('Clé activée'); setKey(''); }
   };
-  const date = (t) => new Date(t).toLocaleDateString('fr-FR');
+  const date = (t) => new Date(t).toLocaleDateString(document.documentElement.lang === 'en' ? 'en-GB' : 'fr-FR');
   return html`<div class="col">
     <${Bay} title=${ROLE_TEXT[s.realRole]}>
       ${info.active && html`<p>${info.name ? `Clé au nom de ${info.name}. ` : ''}${info.expires ? `Valable jusqu'au ${date(info.expires)}.` : 'Sans date de fin.'}</p>`}
@@ -38,10 +39,10 @@ function Licence({ s }) {
     <//>
     <div class="three">
       <${Bay} title="FREE">
-        <ul class="col note"><li>Overlays standards, avec signature</li><li>3 jeux et les rangs manuels</li><li>10 commandes, 5 automatisations</li><li>Une voix TTS par langue, 7 jours de stats</li></ul>
+        <ul class="col note"><li>Overlays standards, avec signature</li><li>3 jeux et les rangs manuels</li><li>10 commandes, 5 automatisations</li><li>Une voix de synthèse par langue, 7 jours de stats</li></ul>
       <//>
       <${Bay} title="PRO">
-        <ul class="col note"><li>Sans signature, finitions et photo de manette</li><li>Tous les jeux et les données en direct</li><li>Mini-jeux, roulette, automatisations avancées</li><li>Stream Deck sur téléphone, 90 jours de stats</li></ul>
+        <ul class="col note"><li>Sans signature, finitions et photo de manette</li><li>Tous les jeux et les données en direct</li><li>Mini-jeux, roulette, automatisations avancées</li><li>Télécommande sur téléphone, 90 jours de stats</li></ul>
       <//>
       <${Bay} title="ULTIMATE">
         <ul class="col note"><li>Tout PRO, plusieurs chaînes par plateforme</li><li>Réponses sur toutes les chaînes, webhooks</li><li>Création d'overlays et assistant par IA</li><li>Comparaison des lives, stats sans limite</li></ul>
@@ -79,7 +80,7 @@ function TikTokSession({ s }) {
   return html`<form class="col" onSubmit=${save}>
     <p class="note warn">Pour répondre dans le chat TikTok, Régie a besoin des cookies de ton compte. Ils sont transmis à Euler Stream : ne remplis ces champs que si tu lui fais confiance.</p>
     <div class="row wrap">
-      <${Field} label="Chaîne"><select class="in" value=${id} onChange=${(e) => setId(e.target.value)}>${list.map((c) => html`<option value=${c.id}>${c.label}</option>`)}</select><//>
+      <${Field} label="Chaîne"><${Select} value=${id} onChange=${setId} options=${list.map((c) => ({ value: c.id, label: c.label }))} /><//>
       <${Field} label="Cookie sessionid"><input class="in" type="password" value=${sid} onInput=${(e) => setSid(e.target.value)} spellcheck=${false} /><//>
       <${Field} label="Cookie tt-target-idc"><input class="in" value=${idc} onInput=${(e) => setIdc(e.target.value)} spellcheck=${false} /><//>
       <${Btn} type="submit" disabled=${!sid || !idc}>Enregistrer la session<//>
@@ -106,10 +107,11 @@ function Connexions({ s }) {
       <${TikTokSession} s=${s} />
     <//>
     <${Bay} title="ElevenLabs">
-      <${Secret} label="Clé ElevenLabs" name="elevenKey" has=${k.elevenKey}  hint="Pour les voix ElevenLabs du TTS." />
+      <${Secret} label="Clé ElevenLabs" name="elevenKey" has=${k.elevenKey}  hint="Pour les voix ElevenLabs de la synthèse vocale." />
     <//>
     <${Bay} title="Création par IA">
       <${Secret} label="Clé API Claude" name="anthropicKey" has=${k.anthropicKey}  hint="Pour créer des overlays par IA et pour l'assistant. Ils utilisent ton compte API." />
+      <${Secret} label="Clé DeepL" name="deeplKey" has=${k.deeplKey} hint="Facultatif : traduction du chat avec DeepL (offre gratuite sur deepl.com)." />
     <//>
   </div>`;
 }
@@ -157,9 +159,23 @@ function Diagnostic({ s }) {
   </div>`;
 }
 
+function AutoBackups() {
+  const [list, setList] = useState(null);
+  useEffect(() => { act('autoBackups').then((l) => setList(l || [])); }, []);
+  if (!list) return null;
+  return html`<${Bay} title="Copies automatiques">
+    <p class="note">Régie garde une copie de ta config avant chaque pack installé ou restauration. Les dix dernières restent ici.</p>
+    ${list.length === 0 ? html`<p class="note">Aucune copie pour l'instant.</p>` : html`<div class="list">
+      ${list.map((b) => html`<div class="li" key=${b.file}><span>${new Date(b.at).toLocaleString(getLang() === 'en' ? 'en-GB' : 'fr-FR')}</span><span class="note">${b.why}</span><${Btn} onClick=${() => act('restoreAutoBackup', b.file)}>Revenir à cette copie<//></div>`)}
+    </div>`}
+  <//>`;
+}
+
 function Sauvegarde({ s }) {
   const [confirm, setConfirm] = useState(false);
   return html`<div class="col">
+    <${AutoBackups} />
+    <${Bay} title="Assistant de démarrage"><p class="note">Reprends les cinq questions : chaînes, jeu, style de live et thème. Tes réglages actuels sont copiés avant.</p><div class="row tight"><${Btn} onClick=${() => setState({ setupOpen: true })}>Relancer l'assistant<//></div><//>
     <${Bay} title="Sauvegarde">
       <p class="note">Un fichier avec tes overlays, commandes, automatisations, profils de jeux et stats. Les clés API et les connexions restent chiffrées sur ce PC : il faudra les remettre après une restauration.</p>
       <div class="row tight">
@@ -192,32 +208,6 @@ function Serveur({ s }) {
       <${Lamp} on=${!s.settings.inputPaused} label="Capture active" onChange=${async (on) => { await act('setInputPaused', !on); reload(); }} />
       <p class="note">La capture ne tourne que si un overlay Clavier, Souris ou Manette est ouvert. Rien n'est enregistré ni envoyé hors de ton PC. Coupe-la avant de taper un mot de passe en direct.</p>
     <//>
-    <${Bay} title="Mises à jour">
-      <${UpdaterPanel} s=${s} />
-    <//>
-    <${Bay} title="À propos">
-      <div class="kv"><span>Version</span><b>${s.brand.version}</b></div>
-      <${Btn} kind="danger" onClick=${async () => { await act('statsReset'); toast('Stats effacées'); }}>Effacer les stats<//>
-    <//>
-  </div>`;
-}
-
-function UpdaterPanel({ s }) {
-  const [status, setStatus] = useState(s.updater || { state: 'idle' });
-  useEffect(() => { setStatus(s.updater || { state: 'idle' }); }, [s.updater]);
-  const check = async () => { const r = await act('checkUpdate'); if (r) setStatus(r); };
-  const dl = async () => { const r = await act('downloadUpdate'); if (r) setStatus(r); };
-  const install = () => act('installUpdate');
-  const label = { idle: 'À jour', checking: 'Vérification…', available: `Version ${status.version} disponible`, downloading: `Téléchargement ${status.progress || 0} %`, ready: `Version ${status.version} prête`, error: status.error || 'Erreur' };
-  return html`<div class="col tight">
-    <p class="note">${label[status.state] || 'À jour'}</p>
-    <div class="row tight">
-      ${status.state === 'idle' && html`<${Btn} onClick=${check}>Vérifier les mises à jour<//>`}
-      ${status.state === 'available' && html`<${Btn} kind="primary" onClick=${dl}>Télécharger<//>`}
-      ${status.state === 'downloading' && html`<progress value=${status.progress} max="100" style="flex:1;height:8px" />`}
-      ${status.state === 'ready' && html`<${Btn} kind="primary" onClick=${install}>Installer et redémarrer<//>`}
-      ${status.state === 'error' && html`<${Btn} onClick=${check}>Réessayer<//>`}
-    </div>
   </div>`;
 }
 
@@ -225,7 +215,7 @@ export function Settings({ s }) {
   const tab = s.settingsTab || 'licence';
   return html`<div class="page">
     <${PageHead} title="Réglages" />
-    <${Segments} value=${tab} onChange=${(settingsTab) => setState({ settingsTab })} options=${[{ value: 'licence', label: 'Licence' }, { value: 'apparence', label: 'Apparence' }, { value: 'modules', label: 'Modules' }, { value: 'connexions', label: 'Connexions' }, { value: 'serveur', label: 'Overlays et capture' }, { value: 'diagnostic', label: 'Diagnostic' }, { value: 'sauvegarde', label: 'Sauvegarde' }]} />
+    <${Segments} value=${tab} onChange=${(settingsTab) => setState({ settingsTab })} options=${[{ value: 'licence', label: 'Licence' }, { value: 'apparence', label: 'Apparence' }, { value: 'modules', label: 'Modules' }, { value: 'connexions', label: 'Connexions' }, { value: 'serveur', label: 'Overlays et capture' }, { value: 'diagnostic', label: 'Diagnostic' }, { value: 'sauvegarde', label: 'Sauvegarde' }, { value: 'aide', label: 'Mises à jour et aide' }]} />
     ${tab === 'licence' && html`<${Licence} s=${s} />`}
     ${tab === 'connexions' && html`<${Connexions} s=${s} />`}
     ${tab === 'serveur' && html`<${Serveur} s=${s} />`}
@@ -233,5 +223,17 @@ export function Settings({ s }) {
     ${tab === 'modules' && html`<${Modules} s=${s} />`}
     ${tab === 'diagnostic' && html`<${Diagnostic} s=${s} />`}
     ${tab === 'sauvegarde' && html`<${Sauvegarde} s=${s} />`}
+    ${tab === 'aide' && html`<div class="cols2">
+      <div class="col">
+        <${Bay} title="Mises à jour"><${UpdaterPanel} s=${s} /><//>
+        <${Bay} title="À propos">
+          <div class="kv"><span>Version</span><b>${s.brand.version}</b></div>
+          <div class="row wrap tight">
+            <${Btn} kind="danger" onClick=${async () => { await act('statsReset'); toast('Stats effacées'); }}>Effacer les stats<//>
+          </div>
+        <//>
+      </div>
+      <${BugReport} />
+    </div>`}
   </div>`;
 }

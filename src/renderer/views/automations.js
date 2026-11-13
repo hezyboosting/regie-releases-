@@ -5,20 +5,20 @@ import { Actions } from './commands.js';
 
 const FIELDS = [{ value: 'amount', label: 'Le montant' }, { value: 'count', label: 'Le nombre' }, { value: 'months', label: 'Les mois d\'abonnement' }, { value: 'user', label: 'Le pseudo' }, { value: 'platform', label: 'La plateforme' }, { value: 'text', label: 'Le message' }, { value: 'gift', label: 'Le cadeau' }, { value: 'role', label: 'Le rôle' }];
 const OPS = [{ value: '>=', label: 'au moins' }, { value: '<=', label: 'au plus' }, { value: '==', label: 'égal à' }, { value: '!=', label: 'différent de' }, { value: 'contains', label: 'contient' }];
-const GAME_KINDS = [{ value: '', label: 'Tout événement de jeu' }, { value: 'win', label: 'Victoire' }, { value: 'loss', label: 'Défaite' }, { value: 'kill', label: 'Kill' }, { value: 'death', label: 'Mort' }, { value: 'goal', label: 'But' }, { value: 'save', label: 'Arrêt' }, { value: 'mvp', label: 'MVP' }, { value: 'start', label: 'Début de partie' }, { value: 'end', label: 'Fin de partie' }];
+const GAME_KINDS = [{ value: '', label: 'Tout événement de jeu' }, { value: 'win', label: 'Victoire' }, { value: 'loss', label: 'Défaite' }, { value: 'kill', label: 'Élimination' }, { value: 'death', label: 'Mort' }, { value: 'goal', label: 'But' }, { value: 'save', label: 'Arrêt' }, { value: 'mvp', label: 'MVP' }, { value: 'start', label: 'Début de partie' }, { value: 'end', label: 'Fin de partie' }];
 
 export const EVENTS = (s) => [
   ...Object.entries(s.eventTypes).filter(([k]) => k !== 'goal').map(([value, d]) => ({ value, label: d.label })),
-  { value: 'goalReached', label: 'Goal atteint' }, { value: 'game', label: 'Événement de jeu' }, { value: 'custom', label: 'Événement personnalisé' },
+  { value: 'goalReached', label: 'Objectif atteint' }, { value: 'game', label: 'Événement de jeu' }, { value: 'custom', label: 'Événement personnalisé' }, { value: 'wheel', label: 'Résultat de la roue' },
   { value: 'interval', label: 'Toutes les X minutes' }, { value: 'manual', label: 'Lancement manuel' }, { value: 'webhook', label: 'Appel d\'un webhook', disabled: !s.features.webhooks },
 ];
 
 const TEMPLATES = [
-  { name: 'Merci à chaque follow', on: { type: 'follow' }, actions: [{ type: 'chat', text: 'Merci {user} !' }] },
+  { name: 'Merci à chaque suivi', on: { type: 'follow' }, actions: [{ type: 'chat', text: 'Merci {user} !' }] },
   { name: 'Gros cadeau', on: { type: 'gift', minAmount: 1000 }, actions: [{ type: 'overlayFx' }, { type: 'sound', sound: 'fanfare' }] },
   { name: 'Victoire', on: { type: 'game', kind: 'win' }, actions: [{ type: 'sound', sound: 'fanfare' }, { type: 'chat', text: 'Victoire ! Record : {record}' }] },
   { name: 'Rappel Discord', on: { type: 'interval', minutes: 20 }, actions: [{ type: 'chat', text: 'Rejoins le Discord !' }] },
-  { name: 'Cinq follows en une minute', on: { type: 'follow', count: 5, seconds: 60 }, actions: [{ type: 'overlayFx' }, { type: 'alert', text: 'Vous êtes en feu !' }] },
+  { name: 'Cinq suivis en une minute', on: { type: 'follow', count: 5, seconds: 60 }, actions: [{ type: 'overlayFx' }, { type: 'alert', text: 'Vous êtes en feu !' }] },
 ];
 
 function Conditions({ list = [], onChange, adv }) {
@@ -43,7 +43,7 @@ function TriggerForm({ initial, s, onClose }) {
   const on = (patch) => up({ on: { ...t.on, ...patch } });
   const adv = s.features.automationAdvanced;
   const type = t.on.type;
-  const noFilter = ['interval', 'manual', 'webhook', 'custom', 'game', 'goalReached'].includes(type);
+  const noFilter = ['interval', 'manual', 'webhook', 'custom', 'game', 'goalReached', 'wheel'].includes(type);
   const save = async (e) => {
     e.preventDefault();
     const r = await act('saveTrigger', t);
@@ -58,6 +58,7 @@ function TriggerForm({ initial, s, onClose }) {
         ${type === 'interval' && html`<${Field} label="Toutes les (minutes)"><${Num} value=${t.on.minutes || 10} min="1" onSave=${(minutes) => on({ minutes })} /><//>`}
         ${type === 'game' && html`<${Field} label="Dans le jeu"><${Select} value=${t.on.kind || ''} options=${GAME_KINDS} onChange=${(kind) => on({ kind })} /><//>`}
         ${type === 'custom' && html`<${Field} label="Nom de l'événement"><${Text} value=${t.on.name} onChange=${(name) => on({ name })} /><//>`}
+        ${type === 'wheel' && html`<${Field} label="Case de la roue" hint="Vide pour toutes les cases"><${Select} value=${t.on.name || ''} onChange=${(name) => on({ name })} options=${[{ value: '', label: 'Toutes les cases' }, ...(s.tools.wheel?.segments || []).map((x) => ({ value: x.label, label: x.label }))]} /><//>`}
         ${type === 'chat' && html`<${Field} label="Le message commence par"><${Text} value=${t.on.word} onChange=${(word) => on({ word })} placeholder="!mot" /><//>`}
         ${!noFilter && html`<${Field} label="Montant minimum"><${Num} value=${t.on.minAmount || 0} min="0" onSave=${(minAmount) => on({ minAmount })} /><//>`}
         ${type === 'gift' && html`<${Field} label=${html`Cadeau précis ${!s.features.giftTriggers ? html`<${Pro} />` : ''}`}><${Select} value=${t.on.giftId || ''} disabled=${!s.features.giftTriggers} onChange=${(giftId) => on({ giftId })} options=${[{ value: '', label: 'Tous les cadeaux' }, ...s.gifts.map((g) => ({ value: g.id, label: `${g.name} (${g.cost})` }))]} /><//>`}
@@ -102,7 +103,7 @@ export function Automations({ s }) {
           <${Btn} onClick=${() => setEdit(t)}>Modifier<//>
           <${Btn} kind="danger" onClick=${async () => { const r = await act('removeTrigger', t.id); if (r) setState({ triggers: r }); }}>Supprimer<//>
         </div></li>`)}
-      </ul>` : html`<${Empty} title="Aucune automatisation">Fais réagir ton live tout seul : un son à chaque follow, une scène OBS sur un gros cadeau, un message après une victoire.<//>`}
+      </ul>` : html`<${Empty} title="Aucune automatisation">Fais réagir ton live tout seul : un son à chaque suivi, une scène OBS sur un gros cadeau, un message après une victoire.<//>`}
     <//>
     <${Upsell}>FREE : ${f.triggers} automatisations avec une condition. PRO ajoute les délais, les combos et les conditions multiples.<//>
   </div>`;

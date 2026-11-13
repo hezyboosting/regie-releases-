@@ -23,12 +23,42 @@ class Games {
 
   // ---------- Rangs ----------
   // Le jeu choisi fournit ses rangs ; « Autre jeu » garde la liste modifiable.
-  rankPool() {
+  // Pour chaque jeu, le streamer choisit les rangs qui peuvent sortir et leur chance (ranks.picks).
+  rankPool(all = false) {
     const r = this.s.ranks;
     if (r.game === 'custom' || r.mode === 'points') return r.list.map((t, step) => ({ ...t, step, steps: r.list.length }));
     const images = this.e.s.gaming.rankImages?.[r.game] || {};
     const game = gameById(r.game);
-    return game.ranks.map((t, step) => ({ ...t, image: rankImage(images, t.id, 1), step, steps: game.ranks.length, sides: game.sides, divisions: 0 }));
+    const picks = r.picks?.[r.game] || {};
+    const list = game.ranks.map((t, step) => {
+      const p = picks[t.id] || {};
+      return { ...t, weight: p.weight ?? t.weight, on: p.on !== false, image: rankImage(images, t.id, 1), step, steps: game.ranks.length, sides: game.sides, divisions: 0 };
+    });
+    if (all) return list;
+    const on = list.filter((t) => t.on && t.weight > 0);
+    return on.length ? on : list;
+  }
+
+  rankById(id) { return this.rankPool(true).find((x) => x.id === id) || null; }
+
+  // Données de l'overlay Suivi = Rang : la bande de la caisse et l'aperçu montrent les rangs du jeu choisi.
+  rankOverlayData() {
+    const cfg = this.s.ranks;
+    const pool = this.rankPool();
+    const total = pool.reduce((n, x) => n + Math.max(0, x.weight || 0), 0) || 1;
+    return {
+      pool: pool.map((x) => ({ id: x.id, name: x.name, color: x.color, image: x.image, step: x.step, steps: x.steps, sides: x.sides, chance: cfg.mode === 'points' ? 0 : Math.max(0, x.weight || 0) / total })),
+      game: cfg.game === 'custom' || cfg.mode === 'points' ? '' : gameById(cfg.game).name,
+      reveal: cfg.reveal === 'roulette' && this.e.allowed('rankRoulette') ? 'roulette' : 'classic',
+    };
+  }
+
+  // Le rang d'un spectateur pour le jeu en cours : chaque jeu garde le sien.
+  viewerRank(viewer) {
+    if (!viewer) return null;
+    const game = this.s.ranks.mode === 'points' ? 'points' : this.s.ranks.game;
+    const id = viewer.ranks?.[game] ?? (viewer.rankGame === game || !viewer.rankGame ? viewer.rank : null);
+    return id ? this.rankById(id) : null;
   }
 
   drawRank() {
@@ -45,22 +75,54 @@ class Games {
     return [...list].sort((a, b) => b.min - a.min).find((r) => points >= r.min) || list[0];
   }
 
-  assignRank(ev, viewer) {
+  // forced : un rang choisi à la main (essai, « Donner un rang », commande des modos).
+  // again : on remontre le rang déjà obtenu dans ce jeu au lieu d'en tirer un nouveau.
+  assignRank(ev, viewer, { forced = null, again = false } = {}) {
     const cfg = this.s.ranks;
-    if (!cfg.enabled || !viewer) return null;
-    const rank = cfg.mode === 'points' ? this.rankForPoints(viewer.points) : this.drawRank();
-    if (viewer.rank !== rank.id) viewer.rank = rank.id;
+    if ((!cfg.enabled && !forced && !ev.test) || !viewer) return null;
+    const kept = again ? this.viewerRank(viewer) : null;
+    const rank = (forced && this.rankById(forced)) || kept || (cfg.mode === 'points' ? this.rankForPoints(viewer.points) : this.drawRank());
+    const gameKey = cfg.mode === 'points' ? 'points' : cfg.game;
+    viewer.rank = rank.id;
+    viewer.rankGame = gameKey;
+    viewer.ranks = { ...(viewer.ranks || {}), [gameKey]: rank.id };
+    viewer.rankShownAt = Date.now();
     const roulette = cfg.reveal === 'roulette' && this.e.allowed('rankRoulette');
-    const card = { user: ev.user.display, avatar: ev.user.avatar || '', platform: ev.platform, rank, roulette, pool: roulette ? this.rankPool().map((x) => ({ name: x.name, color: x.color, image: x.image, step: x.step, steps: x.steps, sides: x.sides })) : null, game: gameById(cfg.game).name };
+    const pool = this.rankPool();
+    const total = pool.reduce((n, x) => n + Math.max(0, x.weight || 0), 0) || 1;
+    const chance = (x) => (cfg.mode === 'points' ? 0 : Math.max(0, x.weight || 0) / total);
+    const lite = (x) => ({ id: x.id, name: x.name, color: x.color, image: x.image, step: x.step, steps: x.steps, sides: x.sides, chance: chance(x) });
+    const card = { user: ev.user.display, avatar: ev.user.avatar || '', platform: ev.platform, rank: { ...rank, chance: chance(rank) }, roulette, pool: roulette ? pool.map(lite) : null, game: cfg.game === 'custom' || cfg.mode === 'points' ? '' : gameById(cfg.game).name };
     this.e.server.broadcast({ t: 'rank', card }, 'rankcard');
     this.e.push('rankCard', card);
     if (cfg.announce) this.e.reply(ev, renderTemplate(cfg.message, { user: ev.user.display, rank: rank.name }));
     return rank;
   }
 
+  // Donner un rang précis à quelqu'un (bouton de l'appli ou commande des modos).
+  giveRank(name, rankId, platform = '') {
+    const want = String(rankId || '').toLowerCase().trim();
+    const rank = this.rankById(rankId) || (want && this.rankPool(true).find((x) => String(x.name).toLowerCase().startsWith(want)));
+    if (!rank) throw new Error('Rang inconnu.');
+    const who = String(name || '').replace(/^@/, '').trim();
+    if (!who) throw new Error('Indique un pseudo.');
+    const list = this.e.viewers.file.data.list;
+    const key = Object.keys(list).find((k) => [list[k].name, list[k].display].some((n) => String(n || '').toLowerCase() === who.toLowerCase()) && (!platform || k.startsWith(`${platform}:`)));
+    const viewer = key ? list[key] : { name: who, points: 0 };
+    const ev = { type: 'follow', platform: platform || key?.split(':')[0] || 'twitch', user: { display: viewer.display || viewer.name || who, name: who, avatar: viewer.avatar || '' } };
+    this.assignRank(ev, viewer, { forced: rank.id });
+    if (key) this.e.viewers.file.save();
+    return rank;
+  }
+
   onEvent(ev, result) {
+    const cfg = this.s.ranks;
     if (result?.firstFollow) this.assignRank(ev, result.viewer);
-    else if (ev.type === 'follow' && ev.test) this.assignRank(ev, result?.viewer);
+    else if (ev.type === 'follow' && ev.test) this.assignRank(ev, result?.viewer || { name: ev.user.display, points: 0 }, { forced: ev.forceRank || null });
+    // Quelqu'un qui suit à nouveau : on remontre son rang, on en tire un nouveau, ou rien, au choix.
+    // Un rang obtenu dans un autre jeu ne compte pas : il en reçoit un du jeu actuel.
+    // Dix minutes minimum entre deux révélations pour la même personne : pas de spam si TikTok répète le suivi.
+    else if (ev.type === 'follow' && result?.viewer && cfg.enabled && cfg.again !== 'off' && Date.now() - (result.viewer.rankShownAt || 0) > 600000) this.assignRank(ev, result.viewer, { again: cfg.again !== 'new' });
     // Le rang suit les points quand ce mode est choisi.
     if (this.s.ranks.mode === 'points' && result?.viewer && result.gain > 0) {
       const next = this.rankForPoints(result.viewer.points);
@@ -90,8 +152,14 @@ class Games {
     }
     if (cmd === low(r.commandRank)) {
       const v = this.e.viewers.file.data.list[Viewers.key(ev)] || this.e.viewers.session.viewers[Viewers.key(ev)];
-      const rank = this.rankPool().find((x) => x.id === v?.rank);
+      const rank = this.viewerRank(v);
       this.e.reply(ev, rank ? `${ev.user.display} est ${rank.name}` : `${ev.user.display} n'a pas encore de rang`);
+      return true;
+    }
+    // Les modos choisissent le rang de quelqu'un : !donnerang @pseudo Diamant
+    if (staff && this.s.ranks.giveCommand && cmd === low(this.s.ranks.giveCommand)) {
+      const [who, ...rest] = String(args || '').trim().split(/\s+/);
+      try { const rank = this.giveRank(who, rest.join(' '), ev.platform); this.e.reply(ev, `${String(who).replace(/^@/, '')} reçoit le rang ${rank.name}`); } catch (e) { this.e.reply(ev, e.message); }
       return true;
     }
     if (cmd === '!niveau') { this.e.reply(ev, `${ev.user.display} est niveau ${this.e.viewers.level(ev)}`); return true; }
@@ -99,10 +167,51 @@ class Games {
     if (staff && ['!win', '!lose', '!kill', '!death'].includes(cmd)) { this.e.gameEvent({ '!win': 'win', '!lose': 'loss', '!kill': 'kill', '!death': 'death' }[cmd], {}); return true; }
     if (cmd === '!record') { this.e.reply(ev, this.e.gameRecord()); return true; }
     if (cmd === low(this.s.minigames.rouletteCommand) && this.e.allowed('miniGames')) { this.rouletteCommand(ev); return true; }
-    const reward = r.enabled && r.list.find((x) => x.enabled !== false && low(x.command) === cmd);
-    if (reward) { this.redeem(ev, reward); return true; }
+    if (r.enabled && r.commandShop && cmd === low(r.commandShop)) { this.shopList(ev); return true; }
+    if (r.enabled && r.commandBuy && cmd === low(r.commandBuy)) {
+      const [what, ...rest] = args.trim().split(/\s+/);
+      const items = this.shopItems();
+      const n = Number(what);
+      const reward = Number.isInteger(n) && n > 0 ? items[n - 1] : items.find((x) => low(x.name).startsWith(low(what)) && what);
+      if (!reward) { this.e.reply(ev, this.e.s.settings.uiLang === 'en' ? `${ev.user.display}, type ${r.commandBuy} followed by a number from ${r.commandShop}.` : `${ev.user.display}, tape ${r.commandBuy} suivi d'un numéro de ${r.commandShop}.`); return true; }
+      this.redeem(ev, reward, rest.join(' '));
+      return true;
+    }
+    const reward = r.enabled && r.list.find((x) => x.enabled !== false && x.command && low(x.command) === cmd);
+    if (reward) { this.redeem(ev, reward, args); return true; }
     return false;
   }
+
+  // ---- Boutique de points : la liste numérotée que le chat voit et que l'overlay affiche.
+  shopItems() { return this.s.rewards.list.filter((x) => x.enabled !== false); }
+
+  shopView() {
+    const r = this.s.rewards;
+    this.shopSold = this.shopSold || {};
+    return {
+      enabled: r.enabled, shopCmd: r.commandShop || '', buyCmd: r.commandBuy || '',
+      items: this.shopItems().map((x, i) => ({ n: i + 1, id: x.id, name: x.name, emoji: x.emoji || '🎁', cost: x.cost, desc: x.desc || '', left: x.stock > 0 ? Math.max(0, x.stock - (this.shopSold[x.id] || 0)) : null, command: x.command || '' })),
+      log: (this.shopLog || []).slice(0, 12),
+    };
+  }
+
+  pushShop(purchase = null) {
+    const view = this.shopView();
+    this.e.push('shop', view);
+    this.e.server.broadcast({ t: 'shop', shop: view, purchase }, 'pointshop');
+  }
+
+  shopList(ev) {
+    const items = this.shopItems();
+    const r = this.s.rewards;
+    const en = this.s.settings.uiLang === 'en';
+    if (!items.length) { this.e.reply(ev, en ? 'The shop is empty for now.' : 'La boutique est vide pour l\'instant.'); return; }
+    if (this.e.cooled('shop:list', 15)) return;
+    const line = items.map((x, i) => `${i + 1}. ${x.emoji || ''}${x.name} (${x.cost})`).join(' · ');
+    this.e.reply(ev, `🛒 ${line.slice(0, 380)} — ${en ? 'type' : 'tape'} ${r.commandBuy} 1`);
+  }
+
+  resetShop() { this.shopSold = {}; this.shopLog = []; }
 
   rouletteCommand(ev) {
     const m = this.s.minigames;
@@ -120,11 +229,21 @@ class Games {
     if (sub === 'status') this.e.reply(ev, b.status === 'fight' ? `${b.name}, niveau ${b.level} : ${b.hp} sur ${b.maxHp} PV` : 'Aucun boss en cours.');
   }
 
-  redeem(ev, reward) {
+  redeem(ev, reward, args = '') {
+    this.shopSold = this.shopSold || {};
+    const en = this.s.settings.uiLang === 'en';
+    if (reward.stock > 0 && (this.shopSold[reward.id] || 0) >= reward.stock) { this.e.reply(ev, en ? `${reward.name} is sold out for this live.` : `${reward.name} est épuisé pour ce live.`); return; }
+    if (reward.needsText && !String(args).trim()) { this.e.reply(ev, en ? `${ev.user.display}, add your text after the command.` : `${ev.user.display}, ajoute ton texte après la commande.`); return; }
+    if (reward.cooldown > 0 && this.e.cooled(`reward:${reward.id}`, reward.cooldown)) { this.e.reply(ev, en ? `${reward.name} is recharging, try again soon.` : `${reward.name} se recharge, réessaie bientôt.`); return; }
+    if (reward.userCooldown > 0 && this.e.cooled(`reward:${reward.id}:${ev.platform}:${ev.user.id || ev.user.name}`, reward.userCooldown)) return;
     if (!this.e.viewers.spend(ev, reward.cost)) { this.e.reply(ev, `${ev.user.display}, il te faut ${reward.cost} points pour ${reward.name}.`); return; }
-    this.e.reply(ev, `${ev.user.display} utilise ${reward.name}`);
-    const vars = this.e.commandVars(ev, '', null);
-    (reward.actions || []).forEach((act) => this.e.runAction(act, ev, vars));
+    this.shopSold[reward.id] = (this.shopSold[reward.id] || 0) + 1;
+    if (this.s.rewards.announce !== false) this.e.reply(ev, en ? `🛒 ${ev.user.display} buys ${reward.name}` : `🛒 ${ev.user.display} achète ${reward.name}`);
+    const vars = { ...this.e.commandVars(ev, String(args).slice(0, 200), null), reward: reward.name };
+    this.e.runActions(reward.actions || [], ev, vars);
+    const purchase = { user: ev.user.display || ev.user.name, avatar: ev.user.avatar || '', platform: ev.platform, reward: reward.name, emoji: reward.emoji || '🎁', cost: reward.cost, text: reward.needsText ? String(args).slice(0, 120) : '', at: Date.now() };
+    this.shopLog = [purchase, ...(this.shopLog || [])].slice(0, 30);
+    this.pushShop(purchase);
     this.e.pushLive();
   }
 

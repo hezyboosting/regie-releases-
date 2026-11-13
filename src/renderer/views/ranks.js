@@ -1,8 +1,8 @@
 import { html, useState, useEffect, act, setState, fmt, copy, reload, toast } from '../store.js';
-import { ICONS, Btn, Bay, Field, Lamp, Lazy, Num, Segments, Select, PageHead, Tag, Empty } from '../ui.js';
+import { ICONS, Btn, Bay, Field, Lamp, Lazy, Num, Segments, Select, PageHead, Tag, Empty, Gem } from '../ui.js';
 import { Actions } from './commands.js';
 
-const METRICS = [{ value: 'coins', label: 'Cadeaux' }, { value: 'likes', label: 'Likes' }, { value: 'points', label: 'Points' }, { value: 'messages', label: 'Messages' }, { value: 'shares', label: 'Partages' }, { value: 'subs', label: 'Abonnements' }, { value: 'follows', label: 'Follows' }];
+const METRICS = [{ value: 'coins', label: 'Cadeaux' }, { value: 'likes', label: 'Likes' }, { value: 'points', label: 'Points' }, { value: 'messages', label: 'Messages' }, { value: 'shares', label: 'Partages' }, { value: 'subs', label: 'Abonnements' }, { value: 'follows', label: 'Suivis' }];
 const SCOPES = [{ value: 'session', label: 'Ce live' }, { value: 'today', label: 'Aujourd\'hui' }, { value: 'week', label: '7 jours' }, { value: 'month', label: '30 jours' }, { value: 'all', label: 'Depuis le début' }];
 
 function Boards({ s }) {
@@ -26,28 +26,91 @@ function Boards({ s }) {
   </div>`;
 }
 
-function RankConfig({ s }) {
+const imgUrl = (s, file) => (file ? `http://127.0.0.1:${s.port}/media/${encodeURIComponent(file)}?k=${encodeURIComponent(s.overlayToken)}` : '');
+const pct = (x) => `${(x * 100 >= 10 ? Math.round(x * 100) : (x * 100).toFixed(1)).toString().replace('.', ',')} %`;
+
+// Rangs d'un jeu officiel : lesquels peuvent sortir, et avec quelle chance.
+function RankPicks({ s, choices, up, compact = false }) {
   const r = s.ranks;
+  const picks = r.picks?.[r.game] || {};
+  const on = choices.filter((x) => x.on && x.weight > 0);
+  const total = on.reduce((n, x) => n + x.weight, 0) || 1;
+  const set = (id, patch) => up({ picks: { ...(r.picks || {}), [r.game]: { ...picks, [id]: { ...(picks[id] || {}), ...patch } } } });
+  const all = (fn) => up({ picks: { ...(r.picks || {}), [r.game]: Object.fromEntries(choices.map((x) => [x.id, { ...(picks[x.id] || {}), ...fn(x) }])) } });
+  const tools = html`<div class="row tight wrap">
+      <${Btn} onClick=${() => all(() => ({ on: true }))}>Tous<//>
+      <${Btn} onClick=${() => all(() => ({ on: false }))}>Aucun<//>
+      <${Btn} onClick=${() => all(() => ({ weight: 10 }))}>Chances égales<//>
+      <${Btn} onClick=${() => up({ picks: { ...(r.picks || {}), [r.game]: {} } })}>Chances d'origine<//>
+    </div>`;
+  return html`<${Bay} title="Rangs qui peuvent sortir" aside=${compact ? null : tools}>
+    ${compact && tools}
+    <p class="note">Décoche un rang pour qu'il ne sorte jamais. La chance règle la rareté : plus elle est basse, plus le rang est rare.</p>
+    <div class="rp-list">
+      ${choices.map((x) => html`<div class="rp ${x.on ? '' : 'off'}" key=${x.id}>
+        <${Gem} color=${x.color} step=${x.step} steps=${x.steps} sides=${x.sides} src=${imgUrl(s, x.image)} size=${40} />
+        <b class="rp-name">${x.name}</b>
+        <${Lamp} on=${x.on} label=${compact ? '' : 'Peut sortir'} aria-label=${`${x.name} peut sortir`} onChange=${(v) => set(x.id, { on: v })} />
+        <label class="rp-w">${!compact && html`<span>Chance</span>`}<${Num} value=${x.weight} min="0" aria-label=${`Chance de ${x.name}`} onSave=${(weight) => set(x.id, { weight })} /></label>
+        <span class="rp-pct">${x.on && x.weight > 0 ? pct(x.weight / total) : '—'}</span>
+        ${!compact && html`<${Btn} onClick=${() => act('testRank', x.id)}>Essayer<//>`}
+      </div>`)}
+    </div>
+  <//>`;
+}
+
+// Donner un rang précis à quelqu'un, depuis l'appli ou par une commande des modos.
+function GiveRank({ s, choices, up }) {
+  const r = s.ranks;
+  const [who, setWho] = useState('');
+  const [rank, setRank] = useState('');
+  const pick = rank || choices[0]?.id || '';
+  const give = async () => {
+    const out = await act('giveRank', who, pick);
+    if (out) { toast(`${who.replace(/^@/, '')} reçoit le rang ${out.name}`); setWho(''); }
+  };
+  return html`<${Bay} title="Donner un rang">
+    <div class="give-rank">
+      <input class="in" placeholder="Pseudo" aria-label="Pseudo" value=${who} onInput=${(e) => setWho(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && who.trim() && give()} />
+      <${Select} value=${pick} onChange=${setRank} options=${choices.map((x) => ({ value: x.id, label: x.name }))} />
+      <${Btn} kind="primary" disabled=${!who.trim() || !pick} onClick=${give}>Donner<//>
+    </div>
+    <div class="row wrap">
+      <${Field} label="Commande des modos" hint="Exemple : !donnerang @pseudo Diamant"><${Lazy} value=${r.giveCommand || ''} placeholder="!donnerang" onSave=${(giveCommand) => up({ giveCommand })} /><//>
+    </div>
+  <//>`;
+}
+
+export function RankConfig({ s, compact = false }) {
+  const r = s.ranks;
+  const [choices, setChoices] = useState([]);
+  const load = () => act('rankChoices').then((x) => x && setChoices(x));
+  useEffect(() => { load(); }, [r.game, r.mode, JSON.stringify(r.picks || {}), JSON.stringify(r.list), JSON.stringify(s.gaming.rankImages?.[r.game] || {})]);
   const up = async (patch) => { const out = await act('updateRanks', patch); if (out) setState({ ranks: out }); };
   const upRow = (i, patch) => up({ list: r.list.map((x, j) => (i === j ? { ...x, ...patch } : x)) });
   const overlay = s.overlays.find((o) => o.type === 'rankcard');
+  const official = r.game !== 'custom' && r.mode !== 'points';
   return html`<div class="col">
-    <${Bay} title="Follow = Rank" aside=${overlay ? html`<${Btn} icon=${ICONS.copy} onClick=${() => copy(overlay.link)}>Copier le lien<//>` : html`<${Btn} onClick=${async () => { if (await act('addOverlay', 'rankcard')) reload(); }}>Créer l'overlay<//>`}>
+    <${Bay} title=${compact ? 'Rangs et révélation' : 'Réglages'} aside=${compact ? null : overlay ? html`<${Btn} icon=${ICONS.copy} onClick=${() => copy(overlay.link)}>Copier le lien<//>` : html`<${Btn} onClick=${async () => { if (await act('addOverlay', 'rankcard')) reload(); }}>Créer l'overlay<//>`}>
       <div class="row tight">
-        <${Lamp} on=${r.enabled} label="Donner un rang aux nouveaux followers" onChange=${(enabled) => up({ enabled })} />
+        <${Lamp} on=${r.enabled} label="Donner un rang à chaque nouveau suivi" onChange=${(enabled) => up({ enabled })} />
         <${Lamp} on=${r.announce} label="L'annoncer dans le chat" onChange=${(announce) => up({ announce })} />
         <${Btn} onClick=${() => act('testRank')}>Essayer<//>
       </div>
       <${Segments} value=${r.mode} onChange=${(mode) => up({ mode })} options=${[{ value: 'random', label: 'Rang au hasard' }, { value: 'points', label: 'Rang selon les points' }]} />
-      <p class="note">${r.mode === 'random' ? 'Le poids règle la rareté : plus il est bas, plus le rang est rare.' : 'Le spectateur monte de rang quand ses points atteignent le seuil.'}</p>
+      <p class="note">${r.mode === 'random' ? 'Chaque nouveau suivi tire un rang parmi ceux que tu laisses sortir, selon leurs chances.' : 'Le spectateur monte de rang quand ses points atteignent le seuil.'}</p>
       <div class="row wrap">
-        <${Field} label="Rangs du jeu" hint="Blasons dessinés par Régie"><${Select} value=${r.game} onChange=${(game) => up({ game })} options=${[...s.gameCatalog.filter((g) => g.ranks.length).map((g) => ({ value: g.id, label: g.name })), { value: 'custom', label: 'Mes propres rangs' }]} /><//>
+        <${Field} label="Rangs du jeu" hint="Les vrais emblèmes s'installent dans Mes jeux"><${Select} value=${r.game} onChange=${(game) => up({ game })} options=${[...s.gameCatalog.filter((g) => g.ranks.length).map((g) => ({ value: g.id, label: g.name })), { value: 'custom', label: 'Autre jeu (mes rangs)' }]} /><//>
         <${Field} label="Message dans le chat" hint="Variables : {user} {rank}"><${Lazy} value=${r.message} onSave=${(message) => up({ message })} /><//>
       </div>
       <span class="f-label">Révélation</span>
-      <${Segments} value=${r.reveal} locked=${!s.features.rankRoulette} onChange=${(reveal) => up({ reveal })} options=${[{ value: 'classic', label: 'Carte directe' }, { value: 'roulette', label: 'Roulette', premium: true }]} />
-      <p class="note">${r.reveal === 'roulette' ? 'Trois rangs défilent derrière un repère avant de s\'arrêter sur le bon, puis des confettis. Les follows arrivent à la suite, sans se couper.' : 'La carte s\'affiche tout de suite.'}</p>
+      <${Segments} value=${r.reveal} locked=${!s.features.rankRoulette} onChange=${(reveal) => up({ reveal })} options=${[{ value: 'classic', label: 'Carte directe' }, { value: 'roulette', label: 'Caisse façon CS2', premium: true }]} />
+      <p class="note">${r.reveal === 'roulette' ? 'Une bande de rangs défile sous un repère doré, ralentit longtemps et s\'arrête sur le rang obtenu, puis confettis. Les rangs rares passent rarement dans la bande. Les suivis arrivent à la suite, sans se couper.' : 'La carte s\'affiche tout de suite.'}</p>
+      <span class="f-label">Si la personne suit à nouveau</span>
+      <${Segments} value=${r.again || 'keep'} onChange=${(again) => up({ again })} options=${[{ value: 'keep', label: 'Remontrer son rang' }, { value: 'new', label: 'Nouveau tirage' }, { value: 'off', label: 'Rien' }]} />
+      <p class="note">Chaque jeu garde son propre rang : en changeant de jeu, le spectateur reçoit un rang du nouveau jeu au lieu de garder l'ancien.</p>
     <//>
+    ${official && choices.length > 0 && html`<${RankPicks} s=${s} choices=${choices} up=${up} compact=${compact} />`}
     ${(r.game === 'custom' || r.mode === 'points') ? html`<${Bay} title="Rangs">
       <div class="col">
         ${r.list.map((x, i) => html`<div class="rank-row" key=${x.id}>
@@ -56,57 +119,47 @@ function RankConfig({ s }) {
           <${Lazy} value=${x.name} aria-label="Nom du rang" onSave=${(name) => upRow(i, { name })} />
           <${Num} value=${x.weight} min="0" aria-label="Poids" onSave=${(weight) => upRow(i, { weight })} />
           <${Num} value=${x.min} min="0" aria-label="Seuil de points" onSave=${(min) => upRow(i, { min })} />
+          <${Btn} onClick=${() => act('testRank', x.id)}>Essayer<//>
           <button class="icon" aria-label="Retirer" onClick=${() => up({ list: r.list.filter((_, j) => j !== i) })}>${ICONS.x}</button>
         </div>`)}
         <div class="row tight"><${Btn} icon=${ICONS.plus} onClick=${() => up({ list: [...r.list, { id: `r${Date.now()}`, name: 'Nouveau rang', color: '#FF3D71', weight: 1, min: 100000 }] })}>Ajouter un rang<//><span class="note">Colonnes : poids, puis seuil de points.</span></div>
       </div>
     <//>` : null}
+    ${choices.length > 0 && !compact && html`<${GiveRank} s=${s} choices=${choices} up=${up} />`}
   </div>`;
 }
 
-function Rewards({ s }) {
+// Points gagnés par message, like, cadeau… (montré dans la Boutique de points).
+export function PointsRates({ s }) {
   const r = s.rewards;
   const up = async (patch) => { const out = await act('updateRewards', patch); if (out) setState({ rewards: out }); };
-  const [edit, setEdit] = useState(null);
-  const save = async () => {
-    const out = await act('saveReward', edit);
-    if (out) { setState({ rewards: out }); setEdit(null); toast('Récompense enregistrée'); }
-  };
-  const RATES = [['perMessage', 'Par message'], ['perLike', 'Par like'], ['perFollow', 'Par follow'], ['perShare', 'Par partage'], ['perSub', 'Par abonnement'], ['perCoin', 'Par pièce'], ['perBit', 'Par bit'], ['perEuro', 'Par euro de Super Chat']];
-  return html`<div class="col">
-    <${Bay} title="Points">
-      <${Lamp} on=${r.enabled} label="Les spectateurs gagnent des points" onChange=${(enabled) => up({ enabled })} />
-      <div class="row wrap">${RATES.map(([k, l]) => html`<${Field} key=${k} label=${l}><${Num} value=${r[k]} min="0" step="0.1" onSave=${(v) => up({ [k]: v })} /><//>`)}</div>
-      <div class="row wrap">
-        <${Field} label="Voir ses points"><${Lazy} value=${r.commandPoints} onSave=${(commandPoints) => up({ commandPoints })} /><//>
-        <${Field} label="Voir le classement"><${Lazy} value=${r.commandTop} onSave=${(commandTop) => up({ commandTop })} /><//>
-        <${Field} label="Voir son rang"><${Lazy} value=${r.commandRank} onSave=${(commandRank) => up({ commandRank })} /><//>
-      </div>
-    <//>
-    <${Bay} title="Récompenses" aside=${html`<${Btn} icon=${ICONS.plus} onClick=${() => setEdit({ name: '', command: '!', cost: 100, actions: [{ type: 'sound', sound: 'fanfare' }] })}>Ajouter<//>`}>
-      ${edit && html`<div class="form-grid">
-        <${Field} label="Nom"><input class="in" value=${edit.name} onInput=${(e) => setEdit({ ...edit, name: e.target.value })} /><//>
-        <${Field} label="Commande"><input class="in" value=${edit.command} onInput=${(e) => setEdit({ ...edit, command: e.target.value })} /><//>
-        <${Field} label="Prix en points"><input class="in" type="number" value=${edit.cost} onInput=${(e) => setEdit({ ...edit, cost: Number(e.target.value) })} /><//>
-        <${Actions} list=${edit.actions} s=${s} onChange=${(actions) => setEdit({ ...edit, actions })} />
-        <div class="row tight wide"><${Btn} kind="primary" onClick=${save}>Enregistrer<//><${Btn} onClick=${() => setEdit(null)}>Annuler<//></div>
-      </div>`}
-      <ul class="rules">
-        ${r.list.map((x) => html`<li class="rule" key=${x.id}><div class="rule-line"><b style=${{ flex: '0 0 180px' }}>${x.name}</b><p class="rule-msg">${x.command}, ${fmt(x.cost)} points</p><${Btn} onClick=${() => setEdit(x)}>Modifier<//><${Btn} kind="danger" onClick=${async () => { const o = await act('removeReward', x.id); if (o) setState({ rewards: o }); }}>Supprimer<//></div></li>`)}
-      </ul>
-      ${!r.list.length && !edit && html`<p class="note">Une récompense se paie en points depuis le chat, sur toutes les chaînes.</p>`}
-    <//>
+  const RATES = [['perMessage', 'Par message'], ['perLike', 'Par like'], ['perFollow', 'Par suivi'], ['perShare', 'Par partage'], ['perSub', 'Par abonnement'], ['perCoin', 'Par pièce'], ['perBit', 'Par bit'], ['perEuro', 'Par euro de Super Chat']];
+  return html`<${Bay} title="Gagner des points">
+    <${Lamp} on=${r.enabled} label="Les spectateurs gagnent des points" onChange=${(enabled) => up({ enabled })} />
+    <div class="form-grid">${RATES.map(([k, l]) => html`<${Field} key=${k} label=${l}><${Num} value=${r[k]} min="0" step="0.1" onSave=${(v) => up({ [k]: v })} /><//>`)}</div>
+    <div class="form-grid">
+      <${Field} label="Voir le classement"><${Lazy} value=${r.commandTop} onSave=${(commandTop) => up({ commandTop })} /><//>
+      <${Field} label="Voir son rang"><${Lazy} value=${r.commandRank} onSave=${(commandRank) => up({ commandRank })} /><//>
+    </div>
+  <//>`;
+}
+
+// Suivi = Rang : sa propre page.
+export function RankPage({ s }) {
+  return html`<div class="page">
+    <${PageHead} title="Suivi = Rang" />
+    <p class="lead">Chaque personne qui suit ta chaîne reçoit un rang de ton jeu, révélé à l'écran par une carte ou une ouverture de caisse façon CS2.</p>
+    <${RankConfig} s=${s} />
   </div>`;
 }
 
-export function Ranks({ s }) {
-  const [tab, setTab] = useState('boards');
+export function BoardsPage({ s }) {
   return html`<div class="page">
-    <${PageHead} title="Classements et rangs" />
-    <${Segments} value=${tab} onChange=${setTab} options=${[{ value: 'boards', label: 'Classements' }, { value: 'ranks', label: 'Rangs' }, { value: 'rewards', label: 'Points et récompenses' }]} />
-    ${tab === 'boards' && html`<${Boards} s=${s} />`}
-    ${tab === 'ranks' && html`<${RankConfig} s=${s} />`}
-    ${tab === 'rewards' && html`<${Rewards} s=${s} />`}
+    <${PageHead} title="Classements" />
+    <${Boards} s=${s} />
   </div>`;
 }
+
+// Ancienne page à onglets, gardée pour les liens existants.
+export function Ranks({ s }) { return html`<${BoardsPage} s=${s} />`; }
 void Select;

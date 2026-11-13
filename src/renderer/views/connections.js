@@ -1,6 +1,7 @@
 // Connexions : un seul endroit pour relier ses chaînes et ses logiciels, sans mot de passe stocké.
 import { html, useState, useEffect, useRef, act, reload, setState, copy, toast, PLATFORM } from '../store.js';
 import { Btn, Bay, Field, Text, PageHead } from '../ui.js';
+import { brandSvg } from '../../overlays/brands.js';
 
 const STATE = { live: 'Connecté', connecting: 'Connexion en cours', offline: 'Hors ligne', error: 'À vérifier', stopped: 'En pause', locked: 'Réservé à PRO' };
 
@@ -16,7 +17,7 @@ function Account({ c }) {
 function Service({ s, platform, children }) {
   const list = s.channels.filter((c) => c.platform === platform);
   return html`<section class="cx-row">
-    <header><i class="cx-dot" style=${{ background: PLATFORM[platform].color }}></i><h3>${PLATFORM[platform].label}</h3></header>
+    <header><span class="cx-logo" aria-hidden="true" dangerouslySetInnerHTML=${{ __html: brandSvg(platform, 24) }}></span><h3>${PLATFORM[platform].label}</h3></header>
     <div class="cx-body">
       ${list.length > 0 && html`<ul class="cx-list">${list.map((c) => html`<${Account} key=${c.id} c=${c} />`)}</ul>`}
       ${children}
@@ -86,7 +87,7 @@ function Twitch({ s }) {
       <div class="row tight"><${Btn} onClick=${() => copy(info.userCode, 'Code copié')}>Copier le code<//><${Btn} onClick=${() => act('openExternal', info.url)}>Rouvrir la page<//></div>
     </div>`}
     <${Pseudo} platform="twitch" label=${ready ? 'Ou juste ton pseudo, sans connexion' : 'Ton pseudo Twitch'} placeholder="tonpseudo" />
-    <p class="note">Avec le pseudo : chat, abonnements, bits et raids. La connexion ajoute les follows, les récompenses et les réponses du bot.</p>
+    <p class="note">Avec le pseudo : chat, abonnements, bits et raids. La connexion ajoute les suivis, les récompenses et les réponses du bot.</p>
     ${!ready && html`<details class="more"><summary>Tu publies l'appli ? Active le bouton Se connecter avec Twitch</summary>
       <p class="note">Twitch exige un Client ID par application. Il suffit d'en créer un seul : tous tes utilisateurs auront ensuite le bouton.</p>
       <ol class="steps">

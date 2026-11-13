@@ -7,10 +7,10 @@ const ALL = ['tiktok', 'twitch', 'youtube', 'kick'];
 
 // Types d'événements reconnus, avec le message par défaut et les plateformes concernées.
 const EVENT_TYPES = {
-  follow: { label: 'Follow', message: '{user} suit la chaîne', platforms: ['tiktok', 'twitch'], sound: 'chime' },
+  follow: { label: 'Suivi', message: '{user} suit la chaîne', platforms: ['tiktok', 'twitch'], sound: 'chime' },
   sub: { label: 'Abonnement', message: '{user} s\'abonne', platforms: ALL, sound: 'fanfare' },
   resub: { label: 'Réabonnement', message: '{user} est abonné depuis {months} mois', platforms: ['twitch'], sound: 'fanfare' },
-  giftsub: { label: 'Subs offerts', message: '{user} offre {amount} abonnements', platforms: ['twitch', 'youtube'], sound: 'fanfare' },
+  giftsub: { label: 'Abonnements offerts', message: '{user} offre {amount} abonnements', platforms: ['twitch', 'youtube'], sound: 'fanfare' },
   bits: { label: 'Bits', message: '{user} envoie {amount} bits', platforms: ['twitch'], sound: 'coins', min: 1 },
   raid: { label: 'Raid', message: '{user} arrive avec {amount} personnes', platforms: ['twitch'], sound: 'horn' },
   redeem: { label: 'Points de chaîne', message: '{user} utilise {reward}', platforms: ['twitch'], sound: 'pop', enabled: false },
@@ -25,7 +25,7 @@ const EVENT_TYPES = {
   share: { label: 'Partage', message: '{user} partage le live', platforms: ['tiktok'], sound: 'pop', enabled: false },
   join: { label: 'Arrivée', message: '{user} rejoint le live', platforms: ['tiktok'], sound: 'pop', enabled: false },
   superfan: { label: 'Super Fan', message: '{user} devient Super Fan', platforms: ['tiktok'], sound: 'fanfare' },
-  goal: { label: 'Goal atteint', message: 'Objectif atteint : {reward}', platforms: ALL, sound: 'fanfare' },
+  goal: { label: 'Objectif atteint', message: 'Objectif atteint : {reward}', platforms: ALL, sound: 'fanfare' },
 };
 
 const RANKS = [
@@ -56,7 +56,7 @@ const defaultState = () => {
     alerts: { paused: false, gap: 1, rules: defaultRules() },
     goals: [],
     battle: {
-      status: 'idle', mode: 'chat', title: 'Battle', duration: 300, endsAt: 0, winner: null,
+      status: 'idle', mode: 'chat', title: 'Duel', duration: 300, endsAt: 0, winner: null,
       teams: [{ id: 'a', name: 'Rouge', color: '#FF3D71', score: 0, keyword: '!rouge', platforms: [] }, { id: 'b', name: 'Bleu', color: '#6F8FB5', score: 0, keyword: '!bleu', platforms: [] }],
       scoring: { chat: 1, like: 1, follow: 10, share: 5, sub: 500, coin: 1, bit: 1, money: 100 },
     },
@@ -66,17 +66,43 @@ const defaultState = () => {
       { id: uid('k'), trigger: '!son', enabled: true, perm: 'all', cooldown: 30, userCooldown: 60, platforms: ALL, replyTo: 'origin', response: 'En ce moment : {song}', perPlatform: {}, actions: [], uses: 0 },
     ],
     triggers: [],
-    ranks: { enabled: true, game: 'rocketleague', reveal: 'classic', mode: 'random', announce: false, message: '{user} entre au rang {rank}', list: RANKS },
+    // Le chat joue : un mot du chat lance une action dans ton jeu (touches façon jeu de tir par défaut).
+    discord: { enabled: false, onLive: true, onRecap: true, mention: 'none', roleId: '', liveText: '🔴 {name} est en live ! Viens dire bonjour 👋', liveTitle: '', recapText: '', botName: 'Régie', lastLiveAt: 0 },
+    plinko: {
+      enabled: false, rows: 12, mode: 'natural', maxBalls: 25,
+      gifts: { enabled: true, minCoins: 1, perGift: 1, maxPerGift: 10, giftId: '' },
+      bet: { enabled: true, command: '!plinko', min: 10, max: 5000, cooldown: 3, announce: true },
+      bins: require('./plinko-bins').defaultBins(13),
+    },
+    chatPlays: {
+      enabled: false, mode: 'vote', voteSeconds: 6, userCooldown: 2, maxPerSecond: 4, prefix: '',
+      commands: [
+        { id: uid('cp'), word: 'avance', aliases: 'z,w,haut', label: 'Avancer', emoji: '⬆️', actions: [{ type: 'key', key: 'W', hold: 600 }] },
+        { id: uid('cp'), word: 'recule', aliases: 's,bas', label: 'Reculer', emoji: '⬇️', actions: [{ type: 'key', key: 'S', hold: 600 }] },
+        { id: uid('cp'), word: 'gauche', aliases: 'q,a', label: 'Gauche', emoji: '⬅️', actions: [{ type: 'key', key: 'A', hold: 500 }] },
+        { id: uid('cp'), word: 'droite', aliases: 'd', label: 'Droite', emoji: '➡️', actions: [{ type: 'key', key: 'D', hold: 500 }] },
+        { id: uid('cp'), word: 'saute', aliases: 'jump,espace', label: 'Sauter', emoji: '🦘', actions: [{ type: 'key', key: 'Space', hold: 80 }] },
+      ],
+    },
+    prediction: { status: 'idle', id: '', question: '', options: [], bets: {}, winner: -1, closesAt: 0, history: [] },
+    ranks: { enabled: true, game: 'rocketleague', reveal: 'roulette', mode: 'random', announce: false, message: '{user} entre au rang {rank}', list: RANKS, picks: {}, again: 'keep', giveCommand: '!donnerang' },
     rewards: {
       enabled: true, perMessage: 1, perLike: 0.1, perFollow: 50, perShare: 10, perSub: 500, perCoin: 1, perBit: 1, perEuro: 100,
-      commandPoints: '!points', commandTop: '!top', commandRank: '!rang', list: [],
+      commandPoints: '!points', commandTop: '!top', commandRank: '!rang', commandShop: '!boutique', commandBuy: '!acheter', commandBet: '!parier', minBet: 10, announce: true,
+      list: [
+        { id: uid('rw'), emoji: '🎉', name: 'Confettis', desc: 'Une pluie de confettis à l\'écran', cost: 300, cooldown: 20, userCooldown: 60, stock: 0, enabled: true, command: '', actions: [{ type: 'overlayFx' }] },
+        { id: uid('rw'), emoji: '🎡', name: 'Tour de roue', desc: 'Fais tourner la roue de la fortune', cost: 500, cooldown: 30, userCooldown: 120, stock: 0, enabled: true, command: '', actions: [{ type: 'wheel' }] },
+        { id: uid('rw'), emoji: '💬', name: 'Message à l\'écran', desc: 'Ton texte affiché en grand', cost: 400, cooldown: 30, userCooldown: 120, stock: 0, enabled: true, needsText: true, command: '', actions: [{ type: 'show', text: '{user} : {args}', seconds: 8 }] },
+        { id: uid('rw'), emoji: '🥁', name: 'Roulement de tambour', desc: 'Un son pour le suspense', cost: 200, cooldown: 15, userCooldown: 60, stock: 0, enabled: true, command: '', actions: [{ type: 'sound', sound: 'drumroll', volume: 80 }] },
+        { id: uid('rw'), emoji: '🔥', name: 'Défi pour le streamer', desc: 'Le défi s\'affiche et est lu à voix haute', cost: 1000, cooldown: 120, userCooldown: 300, stock: 3, enabled: true, needsText: true, command: '', actions: [{ type: 'show', text: '🔥 Défi de {user} : {args}', seconds: 10 }, { type: 'tts', text: 'Défi de {user} : {args}' }] },
+      ],
     },
-    arena: { status: 'idle', title: 'Chat Battle', joinWord: '!fight', attackWord: '!attaque', lobby: 30, speed: 1400, maxFighters: 16, prize: 200, fighters: [], log: [], winner: null, endsAt: 0 },
+    arena: { status: 'idle', title: 'Bataille du chat', joinWord: '!fight', attackWord: '!attaque', lobby: 30, speed: 1400, maxFighters: 16, prize: 200, fighters: [], log: [], winner: null, endsAt: 0 },
     boss: {
       status: 'idle', bossId: 'golem', name: 'Golem de Basalte', level: 1, baseHp: 5000, hp: 5000, maxHp: 5000, duration: 300, endsAt: 0, regen: 0, hitWord: '!hit', prize: 300, autoNext: true,
       damage: { chat: 1, hit: 5, like: 1, follow: 50, share: 20, sub: 500, coin: 2, bit: 1, money: 200 }, players: [], log: [],
     },
-    gaming: { rankImages: {}, active: 'rocketleague', auto: true, command: '!rank', profiles: {}, rcon: { host: '127.0.0.1', port: 25575, password: '' }, gsiToken: uid('g') },
+    gaming: { rankImages: {}, active: 'rocketleague', auto: true, command: '!rank', profiles: {}, rcon: { host: '127.0.0.1', port: 25575, password: '' }, servers: [], gsiToken: uid('g') },
     minigame: { kind: '', status: 'idle' },
     minigames: {
       rouletteCommand: '!roulette', rouletteCost: 50, rouletteCooldown: 60, quiz: [],
@@ -91,6 +117,9 @@ const defaultState = () => {
     clips: { list: [], command: '!clip', perm: 'mod', cooldown: 60 },
     scenes: { useTransition: false, transitionStyle: 'volet', transitionMs: 1100 },
     keys: { enabled: false },
+    vpad: { enabled: false },
+    chatTranslate: { enabled: false, target: 'auto', engine: 'google', mode: 'below', showLang: true },
+    recap: { open: true, thanks: false, thanksText: 'Merci {top} pour ce live ❤️ À très vite !' },
     tts: {
       enabled: false, provider: 'system', voice: '', rate: 1, pitch: 1, volume: 80,
       read: { chat: false, command: true, gift: false, superchat: true, bits: true, sub: true }, command: '!tts',
@@ -102,12 +131,31 @@ const defaultState = () => {
     tools: {
       counters: [counter], timers: [timer],
       poll: { status: 'idle', question: '', options: [], votes: {}, endsAt: 0, duration: 120 },
-      giveaway: { status: 'idle', title: 'Giveaway', keyword: '!participe', perm: 'all', platforms: ALL, entrants: [], winner: null, subLuck: 1 },
+      giveaway: { status: 'idle', title: 'Tirage au sort', keyword: '!participe', perm: 'all', platforms: ALL, entrants: [], winner: null, subLuck: 1 },
+      queue: { open: true, join: '!join', leave: '!quitter', max: 50, subsFirst: false, list: [], current: null },
+      wheel: {
+        enabled: true, title: 'Roue de la fortune', command: '!roue', cost: 0, cooldown: 30, giftId: '', minCoins: 0, likesEvery: 0, onFollow: false, onSub: false, onShare: false,
+        spinSeconds: 6, resultSeconds: 6, announce: false, announceText: '', maxQueue: 30, spinSound: 'drumroll', resultSound: 'fanfare', voice: false,
+        segments: [
+          { id: uid('w'), label: 'Gage du chat', color: '#FF4D6D', weight: 20, points: 0, actions: [] },
+          { id: uid('w'), label: '100 points', color: '#3DF0C2', weight: 15, points: 100, actions: [] },
+          { id: uid('w'), label: 'Confettis', color: '#FFC53D', weight: 15, points: 0, actions: [{ type: 'overlayFx' }] },
+          { id: uid('w'), label: 'Rien du tout', color: '#6F8FB5', weight: 20, points: 0, actions: [] },
+          { id: uid('w'), label: 'Défi de 2 minutes', color: '#8B3DFF', weight: 10, points: 0, actions: [] },
+          { id: uid('w'), label: 'Fanfare', color: '#57B8FF', weight: 10, points: 0, actions: [{ type: 'sound', sound: 'fanfare', volume: 80 }] },
+          { id: uid('w'), label: 'Jackpot', color: '#FFD24A', weight: 3, points: 500, actions: [{ type: 'overlayFx' }] },
+          { id: uid('w'), label: 'Relance !', color: '#3BBF7C', weight: 7, points: 0, actions: [{ type: 'wheel' }] },
+        ],
+      },
+      likeRace: {
+        enabled: true, title: 'Course aux likes', target: 500, lanes: 5, autoStart: true, autoRestart: true, restartSeconds: 15,
+        chatPoints: 0, coinPoints: 0, sharePoints: 0, followPoints: 0, announce: false, announceText: '', prize: 0, actions: [{ type: 'overlayFx' }], startSound: '', winSound: 'fanfare', voice: false,
+      },
       soundboard: [],
     },
     obs: { enabled: false, host: '127.0.0.1', port: 4455, password: '' },
     settings: {
-      port: 7787, lan: false, overlayToken: uid(''), keepHistory: true, onboarded: false, inputPaused: false, theme: 'dark', accent: '', economy: false, devMode: false, profileName: '', profileAvatar: '', navCollapsed: false,
+      port: 7787, lan: false, overlayToken: uid(''), keepHistory: true, onboarded: false, inputPaused: false, theme: 'dark', accent: '', economy: false, devMode: false, profileName: '', profileAvatar: '', navCollapsed: false, betaUpdates: false, lastSeenVersion: '',
       modules: {},
     },
     license: { key: '', viewAs: '' },

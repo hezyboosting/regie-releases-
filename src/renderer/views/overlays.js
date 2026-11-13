@@ -1,36 +1,12 @@
+import { RankConfig } from './ranks.js';
 // Galerie d'overlays : chaque carte montre l'overlay en vrai, avec activer, personnaliser, tester et copier.
 // Le formulaire de réglages est généré depuis src/shared/overlay-schema.js.
 import { html, useState, useEffect, useRef, act, reload, setState, copy, toast } from '../store.js';
 import { ICONS, Btn, Bay, Lamp, Field, Select, Fader, Color, Segments, Lazy, Pro, PageHead, Upsell } from '../ui.js';
+import { PadStudio, LiveBadge, STUDIO_KEYS } from './padstudio.js';
+import { SceneEditor } from './scene.js';
 
 const GROUP_ORDER = ['Mes overlays', 'Direct', 'Gaming', 'Entrées', 'Cadeaux et classements', 'Objectifs', 'Interactions', 'Musique', 'Outils'];
-
-function FinishField({ s, overlay, value, set, locked }) {
-  const [group, setGroup] = useState('shell');
-  const c = value?.[group] || { fill: 'solid', c1: '#FFFFFF', c2: '#FFFFFF', shine: 30, alpha: 20 };
-  const up = (patch) => set({ ...value, [group]: { ...c, ...patch } });
-  const apply = async (name) => {
-    const r = await act('applyColorway', overlay.id, name);
-    if (r) setState({ overlays: s.overlays.map((o) => (o.id === overlay.id ? { ...o, settings: r.settings } : o)) });
-  };
-  return html`<div class="field wide finish ${locked ? 'off' : ''}">
-    <span class="f-label">Coloris${locked ? html` <${Pro} />` : ''}</span>
-    <div class="swatches">
-      ${Object.entries(s.colorways).map(([name, tint]) => html`<button type="button" key=${name} class="swatch ${(overlay.settings.colorway || 'fume') === name ? 'on' : ''}" title=${name} aria-label=${`Coloris ${name}`} disabled=${locked} style=${{ background: tint }} onClick=${() => apply(name)}></button>`)}
-    </div>
-    <span class="f-label">Pièce à régler</span>
-    <div class="chips">${s.finishGroups.map(([k, l]) => html`<button type="button" key=${k} class="chip ${group === k ? 'on' : ''}" onClick=${() => setGroup(k)}>${l}</button>`)}</div>
-    <${Segments} value=${c.fill} onChange=${(fill) => up({ fill })} options=${[{ value: 'solid', label: 'Couleur unie' }, { value: 'gradient', label: 'Dégradé' }]} />
-    <div class="row tight">
-      <${Color} value=${c.c1} disabled=${locked} onChange=${(c1) => up({ c1 })} />
-      ${c.fill === 'gradient' && html`<${Color} value=${c.c2} disabled=${locked} onChange=${(c2) => up({ c2 })} />`}
-    </div>
-    <span class="f-label">Transparence</span>
-    <${Fader} value=${c.alpha ?? 100} min="0" max="100" step="2" unit=" %" disabled=${locked} onChange=${(alpha) => up({ alpha })} />
-    <span class="f-label">Reflet</span>
-    <${Fader} value=${c.shine ?? 30} min="0" max="100" step="5" unit=" %" disabled=${locked} onChange=${(shine) => up({ shine })} />
-  </div>`;
-}
 
 // Photo de la manette du streamer : on pose chaque zone sur le vrai bouton, à la souris.
 function SkinField({ s, label, value, set, locked }) {
@@ -123,16 +99,25 @@ function PackField({ s, overlay, value, set, locked }) {
 function FieldInput({ f, value, set, s, overlay }) {
   const locked = f.feature && !s.features[f.feature];
   if (f.type === 'padpack') return html`<${PackField} s=${s} overlay=${overlay} value=${value} set=${set} locked=${locked} />`;
+  // Suivi = Rang : jeu, rangs qui sortent, chances et révélation, réglés depuis l'overlay lui-même.
+  if (f.type === 'rankconfig') return html`<div class="field wide rank-inline"><${RankConfig} s=${s} compact /></div>`;
   if (f.type === 'toggle') return html`<${Lamp} on=${value} onChange=${set} label=${f.label} locked=${locked} />`;
-  if (f.type === 'padfinish') return html`<${FinishField} s=${s} overlay=${overlay} value=${value} set=${set} locked=${locked} />`;
   if (f.type === 'padskin') return html`<${SkinField} s=${s} label=${f.label} value=${value} set=${set} locked=${locked} />`;
   let body;
   if (f.type === 'color') body = html`<${Color} value=${value} onChange=${set} disabled=${locked} />`;
   else if (f.type === 'range') body = html`<${Fader} value=${value} onChange=${set} min=${f.min} max=${f.max} step=${f.step} unit=${f.unit} disabled=${locked} />`;
   else if (f.type === 'select') {
+    // Choix illustrés (modèles de souris…) : mêmes cartes que l'atelier manette.
+    if (f.options.some((o) => o.thumb)) {
+      return html`<div class="field wide"><span class="f-label">${f.label}</span><div class="pad-models" role="radiogroup" aria-label=${f.label}>
+        ${f.options.map((o) => html`<button type="button" key=${o.value} role="radio" aria-checked=${value === o.value} class="pad-model ${value === o.value ? 'on' : ''}" disabled=${locked} onClick=${() => set(o.value)}>
+          <span class="pad-thumb"><img src=${o.thumb} alt="" draggable="false" /></span><b>${o.label}</b>${o.sub && html`<small>${o.sub}</small>`}
+        </button>`)}
+      </div></div>`;
+    }
     if ((f.options.length <= 5 && f.options.some((o) => o.premium)) || f.key === 'theme') return html`<div class="field wide"><span class="f-label">${f.label}</span><${Segments} value=${value} options=${f.options} onChange=${set} locked=${locked} /></div>`;
     body = html`<${Select} value=${value} onChange=${set} options=${f.options.map((o) => ({ ...o, disabled: locked && o.premium }))} disabled=${locked && !f.options.some((o) => o.premium)} />`;
-  } else if (f.type === 'goal') body = html`<${Select} value=${value} onChange=${set} options=${[{ value: '', label: 'Premier goal' }, ...s.goals.map((g) => ({ value: g.id, label: g.title }))]} />`;
+  } else if (f.type === 'goal') body = html`<${Select} value=${value} onChange=${set} options=${[{ value: '', label: 'Premier objectif' }, ...s.goals.map((g) => ({ value: g.id, label: g.title }))]} />`;
   else if (f.type === 'timer') body = html`<${Select} value=${value} onChange=${set} options=${[{ value: '', label: 'Premier minuteur' }, ...s.tools.timers.map((t) => ({ value: t.id, label: t.name }))]} />`;
   else if (f.type === 'counter') body = html`<${Select} value=${value} onChange=${set} options=${[{ value: '', label: 'Premier compteur' }, ...s.tools.counters.map((c) => ({ value: c.id, label: c.name }))]} />`;
   else if (f.type === 'gift') {
@@ -148,27 +133,73 @@ function FieldInput({ f, value, set, s, overlay }) {
   return html`<${Field} label=${html`${f.label}${locked && html` <${Pro} />`}`} wide=${f.type === 'code'}>${body}<//>`;
 }
 
-function PadBadge({ s }) {
-  if (!s.pads?.length) return html`<p class="note">Aucune manette détectée. Branche-la, puis appuie sur un bouton.</p>`;
-  return html`<div class="pad-badges">${s.pads.map((p) => html`<span class="badge ok" key=${p.key}><i></i>${p.name} (n°${p.pad + 1})</span>`)}</div>`;
+// Onglets de l'éditeur : chaque réglage va dans Contenu, Style, Animation ou Position.
+const TABS = [['content', 'Contenu'], ['style', 'Style'], ['anim', 'Animation'], ['pos', 'Position']];
+const STYLE_KEYS = new Set(['font', 'fontSize', 'bgAlpha', 'radius', 'shine', 'glow', 'theme', 'style', 'autoColor', 'showCase', 'lightFx']);
+const tabOf = (f) => f.tab || (f.key === 'scale' ? 'pos' : f.key === 'customCss' ? 'style' : (f.type === 'color' || STYLE_KEYS.has(f.key)) ? 'style' : 'content');
+const BACKDROPS = [['scene', 'Scène'], ['dark', 'Sombre'], ['light', 'Clair'], ['check', 'Transparent'], ['green', 'Fond vert']];
+
+// Looks prêts : un clic pose couleurs, police et effets sur cet overlay.
+// Thème de saison : celui dont la période contient le mois en cours passe en tête, avec un badge.
+const inSeason = (t, m = new Date().getMonth() + 1) => Boolean(t.season) && (t.season[0] <= t.season[1] ? m >= t.season[0] && m <= t.season[1] : m >= t.season[0] || m <= t.season[1]);
+const seasonFirst = (list) => [...list].sort((a, b) => inSeason(b) - inSeason(a));
+
+function Looks({ s, overlay }) {
+  const apply = async (id) => {
+    const list = await act('applyTheme', id, overlay.id);
+    if (list) { setState({ overlays: list }); toast('Style appliqué'); }
+  };
+  return html`<div class="looks" role="list" aria-label="Styles prêts">
+    ${seasonFirst(s.themes).map((t) => html`<button type="button" role="listitem" key=${t.id} class="look ${overlay.settings.look === t.id ? 'on' : ''} ${inSeason(t) ? 'season' : ''}" onClick=${() => apply(t.id)}>
+      <span class="look-sw" style=${{ background: `linear-gradient(135deg, ${t.swatch[1]} 0 55%, ${t.swatch[0]} 55% 100%)`, boxShadow: t.fx?.fxGlow ? `0 0 12px ${t.fx.fxGlowColor || t.swatch[0]}` : '' }}><i style=${{ background: t.swatch[2] }}></i></span>
+      <b>${t.name}</b>${inSeason(t) && html`<small class="look-season">De saison</small>`}
+    </button>`)}
+  </div>`;
 }
 
 export function OverlayEditor({ s, overlay, compact }) {
   const def = s.overlayTypes[overlay.type];
-  const [w, h] = overlay.type === 'custom' && overlay.settings.format === '9:16' ? [1080, 1920] : def.size;
-  const [fx, setFx] = useState(false);
+  const [w, h] = def.size;
+  const [tab, setTab] = useState('content');
+  const [backdrop, setBackdrop] = useState(() => { try { return localStorage.getItem('regie.backdrop') || 'scene'; } catch { return 'scene'; } });
   const save = async (key, value) => {
     const r = await act('updateOverlay', overlay.id, { [key]: value });
     if (r) setState({ overlays: s.overlays.map((o) => (o.id === overlay.id ? { ...o, settings: r.settings } : o)) });
   };
+  const pickBackdrop = (b) => { setBackdrop(b); try { localStorage.setItem('regie.backdrop', b); } catch { /* aperçu seulement */ } };
   const src = `${overlay.link}&preview=1`;
   const connected = s.obs.state === 'connected';
-  return html`<div class="editor ${compact ? 'compact' : ''}">
+  const studio = overlay.type === 'gamepad';
+  // Un réglage peut ne s'afficher que pour certains choix d'un autre (when: { style: ['neon'] }).
+  const shown = (f) => !f.when || Object.entries(f.when).every(([k, v]) => { const cur = overlay.settings[k] ?? def.fields.find((x) => x.key === k)?.default; return Array.isArray(v) ? v.includes(cur) : cur === v; });
+  const fields = def.fields.filter((f) => f.type !== 'hidden' && !(studio && STUDIO_KEYS.includes(f.key)) && shown(f));
+  const byTab = Object.fromEntries(TABS.map(([k]) => [k, fields.filter((f) => tabOf(f) === k)]));
+  const tabs = TABS.filter(([k]) => byTab[k].length || k === 'style');
+  const current = tabs.some(([k]) => k === tab) ? tab : tabs[0][0];
+  const reset = async () => {
+    const patch = {};
+    for (const f of byTab[current]) patch[f.key] = f.default;
+    const r = await act('updateOverlay', overlay.id, patch);
+    if (r) { setState({ overlays: s.overlays.map((o) => (o.id === overlay.id ? { ...o, settings: r.settings } : o)) }); toast('Réglages de l\'onglet remis par défaut'); }
+  };
+  const form = html`<div class="ed-tabs" role="tablist" aria-label="Réglages">
+      ${tabs.map(([k, label]) => html`<button type="button" role="tab" key=${k} aria-selected=${current === k} class="ed-tab ${current === k ? 'on' : ''}" onClick=${() => setTab(k)}>${label}</button>`)}
+    </div>
+    ${current === 'style' && html`<div class="ed-looks"><span class="f-label">Styles prêts en 1 clic</span><${Looks} s=${s} overlay=${overlay} /></div>`}
+    <form class="ed-form" onSubmit=${(e) => e.preventDefault()}>
+      ${byTab[current].map((f) => html`<${FieldInput} key=${f.key} f=${f} value=${overlay.settings[f.key] ?? f.default} set=${(v) => save(f.key, v)} s=${s} overlay=${overlay} />`)}
+    </form>
+    ${byTab[current].length > 0 && html`<button type="button" class="linkish ed-reset" onClick=${reset}>Remettre cet onglet par défaut</button>`}`;
+  return html`<div class="editor ${compact ? 'compact' : ''} ${studio ? 'pad-editor' : ''}">
     <div class="ed-stage">
-      <div class="preview-frame" style=${{ aspectRatio: `${w} / ${h}` }}>
-        <iframe title=${`Aperçu de ${overlay.name}`} src=${src} style=${{ width: `${w}px`, height: `${h}px`, '--w': w }} ref=${(el) => fit(el, w)}></iframe>
+      <div class="preview-frame bd-${backdrop} ${studio ? 'pad-stage' : ''}" style=${{ aspectRatio: `${w} / ${h}` }}>
+        <iframe title=${`Aperçu de ${overlay.name}`} src=${src} style=${{ width: `${w}px`, height: `${h}px`, '--w': w }} ref=${(el) => fit(el, w, h)}></iframe>
+        ${studio && html`<${LiveBadge} s=${s} overlay=${overlay} />`}
       </div>
-      ${overlay.type === 'gamepad' && html`<${PadBadge} s=${s} />`}
+      <div class="bd-pick" role="radiogroup" aria-label="Fond de l'aperçu">
+        ${BACKDROPS.map(([k, label]) => html`<button type="button" role="radio" key=${k} aria-checked=${backdrop === k} class="bd-dot bd-${k} ${backdrop === k ? 'on' : ''}" title=${label} aria-label=${label} onClick=${() => pickBackdrop(k)}></button>`)}
+        <span class="note">Fond de l'aperçu (n'apparaît pas dans OBS)</span>
+      </div>
       <div class="linkbar">
         <span class="link-size">${w} × ${h}</span>
         <input class="in" readOnly value=${overlay.link} aria-label="Lien de l'overlay" onFocus=${(e) => e.target.select()} />
@@ -178,23 +209,28 @@ export function OverlayEditor({ s, overlay, compact }) {
         <${Btn} icon=${ICONS.play} onClick=${() => act('testOverlay', overlay.type)}>Tester<//>
         ${connected && html`<${Btn} onClick=${async () => { if (await act('obsAddOverlay', overlay.id) !== undefined) toast('Overlay ajouté à la scène OBS'); }}>Ajouter à OBS<//>`}
         ${s.settings.lan && html`<${Btn} onClick=${() => copy(overlay.lanLink)}>Copier le lien réseau<//>`}
+        <${Btn} onClick=${() => setState({ overlayId: null, sceneOpen: true })}>Placer sur la scène<//>
       </div>
       <p class="note">Dans OBS : Source, Navigateur, colle ce lien, en ${w} × ${h}. Dans TikTok LIVE Studio : Lien web.</p>
     </div>
-    <${Bay}>
-      <form class="ed-form" onSubmit=${(e) => e.preventDefault()}>
-        ${def.fields.filter((f) => f.group !== 'fx').map((f) => html`<${FieldInput} key=${f.key} f=${f} value=${overlay.settings[f.key] ?? f.default} set=${(v) => save(f.key, v)} s=${s} overlay=${overlay} />`)}
-        ${def.fields.some((f) => f.group === 'fx') && html`<button type="button" class="fx-title ${fx ? 'open' : ''}" aria-expanded=${fx} onClick=${() => setFx(!fx)}>${ICONS.chevron}Position et effets</button>`}
-        ${fx && def.fields.filter((f) => f.group === 'fx').map((f) => html`<${FieldInput} key=${f.key} f=${f} value=${overlay.settings[f.key] ?? f.default} set=${(v) => save(f.key, v)} s=${s} overlay=${overlay} />`)}
-      </form>
-    <//>
+    ${studio ? html`<div class="ed-side">
+      <${PadStudio} s=${s} overlay=${overlay} save=${save} FieldInput=${FieldInput} />
+      <${Bay} title="Style, animation et position">${form}<//>
+    </div>` : html`<${Bay}>${form}<//>`}
   </div>`;
 }
 
 // L'iframe garde la taille réelle de l'overlay et se réduit pour tenir dans son cadre.
-function fit(el, w) {
+// Les overlays plus hauts que larges (souris…) sont réduits à la hauteur du cadre et centrés.
+function fit(el, w, h) {
   if (!el) return;
-  const apply = () => { const box = el.parentElement; if (box) el.style.transform = `scale(${box.clientWidth / w})`; };
+  const apply = () => {
+    const box = el.parentElement;
+    if (!box) return;
+    const cw = box.clientWidth, ch = box.clientHeight;
+    const k = Math.min(cw / w, ch / (h || w));
+    el.style.transform = `translate(${((cw - w * k) / 2).toFixed(1)}px, ${((ch - (h || w) * k) / 2).toFixed(1)}px) scale(${k})`;
+  };
   apply();
   if (!el.ro) { el.ro = new ResizeObserver(apply); el.ro.observe(el.parentElement); }
 }
@@ -266,8 +302,8 @@ function Customize({ s, overlay }) {
 export function ThemeBar({ s, onDone }) {
   return html`<${Bay} title="Appliquer un thème à tous les overlays" aside=${onDone && html`<button class="icon" aria-label="Fermer" onClick=${onDone}>${ICONS.x}</button>`}>
     <div class="pick-list">
-      ${s.themes.map((t) => html`<button type="button" class="pick" key=${t.id} onClick=${async () => { if (await act('applyTheme', t.id)) { await reload(); toast(`Thème ${t.name} appliqué`); onDone?.(); } }}>
-        <b>${t.name}</b>
+      ${seasonFirst(s.themes).map((t) => html`<button type="button" class="pick" key=${t.id} onClick=${async () => { if (await act('applyTheme', t.id)) { await reload(); toast(`Thème ${t.name} appliqué`); onDone?.(); } }}>
+        <b>${t.name}${inSeason(t) ? html` <small class="look-season">De saison</small>` : ''}</b>
         <span class="row tight">${t.swatch.map((c) => html`<i key=${c} style=${{ width: '16px', height: '16px', borderRadius: '50%', background: c, display: 'inline-block', border: '1px solid rgba(255,255,255,.2)' }}></i>`)}</span>
       </button>`)}
     </div>
@@ -278,6 +314,10 @@ export function Overlays({ s }) {
   const [q, setQ] = useState('');
   const [themes, setThemes] = useState(false);
   const [filter, setFilter] = useState('all');
+  const scene = s.overlays.find((o) => o.type === 'scene');
+  const scenev = s.overlays.find((o) => o.type === 'scenev');
+  if (scenev && s.overlayId === scenev.id) return html`<${SceneEditor} key=${scenev.id} s=${s} scene=${scenev} onBack=${() => setState({ sceneOpen: false, overlayId: null })} />`;
+  if (scene && (s.sceneOpen || s.overlayId === scene.id)) return html`<${SceneEditor} key=${scene.id} s=${s} scene=${scene} onBack=${() => setState({ sceneOpen: false, overlayId: null })} />`;
   const current = s.overlays.find((o) => o.id === s.overlayId && o.type !== 'custom');
   if (current) return html`<div class="page overlays"><${Customize} s=${s} overlay=${current} /></div>`;
   const norm = (t) => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -295,6 +335,7 @@ export function Overlays({ s }) {
   return html`<div class="page overlays">
     <${PageHead} title="Overlays">
       <input class="in gal-search" type="search" value=${q} onInput=${(e) => setQ(e.target.value)} placeholder="Chercher un overlay" aria-label="Chercher un overlay" />
+      <${Btn} onClick=${() => setState({ sceneOpen: true })}>Placer sur la scène<//>
       <${Btn} onClick=${() => setThemes(!themes)}>Thème<//>
       <${Btn} onClick=${async () => { const o = await act('importOverlay'); if (o) { await reload(); toast('Overlay importé'); } }}>Importer<//>
       <${Btn} kind="primary" icon=${ICONS.plus} onClick=${() => setState({ view: 'builder' })}>Créer le mien<//>

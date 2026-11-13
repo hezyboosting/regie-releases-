@@ -42,8 +42,7 @@ export function Deck({ s }) {
   };
   const press = (b) => { if (edit) setSel(b.id); else act('deckPress', b.id); };
   return html`<div class="page">
-    <${PageHead} title="Stream Deck">
-      <${Btn} disabled=${!s.features.deckPhone} onClick=${() => copy(s.deckLink, 'Lien du téléphone copié')}>Lien pour téléphone${!s.features.deckPhone ? html` <${Pro} />` : ''}<//>
+    <${PageHead} title="Télécommande">
       <${Btn} onClick=${() => { setEdit(!edit); setSel(null); }}>${edit ? 'Terminer' : 'Modifier'}<//>
       <${Btn} kind="primary" icon=${ICONS.plus} onClick=${add}>Nouveau bouton<//>
     <//>
@@ -72,6 +71,31 @@ export function Deck({ s }) {
         <${Actions} list=${button.actions} s=${s} onChange=${(actions) => upBtn({ actions })} />
       </div>
     <//>`}
-    <${Upsell}>FREE : ${s.features.deckButtons} boutons. PRO : sans limite, avec le Stream Deck sur téléphone.<//>
+    <${PhonePanel} s=${s} />
+    <${Upsell}>FREE : ${s.features.deckButtons} boutons. PRO : sans limite, avec la télécommande sur téléphone.<//>
   </div>`;
+}
+
+// Sur le téléphone : un QR code à scanner, en Wi-Fi. Le serveur s'ouvre au réseau local sans redémarrer Régie.
+export function PhonePanel({ s }) {
+  const [p, setP] = useState(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { act('phoneLinks').then((x) => x && setP(x)); }, []);
+  const toggle = async (on) => { setBusy(true); const x = await act('setLanLive', on); setBusy(false); if (x) { setP(x); setState({ settings: { ...s.settings, lan: on } }); } };
+  if (!s.features.deckPhone) return html`<${Bay} title="Sur ton téléphone" aside=${html`<${Pro} />`}><p class="note">Avec PRO, scanne un QR code et pilote Régie depuis ton téléphone : boutons de la télécommande et chat de tous tes lives.</p><//>`;
+  return html`<${Bay} title="Sur ton téléphone">
+    ${!p?.lan ? html`<div class="col tight">
+      <p class="note">Ton téléphone doit être sur le même Wi-Fi que ce PC. Régie ouvre alors la télécommande et le chat au réseau de la maison (jamais à internet).</p>
+      <div class="row tight"><${Btn} kind="primary" disabled=${busy} onClick=${() => toggle(true)}>${busy ? 'Ouverture…' : 'Autoriser le téléphone'}<//></div>
+      <p class="note">Si Windows demande d'autoriser Régie sur le réseau, clique sur « Autoriser ».</p>
+    </div>` : html`<div class="phone-qr">
+      <figure><img src=${p.deckQr} alt="QR code de la télécommande" /><figcaption><b>Télécommande</b><span>Les boutons de cette page</span><button type="button" class="linkish" onClick=${() => copy(p.deck, 'Lien copié')}>Copier le lien</button></figcaption></figure>
+      <figure><img src=${p.dockQr} alt="QR code du chat" /><figcaption><b>Chat unifié</b><span>Lis et réponds au chat</span><button type="button" class="linkish" onClick=${() => copy(p.dock, 'Lien copié')}>Copier le lien</button></figcaption></figure>
+      <div class="phone-help">
+        <p class="note">Ouvre l'appareil photo du téléphone et vise le code. Ajoute la page à l'écran d'accueil pour la retrouver en un geste.</p>
+        <p class="note">${`Adresse du PC : ${p.host}`}</p>
+        <${Btn} disabled=${busy} onClick=${() => toggle(false)}>Fermer l'accès au téléphone<//>
+      </div>
+    </div>`}
+  <//>`;
 }

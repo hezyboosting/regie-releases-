@@ -5,12 +5,14 @@ import { soundOptions } from './sounds.js';
 const PERMS = [{ value: 'all', label: 'Tout le monde' }, { value: 'sub', label: 'Abonnés et membres' }, { value: 'vip', label: 'VIP' }, { value: 'mod', label: 'Modérateurs' }, { value: 'owner', label: 'Toi seulement' }];
 const ACTIONS = [
   { value: 'chat', label: 'Écrire dans le chat' }, { value: 'alert', label: 'Afficher une alerte' }, { value: 'show', label: 'Afficher un texte ou une image' }, { value: 'tts', label: 'Lire à voix haute' }, { value: 'sound', label: 'Jouer un son' },
-  { value: 'counter', label: 'Modifier un compteur' }, { value: 'goal', label: 'Ajouter à un goal' }, { value: 'timer', label: 'Ajouter du temps' }, { value: 'points', label: 'Donner des points' },
+  { value: 'counter', label: 'Modifier un compteur' }, { value: 'goal', label: 'Ajouter à un objectif' }, { value: 'timer', label: 'Ajouter du temps' }, { value: 'points', label: 'Donner des points' },
   { value: 'key', label: 'Presser une touche' }, { value: 'overlayFx', label: 'Lancer des confettis' }, { value: 'notify', label: 'M\'envoyer une notification' },
-  { value: 'obsScene', label: 'Changer de scène OBS' }, { value: 'obsSource', label: 'Afficher ou masquer une source' }, { value: 'mic', label: 'Couper ou remettre le micro' }, { value: 'replay', label: 'Enregistrer le replay OBS' }, { value: 'clip', label: 'Créer un clip Twitch' },
-  { value: 'spotify', label: 'Contrôler Spotify' }, { value: 'arena', label: 'Ouvrir le Chat Battle' }, { value: 'boss', label: 'Lancer le Boss Battle' }, { value: 'minigame', label: 'Lancer un mini-jeu', feature: 'miniGames' }, { value: 'game', label: 'Compter dans le jeu' },
+  { value: 'obsScene', label: 'Changer de scène OBS' }, { value: 'obsSource', label: 'Afficher ou masquer une source' }, { value: 'mic', label: 'Couper ou remettre le micro' }, { value: 'replay', label: 'Enregistrer la relecture OBS' }, { value: 'clip', label: 'Créer un clip Twitch' },
+  { value: 'spotify', label: 'Contrôler Spotify' }, { value: 'arena', label: 'Ouvrir la bataille du chat' }, { value: 'boss', label: 'Lancer le combat de boss' }, { value: 'minigame', label: 'Lancer un mini-jeu', feature: 'miniGames' }, { value: 'game', label: 'Compter dans le jeu' },
   { value: 'skipAlert', label: 'Passer l\'alerte' }, { value: 'pauseAlerts', label: 'Pause des alertes' }, { value: 'automation', label: 'Activer ou couper une automatisation' }, { value: 'fire', label: 'Lancer un événement personnalisé' },
-  { value: 'rcon', label: 'Commande Minecraft', feature: 'rcon' }, { value: 'webhook', label: 'Appeler un webhook', feature: 'webhooks' },
+  { value: 'pad', label: 'Bouton de manette virtuelle', feature: 'keystrokes' },   { value: 'wheel', label: 'Faire tourner la roue' }, { value: 'likeRace', label: 'Lancer ou arrêter la course aux likes' },
+  { value: 'rcon', label: 'Commande serveur de jeu (RCON)', feature: 'rcon' }, { value: 'webhook', label: 'Appeler un webhook', feature: 'webhooks' },
+  { value: 'coinjarEmpty', label: 'Vider le pot à cadeaux' }, { value: 'streamerbot', label: 'Lancer une action Streamer.bot', feature: 'webhooks' },
 ];
 
 export function ActionRow({ a, onChange, onRemove, s, delays }) {
@@ -28,11 +30,19 @@ export function ActionRow({ a, onChange, onRemove, s, delays }) {
     ${a.type === 'mic' && html`<${Text} value=${a.input} onChange=${(input) => up({ input })} placeholder="Micro, vide pour le micro par défaut" />`}
     ${a.type === 'spotify' && html`<${Select} value=${a.action || 'pause'} onChange=${(action) => up({ action })} options=${[{ value: 'pause', label: 'Pause' }, { value: 'play', label: 'Lecture' }, { value: 'next', label: 'Suivant' }, { value: 'previous', label: 'Précédent' }]} />`}
     ${a.type === 'minigame' && html`<${Select} value=${a.game || 'roulette'} onChange=${(game) => up({ game })} options=${[{ value: 'roulette', label: 'Roulette' }, { value: 'quiz', label: 'Quiz' }, { value: 'guess', label: 'Devinette' }]} />`}
-    ${a.type === 'game' && html`<${Select} value=${a.kind || 'win'} onChange=${(kind) => up({ kind })} options=${[{ value: 'win', label: 'Victoire' }, { value: 'loss', label: 'Défaite' }, { value: 'kill', label: 'Kill' }, { value: 'death', label: 'Mort' }]} />`}
+    ${a.type === 'game' && html`<${Select} value=${a.kind || 'win'} onChange=${(kind) => up({ kind })} options=${[{ value: 'win', label: 'Victoire' }, { value: 'loss', label: 'Défaite' }, { value: 'kill', label: 'Élimination' }, { value: 'death', label: 'Mort' }]} />`}
     ${a.type === 'automation' && html`<${Select} value=${a.triggerId || ''} onChange=${(triggerId) => up({ triggerId })} options=${[{ value: '', label: 'Choisir' }, ...s.triggers.map((t) => ({ value: t.id, label: t.name || 'Sans nom' }))]} />`}
     ${a.type === 'sound' && html`<${Select} value=${a.sound || 'pop'} onChange=${(sound) => up({ sound })} options=${soundOptions(s)} />`}
     ${a.type === 'key' && html`<${Select} value=${a.key || ''} onChange=${(key) => up({ key })} options=${[{ value: '', label: 'Choisir la touche' }, ...s.keyNames.map((k) => ({ value: k, label: k }))]} />`}
+    ${a.type === 'key' && html`<${Num} value=${a.hold ?? 60} min="10" max="5000" aria-label="Durée d'appui en millisecondes" title="Durée d'appui en millisecondes" onSave=${(hold) => up({ hold })} />`}
+    ${a.type === 'rcon' && (s.gaming.servers || []).length > 0 && html`<${Select} value=${a.server || ''} onChange=${(server) => up({ server })} options=${[{ value: '', label: 'Minecraft' }, ...s.gaming.servers.map((x) => ({ value: x.id, label: x.name }))]} />`}
+    ${a.type === 'pad' && html`<${Select} value=${a.input || 'a'} onChange=${(input) => up({ input })} options=${(s.padInputs || []).map(([value, label]) => ({ value, label }))} />`}
+    ${a.type === 'pad' && html`<${Num} value=${a.hold ?? 150} min="30" max="10000" aria-label="Durée d'appui en millisecondes" title="Durée d'appui en millisecondes" onSave=${(hold) => up({ hold })} />`}
+    ${a.type === 'pad' && !s.vpadCfg?.enabled && html`<span class="note warn">Active la manette virtuelle dans Mes jeux.</span>`}
+    ${a.type === 'likeRace' && html`<${Select} value=${a.action || 'start'} onChange=${(action) => up({ action })} options=${[{ value: 'start', label: 'Nouvelle course' }, { value: 'stop', label: 'Arrêter la course' }]} />`}
     ${a.type === 'key' && !s.keysCfg.enabled && html`<span class="note warn">Active les touches simulées dans Mes jeux.</span>`}
+    ${a.type === 'streamerbot' && html`<${Text} value=${a.name} onChange=${(name) => up({ name })} placeholder="Nom de l'action dans Streamer.bot" />`}
+    ${a.type === 'streamerbot' && html`<${Text} value=${a.host || ''} onChange=${(host) => up({ host })} placeholder="127.0.0.1:8080" />`}
     ${a.type === 'webhook' && html`<${Text} value=${a.url} onChange=${(url) => up({ url })} placeholder="https://" />`}
     ${a.type === 'webhook' && html`<${Text} value=${a.body} onChange=${(body) => up({ body })} placeholder='Corps JSON facultatif : {"message":"{user}"}' />`}
     ${a.type === 'obsSource' && html`<${Text} value=${a.scene} onChange=${(scene) => up({ scene })} placeholder="Scène" />`}
@@ -68,7 +78,7 @@ function CommandForm({ initial, s, onClose }) {
       <${Field} label="Commande"><${Text} value=${c.trigger} onChange=${(trigger) => up({ trigger })} placeholder="!discord" /><//>
       <${Field} label="Qui peut l'utiliser"><${Select} value=${c.perm} onChange=${(perm) => up({ perm })} options=${PERMS} /><//>
       <${Field} label="Attente générale (s)"><${Num} value=${c.cooldown} min="0" onSave=${(cooldown) => up({ cooldown })} /><//>
-      <${Field} label="Attente par viewer (s)"><${Num} value=${c.userCooldown} min="0" onSave=${(userCooldown) => up({ userCooldown })} /><//>
+      <${Field} label="Attente par spectateur (s)"><${Num} value=${c.userCooldown} min="0" onSave=${(userCooldown) => up({ userCooldown })} /><//>
       <div class="field wide"><span class="f-label">Chaînes qui réagissent</span><${Platforms} value=${c.platforms} onChange=${(platforms) => up({ platforms })} /></div>
       <${Field} label="Réponse" wide hint="Variables : {user} {args} {count} {uptime} {song} {viewers} {channel} {platform} {points} {level} {game} {record} {random:1-100} {pick:a|b} {counter:Nom}. Plusieurs réponses au hasard : sépare-les par ||"><${Text} value=${c.response} onChange=${(response) => up({ response })} /><//>
       <div class="field wide">
@@ -107,7 +117,7 @@ export function Commands({ s }) {
           <${Btn} kind="danger" onClick=${async () => { const r = await act('removeCommand', c.id); if (r) setState({ commands: r }); }}>Supprimer<//>
         </div></li>`)}
       </ul>
-      <p class="note">Toujours disponibles : !commandes, ${s.tts.command} pour le TTS, ${s.spotify.requests.command} pour les demandes de musique, ${s.gaming.command} pour le rang en jeu, !record, !niveau.</p>
+      <p class="note">Toujours disponibles : !commandes, ${s.tts.command} pour la synthèse vocale, ${s.spotify.requests.command} pour les demandes de musique, ${s.gaming.command} pour le rang en jeu, !record, !niveau.</p>
     <//>
     <${Upsell}>FREE : ${f.commands} commandes. PRO : sans limite, avec les réponses sur toutes les chaînes en ULTIMATE.<//>
   </div>`;

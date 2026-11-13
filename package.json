@@ -1,7 +1,7 @@
 {
   "name": "regie",
   "productName": "Régie",
-  "version": "2.5.0",
+  "version": "2.14.0",
   "description": "Régie : overlays, alertes, cadeaux, classements, battles et outils de live pour TikTok, Twitch et YouTube.",
   "author": "Régie",
   "license": "UNLICENSED",
@@ -20,7 +20,8 @@
     "nodeGypRebuild": false,
     "asar": true,
     "asarUnpack": [
-      "**/*.node"
+      "**/*.node",
+      "**/native/*.dll"
     ],
     "directories": {
       "output": "dist",
@@ -74,7 +75,8 @@
     "publish": {
       "provider": "github",
       "owner": "hezyboosting",
-      "repo": "regie-releases-"
+      "repo": "regie-releases-",
+      "releaseType": "release"
     },
     "executableName": "Regie",
     "electronFuses": {
@@ -84,8 +86,10 @@
     }
   },
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "koffi": "^3.3.7",
     "node-hid": "^3.4.0",
+    "qrcode": "^1.5.4",
     "tiktok-live-connector": "^2.5.0",
     "uiohook-napi": "^1.5.5",
     "ws": "^8.22.1",

@@ -47,10 +47,10 @@ function Timers({ s }) {
         <div class="row wrap">
           <${Field} label="Durée (secondes)"><${Num} value=${t.seconds} min="1" onSave=${(sec) => act('timerControl', t.id, 'set', sec)} /><//>
           <${Field} label="Type"><${Select} value=${t.mode} onChange=${async (mode) => set(await act('updateTimer', t.id, { mode }))} options=${[{ value: 'countdown', label: 'Compte à rebours' }, { value: 'stopwatch', label: 'Chronomètre' }]} /><//>
-          <${Lamp} on=${sub.enabled && !locked} locked=${locked} label="Giftathon" onChange=${async (enabled) => set(await act('updateTimer', t.id, { subathon: { enabled } }))} />
+          <${Lamp} on=${sub.enabled && !locked} locked=${locked} label="Marathon de cadeaux" onChange=${async (enabled) => set(await act('updateTimer', t.id, { subathon: { enabled } }))} />
         </div>
         ${sub.enabled && !locked && html`<div class="row wrap">
-          ${[['follow', 'Secondes par follow'], ['sub', 'Par abonnement'], ['coins', 'Par pièce TikTok'], ['like', 'Par like'], ['bits', 'Par bit'], ['money', 'Par euro en Super Chat']].map(([k, l]) => html`<${Field} key=${k} label=${l}><${Num} value=${sub[k]} min="0" step="0.1" onSave=${async (v2) => set(await act('updateTimer', t.id, { subathon: { [k]: v2 } }))} /><//>`)}
+          ${[['follow', 'Secondes par suivi'], ['sub', 'Par abonnement'], ['coins', 'Par pièce TikTok'], ['like', 'Par like'], ['bits', 'Par bit'], ['money', 'Par euro en Super Chat']].map(([k, l]) => html`<${Field} key=${k} label=${l}><${Num} value=${sub[k]} min="0" step="0.1" onSave=${async (v2) => set(await act('updateTimer', t.id, { subathon: { [k]: v2 } }))} /><//>`)}
         </div>`}
       </li>`;
   })}
@@ -84,7 +84,7 @@ function Giveaway({ s }) {
   const run = (action, cfg) => act('giveaway', action, cfg);
   const [keyword, setKeyword] = useState(g.keyword);
   const [title, setTitle] = useState(g.title);
-  return html`<${Bay} title=${html`Giveaway ${locked ? html`<${Pro} />` : ''}`} aside=${html`<${OverlayLink} s=${s} type="giveaway" />`}>
+  return html`<${Bay} title=${html`Tirage au sort ${locked ? html`<${Pro} />` : ''}`} aside=${html`<${OverlayLink} s=${s} type="giveaway" />`}>
     <div class="col">
       <div class="row wrap">
         <${Field} label="Titre"><${Text} value=${title} onChange=${setTitle} disabled=${locked} /><//>
@@ -96,6 +96,34 @@ function Giveaway({ s }) {
         ${g.status === 'open' ? html`<${Btn} onClick=${() => run('close')}>Fermer les inscriptions<//>` : html`<${Btn} kind="primary" disabled=${locked} onClick=${() => run('open', { keyword, title })}>Ouvrir les inscriptions<//>`}
         <${Btn} disabled=${locked} onClick=${() => run('draw')}>Tirer au sort<//>
         <${Btn} disabled=${locked} onClick=${() => run('reset')}>Effacer<//>
+      </div>
+    </div>
+  <//>`;
+}
+
+// File d'attente : !join dans le chat, le streamer appelle le suivant.
+function Queue({ s }) {
+  const q = s.tools.queue || { open: true, join: '!join', leave: '!quitter', max: 50, subsFirst: false, list: [], current: null };
+  const run = async (action, arg) => { const r = await act('queue', action, arg); if (r) setState({ tools: { ...s.tools, queue: r } }); };
+  return html`<${Bay} title="File d'attente" aside=${html`<${OverlayLink} s=${s} type="queue" />`}>
+    <div class="col">
+      <div class="row wrap">
+        <${Field} label="Commande pour rejoindre"><${Lazy} value=${q.join} onSave=${(v) => run('config', { join: v.trim() || '!join' })} /><//>
+        <${Field} label="Commande pour partir"><${Lazy} value=${q.leave} onSave=${(v) => run('config', { leave: v.trim() || '!quitter' })} /><//>
+        <${Field} label="Places"><${Num} value=${q.max} min="1" max="500" onSave=${(max) => run('config', { max })} /><//>
+      </div>
+      <${Lamp} on=${q.subsFirst} onChange=${(v) => run('config', { subsFirst: v })} label="Les abonnés passent devant" />
+      ${q.current && html`<div class="winner">À toi de jouer : ${q.current.name}</div>`}
+      <div class="kv"><span>Dans la file</span><b>${q.list.length}</b></div>
+      ${q.list.length > 0 && html`<ol class="q-list">${q.list.slice(0, 12).map((x, i) => html`<li key=${x.key}>
+        <span class="q-n">${i + 1}</span><b>${x.name}</b>
+        ${i > 0 && html`<button type="button" class="linkish" onClick=${() => run('up', x.key)}>Monter</button>`}
+        <button type="button" class="linkish" onClick=${() => run('remove', x.key)}>Retirer</button>
+      </li>`)}</ol>`}
+      <div class="row tight">
+        <${Btn} kind="primary" disabled=${!q.list.length} onClick=${() => run('next')}>Appeler le suivant<//>
+        ${q.open ? html`<${Btn} onClick=${() => run('close')}>Fermer la file<//>` : html`<${Btn} onClick=${() => run('open')}>Ouvrir la file<//>`}
+        <${Btn} onClick=${() => run('clear')}>Vider<//>
       </div>
     </div>
   <//>`;
@@ -124,6 +152,7 @@ export function Tools({ s }) {
     <${Counters} s=${s} />
     <${Timers} s=${s} />
     <div class="two"><${Poll} s=${s} /><${Giveaway} s=${s} /></div>
+    <${Queue} s=${s} />
     <${Upsell}>FREE : compteurs, minuteurs et Giftathon. PRO : sondages multi-chaînes et giveaways.<//>
   </div>`;
 }

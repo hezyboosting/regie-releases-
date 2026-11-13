@@ -69,8 +69,8 @@ const ASSIST = {
   config: 'Réponds à la question de configuration du streamer, étape par étape.',
 };
 
-function assistant({ key, kind, prompt, context, fetchImpl = fetch }) {
-  const system = `Tu es l'assistant de stream de l'appli Régie. Réponds en français, de façon brève et concrète, sans markdown lourd. ${ASSIST[kind] || ASSIST.config}\nContexte du streamer : ${JSON.stringify(context)}`;
+function assistant({ key, kind, prompt, context, lang = 'fr', fetchImpl = fetch }) {
+  const system = `Tu es l'assistant de stream de l'appli Régie. ${lang === 'en' ? 'Réponds en anglais' : 'Réponds en français'}, de façon brève et concrète, sans markdown lourd. ${ASSIST[kind] || ASSIST.config}\nContexte du streamer : ${JSON.stringify(context)}`;
   return askClaude({ key, system, prompt: prompt || 'Vas-y.', maxTokens: 1200, fetchImpl });
 }
 

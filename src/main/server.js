@@ -15,8 +15,8 @@ const MIME = {
 const PROXY_HOSTS = [/^i\.scdn\.co$/, /^mosaic\.scdn\.co$/, /^image-cdn-.*\.spotifycdn\.com$/, /tiktokcdn(-[a-z]+)?\.com$/, /\.ggpht\.com$/, /\.ytimg\.com$/];
 
 class OverlayServer {
-  constructor({ overlaysDir, mediaDir, port, lan, token, getOverlay, onConnect, onDisconnect, onHook, deck, onGsi, clipFile, dock }) {
-    Object.assign(this, { overlaysDir, mediaDir, port, lan, token, getOverlay, onConnect, onDisconnect, onHook, deck, onGsi, clipFile, dock });
+  constructor({ overlaysDir, mediaDir, giftsDir, port, lan, token, getOverlay, onConnect, onDisconnect, onHook, deck, onGsi, clipFile, dock }) {
+    Object.assign(this, { overlaysDir, mediaDir, giftsDir, port, lan, token, getOverlay, onConnect, onDisconnect, onHook, deck, onGsi, clipFile, dock });
     this.clients = new Set();
     this.server = null;
     this.wss = null;
@@ -47,7 +47,8 @@ class OverlayServer {
   stop() {
     for (const c of this.clients) c.ws.terminate();
     this.wss?.close();
-    return new Promise((r) => (this.server ? this.server.close(() => r()) : r()));
+    this.clients.clear();
+    return new Promise((r) => { if (!this.server) return r(); this.server.close(() => r()); this.server.closeAllConnections?.(); });
   }
 
   // Adresse à donner à un autre appareil. Les cartes virtuelles (VPN, WSL, machines virtuelles) sont évitées.
@@ -135,6 +136,14 @@ class OverlayServer {
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return this.send(res, 405, 'Méthode interdite');
     if (p.startsWith('/assets/')) return this.sendFile(res, this.overlaysDir, p.slice('/assets/'.length), req);
+    // Images officielles des cadeaux TikTok gardées sur le PC (publiques : rien de personnel).
+    if (p.startsWith('/gifts/') && this.giftsDir) {
+      const f = p.slice('/gifts/'.length);
+      if (!/^[\w-]+\.(png|webp|gif|jpg)$/.test(f)) return this.send(res, 404, 'Introuvable');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'max-age=604800');
+      return this.sendFile(res, this.giftsDir, f, req);
+    }
 
     if (url.searchParams.get('k') !== this.token) return this.send(res, 403, 'Lien invalide. Copie à nouveau le lien depuis Régie.');
     if (p.startsWith('/o/')) {

@@ -27,7 +27,9 @@ function normalizeGift(d = {}) {
   return {
     id: String(first(d.giftId, gd.id, ex.id, '')),
     name: String(first(gd.giftName, gd.name, ex.name, 'Cadeau')),
-    image: first(gd.giftImage?.giftPictureUrl, gd.icon?.mUrls?.[0], gd.image?.mUrls?.[0], ex.image?.url_list?.[0], ex.icon?.url_list?.[0], ''),
+    // La bibliothèque a changé de format au fil des versions : image.urlList (actuel), mUrls, url, url_list (catalogue).
+    image: first(gd.image?.urlList?.[0], gd.giftImage?.urlList?.[0], gd.giftImage?.url?.[0], gd.giftImage?.giftPictureUrl, d.giftPictureUrl, gd.icon?.urlList?.[0],
+      gd.image?.mUrls?.[0], gd.icon?.mUrls?.[0], gd.image?.url?.[0], gd.previewImage?.urlList?.[0], ex.image?.url_list?.[0], ex.icon?.url_list?.[0], ''),
     cost,
     count,
     streaking: type === 1 && !Number(d.repeatEnd),
@@ -221,9 +223,11 @@ class TikTokConnector extends EventEmitter {
   async fetchGifts() {
     const { TikTokLiveConnection } = require('tiktok-live-connector');
     const conn = this.conn || new TikTokLiveConnection(this.username, this.options());
+    // Hors live, on retrouve d'abord la salle de la chaîne : TikTok donne son catalogue même sans direct.
+    if (!conn.roomId) await conn.fetchRoomId();
     const list = await conn.fetchAvailableGifts();
     return (Array.isArray(list) ? list : []).map((g) => ({
-      id: String(g.id), name: g.name, cost: g.diamond_count ?? g.diamondCount ?? 0, image: g.image?.url_list?.[0] || g.icon?.url_list?.[0] || '',
+      id: String(g.id), name: g.name, cost: g.diamond_count ?? g.diamondCount ?? 0, image: g.image?.url_list?.[0] || g.image?.urlList?.[0] || g.icon?.url_list?.[0] || g.icon?.urlList?.[0] || '',
     }));
   }
 }

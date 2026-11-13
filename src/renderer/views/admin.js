@@ -17,7 +17,7 @@ function Keys({ s }) {
     const issued = await act('revokeKey', id, v);
     if (issued) { await reload(); toast(v ? 'Clé désactivée. Publie la configuration pour l\'appliquer.' : 'Clé réactivée'); }
   };
-  const date = (t) => (t ? new Date(t).toLocaleDateString('fr-FR') : 'Sans fin');
+  const date = (t) => (t ? new Date(t).toLocaleDateString(document.documentElement.lang === 'en' ? 'en-GB' : 'fr-FR') : 'Sans fin');
   return html`<div class="col">
     <${Bay} title="Créer une clé">
       <form class="row wrap" onSubmit=${create}>
@@ -104,7 +104,7 @@ function Publish({ s }) {
         <li>Envoie ce fichier sur ton hébergement, par exemple un dépôt GitHub public.</li>
         <li>Toutes les applis lisent ce fichier au démarrage, puis toutes les heures.</li>
       </ol>
-      <${Field} label="Adresse du fichier publié" wide hint=${s.remote.fetchedAt ? `Dernière lecture : ${new Date(s.remote.fetchedAt).toLocaleString('fr-FR')}` : 'À graver dans le .exe avant de le distribuer'}>
+      <${Field} label="Adresse du fichier publié" wide hint=${s.remote.fetchedAt ? `Dernière lecture : ${new Date(s.remote.fetchedAt).toLocaleString(document.documentElement.lang === 'en' ? 'en-GB' : 'fr-FR')}` : 'À graver dans le .exe avant de le distribuer'}>
         <${Lazy} value=${s.remote.url} placeholder="https://raw.githubusercontent.com/..." onSave=${async (v) => { await act('setRemoteUrl', v); reload(); }} />
       <//>
       <div class="row tight"><${Btn} kind="primary" onClick=${publish}>Publier la configuration<//><span class="note">Version actuelle : ${d.rev || 0}</span></div>

@@ -1,0 +1,9 @@
+Souris et clavier des overlays « Souris » et « Clavier » de Régie
+=================================================================
+
+mouse_*.svg et keys/*.png sont modélisés de zéro par Régie (aucun modèle 3D tiers) et rendus
+avec Blender Cycles en vue de dessus, en calques recolorables.
+Les formes des souris reprennent les proportions publiées des modèles connus (Logitech G Pro X
+Superlight, Razer DeathAdder, Logitech G502, Razer Viper, Glorious Model O) ; les noms servent
+uniquement à les désigner. Aucun logo ni inscription de marque n'est reproduit.
+Scripts : tools/devices/render_mouse.py, build_parts.py, render_keys.py, build_keys.py.

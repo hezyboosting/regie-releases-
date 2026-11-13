@@ -1,6 +1,7 @@
 // Dashboard : chaque chaîne est une tranche de console qu'on ajoute, coupe ou retire.
 import { html, useState, useEffect, useRef, act, reload, setState, toast, fmt, PLATFORM, clock, copy } from '../store.js';
 import { ICONS, Tag, Btn, Bay, Lamp, Text, Field, Select, go } from '../ui.js';
+import { ReadyCheck } from './help.js';
 
 const STATE_LABEL = { live: 'En direct', connecting: 'Connexion', offline: 'Hors ligne', error: 'Erreur', stopped: 'À l\'arrêt', locked: 'Bloquée' };
 
@@ -41,8 +42,8 @@ function Spark({ feed }) {
 }
 
 const TESTS = [
-  ['follow', 'Follow', 'twitch'], ['sub', 'Sub', 'twitch'], ['resub', 'Resub', 'twitch'], ['giftsub', 'Subs offerts', 'twitch'], ['bits', 'Bits', 'twitch'], ['raid', 'Raid', 'twitch'],
-  ['gift', 'Cadeau', 'tiktok'], ['follow', 'Follow', 'tiktok'], ['share', 'Partage', 'tiktok'], ['superfan', 'Super Fan', 'tiktok'], ['superchat', 'Super Chat', 'youtube'], ['member', 'Membre', 'youtube'],
+  ['follow', 'Suivi', 'twitch'], ['sub', 'Abonnement', 'twitch'], ['resub', 'Réabonnement', 'twitch'], ['giftsub', 'Abonnements offerts', 'twitch'], ['bits', 'Bits', 'twitch'], ['raid', 'Raid', 'twitch'],
+  ['gift', 'Cadeau', 'tiktok'], ['follow', 'Suivi', 'tiktok'], ['share', 'Partage', 'tiktok'], ['superfan', 'Super Fan', 'tiktok'], ['superchat', 'Super Chat', 'youtube'], ['member', 'Membre', 'youtube'],
 ];
 
 export function Dashboard({ s }) {
@@ -59,13 +60,15 @@ export function Dashboard({ s }) {
         <div class="hero-sub">${liveCount ? `spectateurs sur ${liveCount} ${liveCount > 1 ? 'chaînes' : 'chaîne'} en direct` : 'spectateurs. Lance ton live pour voir le compteur bouger.'}</div>
       </div>
       <div class="hero-stats">
-        <div class="stat"><b>${fmt(v.follows)}</b><span>Follows</span></div>
+        <div class="stat"><b>${fmt(v.follows)}</b><span>Suivis</span></div>
         <div class="stat"><b>${fmt(v.subs)}</b><span>Abonnements</span></div>
         <div class="stat"><b>${fmt(v.coins)}</b><span>Pièces</span></div>
         <div class="stat"><b>${fmt(v.likes)}</b><span>Likes</span></div>
       </div>
       <${Spark} feed=${s.feed} />
     </section>
+
+    <${ReadyCheck} s=${s} />
 
     <div class="chans" role="group" aria-label="Chaînes connectées">
       ${s.channels.map((c) => html`<${Chan} key=${c.id} c=${c} />`)}
@@ -81,13 +84,13 @@ export function Dashboard({ s }) {
         <div class="col">
           <${Lamp} on=${!s.alerts.paused} label=${s.alertQueue ? `Alertes actives, ${s.alertQueue} en attente` : 'Alertes actives'} onChange=${async (on) => { const a = await act('setAlertsPaused', !on); if (a) setState({ alerts: a }); }} />
           <div class="kv"><span>Musique</span><b>${t ? t.title : 'Aucune'}</b></div>
-          <div class="kv"><span>Goal</span><b>${goal ? `${fmt(goal.current)} sur ${fmt(goal.target)}` : 'Aucun'}</b></div>
+          <div class="kv"><span>Objectif</span><b>${goal ? `${fmt(goal.current)} sur ${fmt(goal.target)}` : 'Aucun'}</b></div>
           ${goal && html`<div class="thin"><i style=${{ width: `${Math.min(100, (goal.current / goal.target) * 100)}%` }}></i></div>`}
-          <div class="kv"><span>Top don</span><b>${v.topGifter || 'Aucun'}</b></div>
+          <div class="kv"><span>Meilleur don</span><b>${v.topGifter || 'Aucun'}</b></div>
           <div class="kv"><span>OBS</span><b>${s.obs.state === 'connected' ? (s.obs.streaming ? 'En direct' : 'Connecté') : 'Non connecté'}</b></div>
           <div class="row tight">
             <${Btn} onClick=${() => act('skipAlert')}>Passer l'alerte<//>
-            <${Btn} onClick=${() => act('ttsSkip')}>Passer le TTS<//>
+            <${Btn} onClick=${() => act('ttsSkip')}>Passer la synthèse vocale<//>
           </div>
         </div>
       <//>
@@ -95,9 +98,9 @@ export function Dashboard({ s }) {
 
     <${Bay} title="Soutiens du live" aside=${html`<button class="linkish" onClick=${() => setState({ view: 'gifts' })}>Voir tout</button>`}>
       <div class="highlights">
-        <${Mini} label="Top Gift" name=${s.session?.topGift?.user} sub=${s.session?.topGift?.name} value=${s.session?.topGift ? fmt(s.session.topGift.value) : ''} />
-        <${Mini} label="Top Streak" name=${s.session?.topStreak?.user} sub=${s.session?.topStreak?.name} value=${s.session?.topStreak ? `×${fmt(s.session.topStreak.count)}` : ''} />
-        <${Mini} label="Dernier follow" name=${v.lastFollower} sub="" value="" />
+        <${Mini} label="Meilleur cadeau" name=${s.session?.topGift?.user} sub=${s.session?.topGift?.name} value=${s.session?.topGift ? fmt(s.session.topGift.value) : ''} />
+        <${Mini} label="Meilleure série" name=${s.session?.topStreak?.user} sub=${s.session?.topStreak?.name} value=${s.session?.topStreak ? `×${fmt(s.session.topStreak.count)}` : ''} />
+        <${Mini} label="Dernier suivi" name=${v.lastFollower} sub="" value="" />
       </div>
     <//>
   </div>`;
@@ -141,16 +144,16 @@ export function Journal({ s }) {
           ${e.user?.avatar ? html`<img src=${e.user.avatar} alt="" referrerpolicy="no-referrer" />` : html`<span class="feed-mono">${(e.user?.display || '?').slice(0, 1).toUpperCase()}</span>`}
           <i class="dot" style=${{ background: PLATFORM[e.platform]?.color || '#8279A3' }} title=${PLATFORM[e.platform]?.label}></i>
         </div>
-        <div class="txt"><span class="who">${e.user?.display}</span>${e.type === 'chat' ? e.text : describe(e)}${e.type !== 'chat' && e.text ? html`<em>${e.text}</em>` : ''}</div>
+        <div class="txt"><span class="who">${e.user?.display}</span>${e.type === 'chat' ? e.text : describe(e)}${e.type !== 'chat' && e.text ? html`<em>${e.text}</em>` : ''}${e.translation && html`<small class="feed-tr"><b>${e.translation.from.toUpperCase()}</b> ${e.translation.text}</small>`}</div>
       </li>`)}
       ${!items.length && html`<li class="feed-empty">Les messages et soutiens de toutes tes chaînes arrivent ici.</li>`}
     </ol>
     <form class="composer" onSubmit=${send}>
-      <select class="in" aria-label="Envoyer sur" value=${target} onChange=${(e) => setTarget(e.target.value)}>
-        ${!senders.length && html`<option value="origin">Aucune chaîne ne peut écrire</option>`}
-        ${s.features.replyAllChannels && senders.length > 1 && html`<option value="all">Toutes les chaînes</option>`}
-        ${senders.map((c) => html`<option value=${c.id}>${c.label}</option>`)}
-      </select>
+      <${Select} label="Envoyer sur" value=${target} onChange=${setTarget} options=${[
+    ...(!senders.length ? [{ value: 'origin', label: 'Aucune chaîne ne peut écrire' }] : []),
+    ...(s.features.replyAllChannels && senders.length > 1 ? [{ value: 'all', label: 'Toutes les chaînes' }] : []),
+    ...senders.map((c) => ({ value: c.id, label: c.label })),
+  ]} />
       <input class="in" value=${text} onInput=${(e) => setText(e.target.value)} placeholder="Écrire dans le chat" aria-label="Message" disabled=${!senders.length} />
     </form>
   </aside>`;

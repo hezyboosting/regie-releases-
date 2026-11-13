@@ -1,8 +1,8 @@
 // Rendu d'un élément d'overlay personnalisé. Utilisé à l'identique par l'overlay et par l'éditeur.
 export const VARIABLES = [
-  ['viewers', 'Spectateurs'], ['lastFollower', 'Dernier follower'], ['lastSub', 'Dernier abonné'], ['lastGifter', 'Dernier donateur'], ['lastGift', 'Dernier cadeau'], ['topGifter', 'Top donateur'], ['topGift', 'Top cadeau'],
-  ['topGiftValue', 'Valeur du top cadeau'], ['topStreakUser', 'Top série, pseudo'], ['topStreak', 'Top série, nombre'], ['coins', 'Pièces du live'], ['gifts', 'Cadeaux du live'], ['likes', 'Likes du live'], ['follows', 'Follows du live'],
-  ['subs', 'Abonnements du live'], ['messages', 'Messages du live'], ['song', 'Titre en cours'], ['artist', 'Artiste en cours'], ['goal', 'Goal actuel'], ['goalTarget', 'Objectif du goal'], ['goalName', 'Nom du goal'], ['uptime', 'Durée du live'],
+  ['viewers', 'Spectateurs'], ['lastFollower', 'Dernier suivi'], ['lastSub', 'Dernier abonné'], ['lastGifter', 'Dernier donateur'], ['lastGift', 'Dernier cadeau'], ['topGifter', 'Meilleur donateur'], ['topGift', 'Meilleur cadeau'],
+  ['topGiftValue', 'Valeur du meilleur cadeau'], ['topStreakUser', 'Meilleure série, pseudo'], ['topStreak', 'Meilleure série, nombre'], ['coins', 'Pièces du live'], ['gifts', 'Cadeaux du live'], ['likes', 'Likes du live'], ['follows', 'Suivis du live'],
+  ['subs', 'Abonnements du live'], ['messages', 'Messages du live'], ['song', 'Titre en cours'], ['artist', 'Artiste en cours'], ['goal', 'Objectif actuel'], ['goalTarget', 'Cible de l\'objectif'], ['goalName', 'Nom de l\'objectif'], ['uptime', 'Durée du live'],
 ];
 
 const SAMPLE = {
@@ -16,7 +16,7 @@ export function fillVars(text, vars = {}) {
   return String(text ?? '').replace(/\{([a-zA-Z]+)\}/g, (m, k) => {
     const v = vars[k];
     if (v === undefined || v === null || v === '') return vars === SAMPLE ? m : '';
-    return typeof v === 'number' ? v.toLocaleString('fr-FR') : String(v);
+    return typeof v === 'number' ? v.toLocaleString(document.documentElement.lang === 'en' ? 'en-US' : 'fr-FR') : String(v);
   });
 }
 

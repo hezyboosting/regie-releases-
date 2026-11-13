@@ -11,11 +11,19 @@ const { TwitchConnector } = require('./connectors/twitch');
 const { YouTubeConnector } = require('./connectors/youtube');
 const { renderTemplate } = require('./text');
 const { Viewers } = require('./viewers');
+const { streamerBotAction } = require('./streamerbot');
+const { Play } = require('./play');
+const { Plinko } = require('./plinko');
+const { Discord } = require('./discord');
 const { Games, BOSSES, gameById, rankLabel, nextRank, rankScore, STAT_LABEL } = require('./games');
 const { MiniGames } = require('./minigames');
+const { Interactive } = require('./interactive');
+const { ChatTranslator } = require('./chat-translate');
+const { makeTranslator } = require('../shared/translate');
+const toEnglish = makeTranslator(require('../shared/i18n-en.json'));
 const { KickConnector } = require('./connectors/kick');
 const { TwitchIrc } = require('./connectors/twitch-irc');
-const { rconSend } = require('./gamehub');
+const { rconCall } = require('./rcon');
 const { THEMES } = require('../shared/themes');
 
 const RANK = { all: 0, sub: 1, vip: 2, mod: 3, owner: 4 };
@@ -34,6 +42,11 @@ class Engine {
     Object.assign(this, { file, vault, server, spotify, tts, stats, obs, license, push, log, viewers, input, audio });
     this.games = new Games(this);
     this.minigames = new MiniGames(this);
+    this.fun = new Interactive(this);
+    this.play = new Play(this);
+    this.plinko = new Plinko(this);
+    this.discord = new Discord(this);
+    this.translator = new ChatTranslator({ getKey: () => this.vault.get('key:deeplKey') || '', log: (m) => this.log(m) });
     this.keyStamps = [];
     this.recentTypes = {};
     this.gameLive = null;
@@ -85,6 +98,13 @@ class Engine {
       for (const m of rl.playlists || []) if (prof.modes[m.id]) Object.assign(prof.modes[m.id], { tier: map[m.tier] || m.tier, division: m.division, mmr: m.mmr });
     }
     delete s.gaming.rl;
+    // Noms par défaut passés en français (2.8) : seulement ceux que le streamer n'a pas renommés.
+    const RENAMED = { Goal: 'Objectif', Battle: 'Duel', Giveaway: 'Tirage au sort', 'Gift Feed': 'Fil des cadeaux', 'Gift Tracker': 'Suivi des cadeaux', 'Top Gift': 'Meilleur cadeau', 'Top Streak': 'Meilleure série', 'Follow = Rank': 'Suivi = Rang', 'Chat Battle': 'Bataille du chat', 'Boss Battle': 'Combat de boss', 'Bulle TTS': 'Bulle de synthèse vocale' };
+    for (const o of s.overlays) if (RENAMED[o.name]) o.name = RENAMED[o.name];
+    // 2.12 : la caisse façon CS2 devient la révélation par défaut du Suivi = Rang.
+    if (s.ranks && !s.ranks.v212) { s.ranks.v212 = true; if (s.ranks.reveal === 'classic') s.ranks.reveal = 'roulette'; }
+    if (s.arena && RENAMED[s.arena.title]) s.arena.title = RENAMED[s.arena.title];
+    if (s.tools?.giveaway && RENAMED[s.tools.giveaway.title]) s.tools.giveaway.title = RENAMED[s.tools.giveaway.title];
     this.migrateDesign();
   }
 
@@ -177,7 +197,7 @@ class Engine {
     }
     this.status[id] = st;
     const was = Object.keys(this.liveSince).length > 0;
-    if (st.state === 'live' && !this.liveSince[id]) this.liveSince[id] = Date.now();
+    if (st.state === 'live' && !this.liveSince[id]) { this.liveSince[id] = Date.now(); this.refreshGiftCatalog(id); }
     if (['offline', 'stopped', 'error'].includes(st.state)) delete this.liveSince[id];
     const is = Object.keys(this.liveSince).length > 0;
     if (!was && is) this.onLiveStart();
@@ -189,9 +209,13 @@ class Engine {
   onLiveStart() {
     this.viewers.reset();
     this.currentLive = { id: uid('l'), start: Date.now(), game: this.s.gaming.active, peak: 0, samples: [] };
+    this.fun.counts = { spins: 0, raceWinners: [] };
+    this.games.resetShop();
+    this.welcomed = new Set();
     for (const g of this.s.goals) if (g.reset === 'live') { g.current = 0; g.reached = false; }
     this.pushGoals();
     this.pushLive();
+    this.discord.onLiveStart();
   }
 
   onLiveEnd() {
@@ -200,8 +224,41 @@ class Engine {
     if (!l || Date.now() - l.start < 120000) return;
     const c = this.viewers.session.counts;
     const g = this.viewers.session.gifts;
-    this.stats.addLive({ ...l, end: Date.now(), follows: c.follow || 0, subs: (c.sub || 0) + (c.resub || 0) + (c.member || 0), likes: c.like || 0, shares: c.share || 0, messages: c.chat || 0, coins: g.coins, gifts: g.count, topGifter: this.viewers.session.topGift?.user || '' });
+    const live = { ...l, end: Date.now(), follows: c.follow || 0, subs: (c.sub || 0) + (c.resub || 0) + (c.member || 0), likes: c.like || 0, shares: c.share || 0, messages: c.chat || 0, coins: g.coins, gifts: g.count, topGifter: this.viewers.session.topGift?.user || '' };
+    live.recap = this.buildRecap(live);
+    this.stats.addLive(live);
+    this.push('liveRecap', live.recap);
+    this.discord.onLiveEnd(live.recap);
+    const r = this.s.recap || {};
+    if (r.thanks && live.recap.top.length) {
+      const names = live.recap.top.slice(0, 3).map((x) => x.name).join(', ');
+      const sys = { type: 'custom', platform: 'twitch', accountId: 'system', channel: 'Régie', user: { display: 'Régie' } };
+      this.reply(sys, this.expand(r.thanksText || 'Merci {top} pour ce live ❤️ À très vite !', { top: names }), 'all');
+    }
   }
+
+  // Récap d'un live : chiffres, meilleurs soutiens, plus gros cadeau, jeux du chat, et l'écart avec le live d'avant.
+  buildRecap(live = null) {
+    const ses = this.viewers.session;
+    const c = ses.counts;
+    const g = ses.gifts;
+    const base = live || { start: this.currentLive?.start || ses.started, end: Date.now(), game: this.s.gaming.active, peak: this.currentLive?.peak || 0, follows: c.follow || 0, subs: (c.sub || 0) + (c.resub || 0) + (c.member || 0), likes: c.like || 0, shares: c.share || 0, messages: c.chat || 0, coins: g.coins, gifts: g.count };
+    const rows = Object.values(ses.viewers || {});
+    const prev = this.stats.lives(5).find((x) => x.id !== live?.id && x.start < base.start) || null;
+    return {
+      start: base.start, end: base.end, duration: Math.max(0, base.end - base.start), game: gameById(base.game || this.s.gaming.active).name,
+      peak: base.peak || 0, follows: base.follows, subs: base.subs, likes: base.likes, shares: base.shares, messages: base.messages, coins: base.coins, gifts: base.gifts,
+      viewers: rows.length,
+      top: rows.filter((r) => r.points > 0).sort((a, b) => b.points - a.points).slice(0, 5).map((r) => ({ name: r.name, platform: r.platform, avatar: r.avatar, points: r.points, coins: r.coins })),
+      chatty: rows.filter((r) => r.messages > 0).sort((a, b) => b.messages - a.messages).slice(0, 3).map((r) => ({ name: r.name, platform: r.platform, messages: r.messages })),
+      biggestGift: ses.topGift ? { user: ses.topGift.user, gift: ses.topGift.gift || ses.topGift.name || '', value: ses.topGift.value || 0 } : null,
+      newFollowers: rows.filter((r) => r.follows > 0).slice(-8).map((r) => r.name),
+      spins: this.fun.counts?.spins || 0, raceWinners: (this.fun.counts?.raceWinners || []).slice(-5),
+      prev: prev ? { peak: prev.peak || 0, follows: prev.follows || 0, coins: prev.coins || 0, messages: prev.messages || 0, likes: prev.likes || 0, subs: prev.subs || 0 } : null,
+    };
+  }
+
+  gameName() { const id = this.s.gaming?.active; return id ? gameById(id).name : ''; }
 
   channels() {
     return this.s.accounts.map((a) => ({
@@ -241,14 +298,18 @@ class Engine {
   }
 
   handle(ev) {
+    if (ev.gift) this.giftImage(ev.gift);
     if (!ev.test) this.stats.record(ev);
     const result = this.viewers.record(ev, this.s.rewards);
+    this.trackLast(ev);
+    if (ev.type === 'join' || ev.type === 'chat') this.welcome(ev);
     (this.recentTypes[ev.type] = this.recentTypes[ev.type] || []).push(Date.now());
     if (this.recentTypes[ev.type].length > 200) this.recentTypes[ev.type].shift();
     this.feed.push(ev);
     if (this.feed.length > 500) this.feed.shift();
     this.push('event', ev);
-    this.server.broadcast({ t: 'ev', ev }, ['chat', 'ticker', 'giftfeed', 'webcam', 'dock']);
+    if (ev.type === 'chat' && this.s.chatTranslate?.enabled) this.translateChat(ev);
+    this.server.broadcast({ t: 'ev', ev }, ['chat', 'ticker', 'giftfeed', 'webcam', 'dock', 'coinjar', 'emojify', 'firework', 'avatars', 'giftcannon', 'likefountain']);
     if (ev.type !== 'chat') {
       this.queueAlert(ev);
       this.applySubathon(ev);
@@ -256,10 +317,51 @@ class Engine {
     if (this.modOn('goals')) this.applyGoals(ev);
     if (this.modOn('battles')) this.applyBattle(ev);
     if (this.modOn('chatgames')) this.games.onEvent(ev, result);
+    if (this.modOn('interactive')) this.fun.onEvent(ev);
+    if (this.s.plinko?.enabled) this.plinko.onEvent(ev);
     this.pushLive();
     this.runTriggers(ev);
     if (this.modOn('tts')) this.tts.fromEvent(ev);
     if (ev.type === 'chat') this.handleChat(ev);
+  }
+
+  // Traduction du chat : le message part tout de suite, sa traduction suit dès qu'elle arrive.
+  async translateChat(ev) {
+    const c = this.s.chatTranslate;
+    const target = c.target === 'auto' || !c.target ? (this.s.settings.uiLang === 'en' ? 'en' : 'fr') : c.target;
+    const res = await this.translator.translate(ev.text, target, c.engine === 'deepl' ? 'deepl' : 'google');
+    if (!res) return;
+    ev.translation = { text: res.text, from: res.from };
+    const patch = { id: ev.id, translation: ev.translation, mode: c.mode || 'below', showLang: c.showLang !== false };
+    this.server.broadcast({ t: 'evx', ...patch }, ['chat', 'dock']);
+    this.push('eventPatch', patch);
+    if (c.tts) this.tts.say({ text: res.text, user: ev.user, ev, force: true });
+  }
+
+  // Simulateur de live : une minute d'événements réalistes (chat, likes, cadeaux, suivis, partages)
+  // pour essayer la roue, la course, les avatars et les alertes sans être en direct.
+  simulateLive(on = true, seconds = 60) {
+    clearInterval(this.simTimer);
+    this.simTimer = null;
+    if (!on) { this.push('simulating', false); return false; }
+    const end = Date.now() + Math.min(600, Math.max(10, seconds)) * 1000;
+    const crowd = ['Lena', 'Marius', 'Kenza', 'Yanis', 'Inès', 'Théo', 'Sofia', 'Nolan', 'Jade', 'Hugo', 'Lina', 'Adam'];
+    const plats = ['tiktok', 'tiktok', 'tiktok', 'twitch', 'youtube', 'kick'];
+    const lines = ['Salut tout le monde', 'Trop fort', 'GG', 'On y croit', '!saute', 'Quelle game', 'Allez !', '❤️❤️', '!roue', 'Bonne soirée'];
+    const pick = (a) => a[crypto.randomInt(a.length)];
+    this.simTimer = setInterval(() => {
+      if (Date.now() > end) { clearInterval(this.simTimer); this.simTimer = null; this.push('simulating', false); return; }
+      const r = crypto.randomInt(100);
+      const user = pick(crowd);
+      const platform = pick(plats);
+      if (r < 40) this.simulate('chat', platform, { user, text: pick(lines) });
+      else if (r < 75) this.simulate('like', 'tiktok', { user, fields: { amount: 5 + crypto.randomInt(60) } });
+      else if (r < 87) this.simulate('gift', 'tiktok', { user });
+      else if (r < 95) this.simulate('follow', platform, { user });
+      else this.simulate('share', 'tiktok', { user });
+    }, 700);
+    this.push('simulating', true);
+    return true;
   }
 
   simulate(type, platform = 'twitch', extra = {}) {
@@ -268,14 +370,16 @@ class Engine {
     const pick = (a) => a[crypto.randomInt(a.length)];
     const user = { id: `demo-${name}`, name, display: name, avatar: '', sub: false, mod: false, vip: false, owner: false, ...(extra.flags || {}) };
     const base = { id: uid('e'), ts: Date.now(), platform, accountId: 'demo', channel: `${PLATFORM_LABEL[platform]} test`, user, test: true };
-    const gift = pick([{ id: 'demo1', name: 'Rose', cost: 1 }, { id: 'demo2', name: 'Fusée', cost: 500 }, { id: 'demo3', name: 'Lion', cost: 29999 }]);
+    // Avec le catalogue chargé, les essais envoient de vrais cadeaux TikTok (nom, prix et image).
+    const real = this.giftSample(24);
+    const gift = real.length ? pick(real) : pick([{ id: 'demo1', name: 'Rose', cost: 1 }, { id: 'demo2', name: 'Fusée', cost: 500 }, { id: 'demo3', name: 'Lion', cost: 29999 }]);
     const samples = {
       chat: { text: extra.text || pick(['Salut tout le monde', 'Quelle game', '!son', 'gg', 'Bonne soirée !']) },
       follow: {}, sub: { months: 1, tier: '1000' }, resub: { months: 14, tier: '1000', text: 'Déjà 14 mois' }, giftsub: { amount: 5 },
       bits: { amount: 500, text: 'Bien joué' }, raid: { amount: 42 }, redeem: { reward: 'Hydrate-toi', amount: 500 }, hypetrain: { amount: 1 },
       superchat: { value: 10, currency: 'EUR', money: '10,00 €', text: 'Merci pour le live' }, supersticker: { value: 5, currency: 'EUR', money: '5,00 €' },
       member: { tier: 'Membre' }, milestone: { months: 6 },
-      gift: { gift: { ...gift, image: '', count: 3 }, amount: 3, value: gift.cost * 3 },
+      gift: { gift: { image: '', ...gift, count: 3 }, amount: 3, value: gift.cost * 3 },
       like: { amount: 50, total: (this.demoLikes = (this.demoLikes || 0) + 500) }, share: {}, join: {}, superfan: {},
       giftstreak: {},
     };
@@ -331,7 +435,8 @@ class Engine {
     const vars = this.vars(ev);
     const alert = {
       id: uid('a'), ruleId: rule.id, type: ev.type, platform: ev.platform, channel: ev.channel, title: renderTemplate(rule.message, vars), text: ev.text || '',
-      user: ev.user?.display || '', avatar: ev.user?.avatar || '', image: rule.image || ev.gift?.image || '', sound: rule.sound, volume: rule.volume ?? 80, duration: rule.duration || 6, theme: rule.theme || '', position: rule.position || '',
+      user: ev.user?.display || '', avatar: ev.user?.avatar || '', image: rule.image || '', sound: rule.sound, volume: rule.volume ?? 80, duration: rule.duration || 6, theme: rule.theme || '', position: rule.position || '',
+      gift: ev.gift ? { name: ev.gift.name, image: ev.gift.image || '' } : null, amount: ev.amount || 0, value: ev.value || 0, months: ev.months || 0, money: ev.money || '',
     };
     this.alertQueue.push(alert);
     if (this.alertQueue.length > 60) this.alertQueue.shift();
@@ -587,7 +692,7 @@ class Engine {
 
   // Sons : bibliothèque, ou sons intégrés.
   soundUrl(sound) {
-    const builtin = ['chime', 'pop', 'coins', 'fanfare', 'horn', 'tally'].includes(sound);
+    const builtin = ['chime', 'pop', 'coins', 'fanfare', 'horn', 'tally', 'drumroll', 'ding'].includes(sound);
     const port = this.server.port;
     if (builtin) return `http://127.0.0.1:${port}/assets/sounds/${sound}.wav`;
     return `http://127.0.0.1:${port}/media/${encodeURIComponent(sound)}?k=${this.server.token}`;
@@ -613,8 +718,18 @@ class Engine {
     return false;
   }
 
+  // Message du bot sur toutes les chaînes qui peuvent écrire (annonces des paris…).
+  announce(text) {
+    const first = [...this.connectors.values()].find((c) => c.canSend?.());
+    if (!first) { this.push('botReply', { text, platform: '' }); return; }
+    const acc = [...this.connectors.entries()].find(([, c]) => c === first)?.[0];
+    this.reply({ accountId: acc, platform: '' }, text, 'all');
+  }
+
   async reply(ev, text, where = 'origin') {
     if (!text) return;
+    // Les phrases du bot suivent la langue de l'appli (les textes écrits par le streamer restent tels quels).
+    if (this.s.settings.uiLang === 'en') text = toEnglish(text);
     const targets = where === 'all' && this.allowed('replyAllChannels') ? [...this.connectors.values()] : [this.connectors.get(ev.accountId)].filter(Boolean);
     for (const c of targets) {
       if (!c.canSend?.()) continue;
@@ -642,7 +757,7 @@ class Engine {
   commandVars(ev, args, cmd) {
     const t = this.spotify.state.track;
     return {
-      ...this.vars(ev), args, count: cmd?.uses ?? 0, uptime: this.uptime(), viewers: this.totalViewers(), points: this.viewers.points(ev), level: this.viewers.level(ev), game: gameById(this.s.gaming.active).name, record: this.gameRecord(),
+      ...this.vars(ev), args, count: cmd?.uses ?? 0, uptime: this.uptime(), viewers: this.totalViewers(), points: this.viewers.points(ev), level: this.viewers.level(ev), game: gameById(this.s.gaming.active).name, record: this.gameRecord(), pseudo: this.s.gaming.profiles?.[this.s.gaming.active]?.pseudo || '',
       song: t ? `${t.title} de ${t.artist}` : 'aucune musique',
     };
   }
@@ -655,7 +770,12 @@ class Engine {
     const args = rest.join(' ');
 
     this.voteOrEnter(ev, text, cmd);
+    this.queueChat(ev, cmd);
+    if (this.modOn('interactive') && this.fun.onChat(ev, cmd)) return;
     if (this.modOn('chatgames') && this.minigames.onChat(ev, text)) return;
+    if (cmd === String(this.s.rewards.commandBet || '!parier').toLowerCase()) { this.play.onBet(ev, args); return; }
+    if (this.s.plinko?.enabled && cmd === String(this.s.plinko.bet.command || '!plinko').toLowerCase() && this.plinko.onBet(ev, args)) return;
+    if (this.play.onChat(ev)) return;
     if (this.games.onChat(ev, cmd, args)) return;
     if (cmd === this.s.clips.command?.toLowerCase()) { this.clipCommand(ev); return; }
 
@@ -728,6 +848,7 @@ class Engine {
     if (on.platforms?.length && !on.platforms.includes(ev.platform)) return false;
     if ((ev.value || ev.amount || 0) < (on.minAmount || 0)) return false;
     if (on.giftId && (on.giftId !== ev.gift?.id || !this.allowed('giftTriggers'))) return false;
+    if (on.giftName && (String(on.giftName).toLowerCase() !== String(ev.gift?.name || '').toLowerCase() || !this.allowed('giftTriggers'))) return false;
     if (on.word && (ev.text || '').trim().split(/\s+/)[0].toLowerCase() !== on.word.toLowerCase()) return false;
     const adv = this.allowed('automationAdvanced');
     const conds = adv ? (t.conditions || []) : (t.conditions || []).slice(0, 1);
@@ -741,7 +862,13 @@ class Engine {
 
   runTriggers(ev) {
     for (const t of this.activeTriggers()) {
-      if (t.on.type === ev.type && this.triggerMatches(t, ev)) this.runActions(t.actions || [], ev, this.commandVars(ev, '', null));
+      if (t.on.type !== ev.type || !this.triggerMatches(t, ev)) continue;
+      // Actions par cadeau : « répéter » rejoue les actions pour chaque cadeau d'un combo (×5 → 5 fois, 20 au plus).
+      const times = t.repeat && ev.type === 'gift' ? Math.max(1, Math.min(20, Number(ev.amount) || 1)) : 1;
+      for (let i = 0; i < times; i += 1) {
+        if (i === 0) this.runActions(t.actions || [], ev, this.commandVars(ev, '', null));
+        else setTimeout(() => this.runActions(t.actions || [], ev, this.commandVars(ev, '', null)), i * 350);
+      }
     }
   }
 
@@ -785,7 +912,10 @@ class Engine {
       case 'replay': this.obs.saveReplay().catch((e) => this.log(e.message)); break;
       case 'clip': this.createClip(ev.user?.display || 'Régie').catch((e) => this.log(e.message)); break;
       case 'key': this.pressKey(a.key, a.hold); break;
+      case 'pad': this.pressPad(a.input, a.hold); break;
       case 'webhook': this.callWebhook(a, ev, vars); break;
+      case 'coinjarEmpty': this.server.broadcast({ t: 'coinjar', action: 'empty' }, 'coinjar'); break;
+      case 'streamerbot': streamerBotAction(a.host, this.expand(a.name || '', vars), { user: ev?.user?.display || '', platform: ev?.platform || '', gift: ev?.gift?.name || '', amount: ev?.amount || 0, coins: ev?.value || 0, message: ev?.text || '' }).catch((e) => this.log(`Streamer.bot : ${e.message}`)); break;
       case 'skipAlert': this.skipAlert(); break;
       case 'pauseAlerts': this.s.alerts.paused = !this.s.alerts.paused; this.save(); this.pumpAlerts(); this.push('alerts', this.s.alerts); break;
       case 'arena': this.games.arenaOpen(); break;
@@ -794,18 +924,35 @@ class Engine {
       case 'points': { const r = this.viewers.file.data.list[Viewers.key(ev)] || this.viewers.session.viewers[Viewers.key(ev)]; if (r) { r.points += Number(a.amount) || 0; this.viewers.file.save(); } break; }
       case 'show': this.server.broadcast({ t: 'show', item: { kind: a.file ? (/\.(mp4|webm)$/i.test(a.file) ? 'video' : 'image') : 'text', text: this.expand(a.text, vars), file: a.file || '', seconds: a.seconds || 5 } }, 'stage'); break;
       case 'notify': this.notify?.(this.expand(a.text, vars)); break;
-      case 'rcon': if (this.allowed('rcon')) rconSend(this.s.gaming.rcon, this.expand(a.text, vars)).catch((e) => this.log(`Minecraft : ${e.message}`)); break;
+      case 'rcon': {
+        if (!this.allowed('rcon')) break;
+        const srv = a.server ? (this.s.gaming.servers || []).find((x) => x.id === a.server) : { kind: 'source', ...this.s.gaming.rcon };
+        rconCall(srv, this.expand(a.text, vars)).catch((e) => this.log(`Serveur de jeu : ${e.message}`));
+        break;
+      }
       case 'fire': this.fireCustom(a.name); break;
       case 'mic': this.obs.toggleMute(a.input).catch((e) => this.log(e.message)); break;
       case 'spotify': this.spotify.control(a.action || 'pause').catch((e) => this.log(e.message)); break;
       case 'automation': { const t = this.s.triggers.find((x) => x.id === a.triggerId); if (t) { t.enabled = !t.enabled; this.save(); this.push('triggers', this.s.triggers); } break; }
       case 'minigame': if (a.game === 'roulette') this.minigames.spin(ev); else if (a.game === 'quiz') this.minigames.startQuiz({}); else this.minigames.startGuess({}); break;
       case 'game': this.gameEvent(a.kind || 'win', {}); break;
+      case 'wheel': this.fun.wheelRequest(ev, 'action'); break;
+      case 'likeRace': if (a.action === 'stop') this.fun.raceStop(); else this.fun.raceStart(); break;
       default: break;
     }
   }
 
   // Touches simulées : désactivées par défaut, limitées à dix par seconde.
+  // Manette virtuelle : mêmes garde-fous que les touches (réglage, PRO, dix appuis par seconde).
+  pressPad(input, hold = 120) {
+    if (!this.s.vpad?.enabled || !this.allowed('keystrokes') || !input || !this.vpad) return false;
+    const now = Date.now();
+    this.keyStamps = this.keyStamps.filter((t) => now - t < 1000);
+    if (this.keyStamps.length >= 10) return false;
+    this.keyStamps.push(now);
+    try { return this.vpad.press(input, hold); } catch (e) { this.log(`Manette virtuelle : ${e.message}`); return false; }
+  }
+
   pressKey(key, hold = 60) {
     if (!this.s.keys.enabled || !this.allowed('keystrokes') || !key) return false;
     const now = Date.now();
@@ -929,6 +1076,7 @@ class Engine {
     const view = this.gameView();
     this.push('gaming', this.s.gaming);
     this.server.broadcast({ t: 'game', game: view }, 'gamecard');
+    for (const o of this.s.overlays) if (o.type === 'scene' || o.type === 'scenev') this.pushOverlayConfig(o);
   }
 
   setActiveGame(id, auto) {
@@ -960,15 +1108,19 @@ class Engine {
     if (o.kind && this.allowed('gameLive')) this.gameEvent(o.kind, o);
   }
 
-  applyTheme(id) {
+  // Thème pour tous les overlays, ou pour un seul (overlayId).
+  applyTheme(id, overlayId) {
     const theme = THEMES.find((t) => t.id === id);
     if (!theme) throw new Error('Thème inconnu');
     for (const o of this.s.overlays) {
+      if (overlayId && o.id !== overlayId) continue;
       const fields = OVERLAY_TYPES[o.type]?.fields || [];
       for (const f of fields) {
         if (f.key === 'font') o.settings.font = theme.font;
+        else if (f.key.startsWith('fx') && theme.fx?.[f.key] !== undefined) o.settings[f.key] = theme.fx[f.key];
         else if (f.type === 'color' && theme.colors[f.key] !== undefined) o.settings[f.key] = theme.colors[f.key];
       }
+      o.settings.look = theme.id;
       this.pushOverlayConfig(o);
     }
     this.save();
@@ -1086,8 +1238,61 @@ class Engine {
     }
   }
 
+  // File d'attente : les viewers tapent !join, le streamer appelle le suivant.
+  queueState() {
+    const q = this.s.tools.queue || (this.s.tools.queue = { open: true, join: '!join', leave: '!quitter', max: 50, subsFirst: false, list: [], current: null });
+    return q;
+  }
+
+  queueChat(ev, cmd) {
+    const q = this.queueState();
+    const key = `${ev.platform}:${ev.user.id || ev.user.name}`;
+    if (cmd === String(q.join || '!join').toLowerCase()) {
+      if (!q.open || q.list.some((x) => x.key === key) || q.current?.key === key) return;
+      if (q.list.length >= (q.max || 50)) return;
+      const entry = { key, name: ev.user.display || ev.user.name, platform: ev.platform, avatar: ev.user.avatar || '', sub: Boolean(ev.user.sub), at: Date.now() };
+      if (q.subsFirst && entry.sub) {
+        const i = q.list.findIndex((x) => !x.sub);
+        if (i < 0) q.list.push(entry); else q.list.splice(i, 0, entry);
+      } else q.list.push(entry);
+      this.pushQueue();
+    } else if (cmd === String(q.leave || '!quitter').toLowerCase() || cmd === '!leave') {
+      const before = q.list.length;
+      q.list = q.list.filter((x) => x.key !== key);
+      if (q.list.length !== before) this.pushQueue();
+    }
+  }
+
+  queueControl(action, arg) {
+    const q = this.queueState();
+    if (action === 'open') q.open = true;
+    if (action === 'close') q.open = false;
+    if (action === 'next') q.current = q.list.shift() || null;
+    if (action === 'done') q.current = null;
+    if (action === 'remove') q.list = q.list.filter((x) => x.key !== arg);
+    if (action === 'up') { const i = q.list.findIndex((x) => x.key === arg); if (i > 0) [q.list[i - 1], q.list[i]] = [q.list[i], q.list[i - 1]]; }
+    if (action === 'clear') { q.list = []; q.current = null; }
+    if (action === 'config' && arg && typeof arg === 'object') {
+      for (const k of ['join', 'leave', 'max', 'subsFirst']) if (arg[k] !== undefined) q[k] = arg[k];
+    }
+    this.pushQueue();
+    return q;
+  }
+
+  queueView() {
+    const q = this.queueState();
+    const pub = (x) => x && { name: x.name, platform: x.platform, avatar: x.avatar };
+    return { open: q.open, join: q.join, list: q.list.map(pub), current: pub(q.current), total: q.list.length };
+  }
+
+  pushQueue() {
+    this.save();
+    this.push('queue', this.s.tools.queue);
+    this.server.broadcast({ t: 'queue', queue: this.queueView() }, 'queue');
+  }
+
   giveawayControl(action, cfg = {}) {
-    if (!this.allowed('giveaway')) throw new Error('Les giveaways sont réservés à PRO.');
+    if (!this.allowed('giveaway')) throw new Error('Les tirages au sort sont réservés à PRO.');
     const g = this.s.tools.giveaway;
     Object.assign(g, cfg);
     if (action === 'open') { g.status = 'open'; g.entrants = []; g.winner = null; }
@@ -1191,13 +1396,24 @@ class Engine {
       case 'counter': return { counters: s.tools.counters };
       case 'poll': return { poll: this.pollView() };
       case 'giveaway': { const g = s.tools.giveaway; return { giveaway: { ...g, entrants: g.entrants.map((e) => ({ name: e.name, platform: e.platform })) } }; }
+      case 'queue': return { queue: this.queueView() };
+      case 'wheel': return { wheel: this.fun.wheelView() };
+      case 'rankcard': return this.games.rankOverlayData();
+      case 'chatplays': return { view: this.play.playsView() };
+      case 'prediction': return { view: this.play.predictionView() };
+      case 'plinko': return { view: this.plinko.view() };
+      case 'lastx': return { last: this.s.lastEvents || {} };
+      case 'coinjar': case 'firework': case 'giftcannon': case 'alerts': return { catalog: this.giftSample(36) };
+      case 'likerace': return { race: this.fun.raceView() };
+      case 'pointshop': return { shop: this.games.shopView() };
+      case 'scene': case 'scenev': return { game: s.gaming.active, overlays: s.overlays.filter((x) => x.type !== 'scene' && x.type !== 'scenev').map((x) => ({ id: x.id, type: x.type, size: OVERLAY_TYPES[x.type]?.size || [1920, 1080] })) };
       case 'leaderboard': return { boards: this.viewers.boards(10) };
       case 'gamepad': return { pads: this.input?.pads?.() || [], pack: (this.s.padPacks || []).find((p) => p.id === o.settings.pack) || null };
       case 'gamecard': return { game: this.gameView() };
       case 'gamelive': return { live: this.gameLive, game: this.gameView() };
       case 'minigame': return { game: this.minigames.view() };
-      case 'gifttracker': case 'topgift': case 'topstreak': return { gifts: this.viewers.giftView() };
-      case 'giftfeed': return { backlog: this.viewers.session.gifts.log.slice(0, 10).reverse() };
+      case 'gifttracker': case 'topgift': case 'topstreak': return { gifts: this.viewers.giftView(), catalog: this.giftSample(12) };
+      case 'giftfeed': return { backlog: this.viewers.session.gifts.log.slice(0, 10).reverse(), catalog: this.giftSample(12) };
       case 'arena': return { arena: s.arena };
       case 'boss': return { boss: s.boss };
       case 'brb': return { brb: this.brb || { active: false, startedAt: 0, elapsed: 0 } };
@@ -1207,8 +1423,89 @@ class Engine {
     }
   }
 
+  // Échantillon du catalogue de cadeaux (du moins cher au plus cher) pour les aperçus des overlays.
+  giftSample(n) {
+    const url = (g) => (this.catalog ? this.catalog.localUrl(g) : g.image);
+    const list = (this.gifts || []).filter((g) => g.image || g.file).sort((a, b) => (a.cost || 0) - (b.cost || 0));
+    const pick = list.length <= n ? list : Array.from({ length: n }, (_, i) => list[Math.floor((i / n) * list.length)]);
+    return pick.map((g) => ({ id: g.id, name: g.name, image: url(g), cost: g.cost }));
+  }
+
+  // Derniers événements (dernier suivi, cadeau, like, partage, abonnement), gardés d'un lancement à l'autre.
+  trackLast(ev) {
+    const kind = { follow: 'follow', gift: 'gift', like: 'like', share: 'share', sub: 'sub', resub: 'sub', member: 'sub', giftsub: 'sub', superfan: 'sub' }[ev.type];
+    if (!kind || !(ev.user?.display || ev.user?.name)) return;
+    const last = this.s.lastEvents || (this.s.lastEvents = {});
+    const prev = last[kind];
+    const same = prev && prev.name === (ev.user.display || ev.user.name) && Date.now() - prev.at < 60000;
+    last[kind] = {
+      name: ev.user.display || ev.user.name, avatar: ev.user.avatar || '', platform: ev.platform, at: Date.now(), type: ev.type,
+      amount: kind === 'like' && same ? (prev.amount || 0) + (ev.amount || 1) : (ev.amount || 1), value: ev.value || 0, months: ev.months || 0,
+      gift: ev.gift ? { name: ev.gift.name, image: ev.gift.image || '' } : null,
+    };
+    this.server.broadcast({ t: 'last', last, kind }, 'lastx');
+    if (!ev.test) {
+      clearTimeout(this.lastSaveT);
+      this.lastSaveT = setTimeout(() => this.save(), 5000);
+      this.lastSaveT.unref?.();
+    }
+  }
+
+  // Bienvenue : à l'arrivée (TikTok) ou au premier message du live (toutes les plateformes),
+  // une fois par live et par personne. L'overlay choisit qui il accueille d'après ces infos.
+  welcome(ev) {
+    if (!this.server.hasClient?.('welcome') && !ev.test) return;
+    const key = Viewers.key(ev);
+    this.welcomed = this.welcomed || new Set();
+    if (this.welcomed.has(key)) return;
+    const ses = this.viewers.session.viewers[key];
+    if (ev.type === 'chat' && ses && ses.messages > 1) return;
+    this.welcomed.add(key);
+    const v = this.viewers.file.data.list[key] || {};
+    if (!this.topCache || Date.now() - this.topCache.at > 60000) {
+      const list = this.viewers.file.data.list;
+      this.topCache = { at: Date.now(), keys: new Set(Object.keys(list).filter((k) => (list[k].coins || 0) > 0).sort((a, b) => list[b].coins - list[a].coins).slice(0, 10)) };
+    }
+    const who = {
+      name: ev.user.display || ev.user.name, avatar: ev.user.avatar || v.avatar || '', platform: ev.platform,
+      coins: v.coins || 0, gifts: v.gifts || 0, messages: v.messages || 0, follows: v.follows || 0,
+      sub: Boolean(ev.user.sub || v.subs), mod: Boolean(ev.user.mod), top: this.topCache.keys.has(key),
+    };
+    this.server.broadcast({ t: 'welcome', who, kind: ev.type === 'join' ? 'join' : 'chat' }, 'welcome');
+  }
+
+  // Catalogue des cadeaux TikTok (noms, prix, vraies images) : rechargé tout seul au début d'un live
+  // TikTok s'il est vide ou vieux de plus de trois jours. Il sert aux images et aux aperçus.
+  refreshGiftCatalog(accountId, force = false) {
+    if (!this.catalog || (!force && !this.catalog.stale())) return Promise.resolve(this.gifts);
+    const sources = [];
+    const c = accountId ? this.connectors.get(accountId) : [...this.connectors.values()].find((x) => x.fetchGifts);
+    if (c?.fetchGifts) sources.push(() => c.fetchGifts());
+    const account = this.s.accounts.find((a) => a.platform === 'tiktok');
+    if (!c && account && this.makeConnector) sources.push(() => this.makeConnector(account).fetchGifts());
+    return this.catalog.refresh({ sources, lang: this.s.settings.uiLang === 'en' ? 'en-US' : 'fr-FR' })
+      .then((list) => { this.gifts = list; this.push('gifts', this.giftsForApp()); return list; })
+      .catch((e) => { this.log(`Catalogue des cadeaux : ${e.message}`); if (force) throw e; return this.gifts; });
+  }
+
+  // Le catalogue pour l'appli : les images gardées sur le PC, en adresse complète.
+  giftsForApp() {
+    const base = `http://127.0.0.1:${this.server.port}`;
+    return (this.gifts || []).map((g) => { const u = this.catalog ? this.catalog.localUrl(g) : g.image; return { id: g.id, name: g.name, cost: g.cost, image: u.startsWith('/') ? base + u : u }; });
+  }
+
+  // Un cadeau prend l'image officielle gardée sur le PC (même id, ou même nom) ; sinon celle de l'événement.
+  giftImage(gift) {
+    if (!gift) return;
+    const hit = this.catalog ? this.catalog.find(gift) : (this.gifts || []).find((g) => (gift.id && String(g.id) === String(gift.id)) || String(g.name).toLowerCase() === String(gift.name || '').toLowerCase());
+    if (!hit) return;
+    const local = this.catalog ? this.catalog.localUrl(hit) : hit.image;
+    if (local && (local.startsWith('/') || !gift.image)) gift.image = local;
+    if (!gift.cost && hit.cost) gift.cost = hit.cost;
+  }
+
   overlayInit(o) {
-    return { t: 'init', overlay: { id: o.id, type: o.type, name: o.name, enabled: o.enabled !== false, settings: this.effectiveSettings(o) }, watermark: !this.allowed('removeWatermark'), data: this.overlayData(o) };
+    return { t: 'init', lang: this.s.settings.uiLang === 'en' ? 'en' : 'fr', overlay: { id: o.id, type: o.type, name: o.name, enabled: o.enabled !== false, settings: this.effectiveSettings(o) }, watermark: !this.allowed('removeWatermark'), data: this.overlayData(o) };
   }
 
   pushOverlayConfig(o) {
@@ -1227,6 +1524,7 @@ class Engine {
   }
 
   stop() {
+    this.play?.stop(); this.plinko?.stop();
     clearInterval(this.ticker);
     clearTimeout(this.battleTimer);
     clearTimeout(this.alertTimer);
@@ -1234,6 +1532,8 @@ class Engine {
     clearTimeout(this.liveTimer);
     this.games.stop();
     this.minigames.stop();
+    this.fun.stop();
+    clearInterval(this.simTimer);
     if (this.currentLive) this.onLiveEnd();
     for (const id of [...this.connectors.keys()]) this.stopAccount(id);
   }

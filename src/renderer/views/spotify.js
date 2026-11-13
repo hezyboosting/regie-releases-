@@ -74,10 +74,10 @@ function Requests({ s }) {
       <${Lamp} on=${r.enabled && !locked} locked=${locked} onChange=${(v) => up({ enabled: v })} label="Accepter les demandes" />
       <${Field} label="Commande"><${Lazy} value=${r.command} onSave=${(v) => up({ command: v })} disabled=${locked} /><//>
       <${Field} label="Qui peut demander"><${Select} value=${r.perm} onChange=${(v) => up({ perm: v })} disabled=${locked} options=${[{ value: 'all', label: 'Tout le monde' }, { value: 'sub', label: 'Abonnés' }, { value: 'vip', label: 'VIP' }, { value: 'mod', label: 'Modérateurs' }]} /><//>
-      <${Field} label="Attente par viewer (s)"><${Num} value=${r.cooldown} min="0" onSave=${(v) => up({ cooldown: v })} disabled=${locked} /><//>
+      <${Field} label="Attente par spectateur (s)"><${Num} value=${r.cooldown} min="0" onSave=${(v) => up({ cooldown: v })} disabled=${locked} /><//>
       <${Field} label="Durée max (min)"><${Num} value=${r.maxLengthMin} min="1" onSave=${(v) => up({ maxLengthMin: v })} disabled=${locked} /><//>
     </div>
-    <p class="note">${s.spotify.connected ? 'Un viewer écrit la commande suivie d\'un titre ou d\'un lien, sur n\'importe quelle chaîne. Le morceau part dans ta file Spotify.' : 'Un viewer écrit la commande suivie d\'un titre, sur n\'importe quelle chaîne. La demande arrive ici et tu la lances d\'un clic.'}</p>
+    <p class="note">${s.spotify.connected ? 'Un spectateur écrit la commande suivie d\'un titre ou d\'un lien, sur n\'importe quelle chaîne. Le morceau part dans ta file Spotify.' : 'Un spectateur écrit la commande suivie d\'un titre, sur n\'importe quelle chaîne. La demande arrive ici et tu la lances d\'un clic.'}</p>
     <${Wishes} s=${s} />
   <//>`;
 }
@@ -87,7 +87,7 @@ export function SpotifyView({ s }) {
   const current = overlays.find((o) => o.id === s.spotifyOverlay) || overlays[0];
   return html`<div class="page">
     <${PageHead} title="Spotify">
-      ${overlays.length > 1 && html`<select class="in" aria-label="Overlay Spotify" value=${current?.id} onChange=${(e) => setState({ spotifyOverlay: e.target.value })}>${overlays.map((o) => html`<option value=${o.id}>${o.name}</option>`)}</select>`}
+      ${overlays.length > 1 && html`<${Select} label="Overlay Spotify" value=${current?.id} onChange=${(v) => setState({ spotifyOverlay: v })} options=${overlays.map((o) => ({ value: o.id, label: o.name }))} />`}
       ${!current && html`<${Btn} kind="primary" onClick=${async () => { const o = await act('addOverlay', 'spotify'); if (o) reload(); }}>Créer l'overlay<//>`}
     <//>
     <${Player} s=${s} />

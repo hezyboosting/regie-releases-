@@ -1,4 +1,5 @@
 // Outils partagés par tous les overlays. Le texte des viewers passe toujours par textContent.
+import { BRANDS, brandSvg } from './brands.js';
 import { crest } from './crest.js';
 
 export const query = new URLSearchParams(location.search);
@@ -35,7 +36,7 @@ export const PLATFORM = {
   youtube: { label: 'YouTube', short: 'YT', color: '#FF0033' }, kick: { label: 'Kick', short: 'KI', color: '#53FC18' },
 };
 
-export const fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
+export const fmt = (n) => Number(n || 0).toLocaleString(document.documentElement.lang === 'en' ? 'en-US' : 'fr-FR');
 export const clock = (sec) => {
   const s = Math.max(0, Math.round(sec));
   const h = Math.floor(s / 3600);
@@ -51,7 +52,7 @@ export const media = (v) => {
   return `/media/${encodeURIComponent(v)}?k=${encodeURIComponent(key)}`;
 };
 
-const BUILTIN = ['chime', 'pop', 'coins', 'fanfare', 'horn', 'tally'];
+const BUILTIN = ['chime', 'pop', 'coins', 'fanfare', 'horn', 'tally', 'drumroll', 'ding'];
 export function playSound(sound, volume = 80, master = 100) {
   if (!sound || sound === 'none') return;
   const a = new Audio(BUILTIN.includes(sound) ? `/assets/sounds/${sound}.wav` : media(sound));
@@ -61,6 +62,12 @@ export function playSound(sound, volume = 80, master = 100) {
 
 export function tag(platform) {
   const p = PLATFORM[platform];
+  if (BRANDS[platform]) {
+    const t = el('span', 'pf pf-icon');
+    t.innerHTML = brandSvg(platform);
+    t.title = BRANDS[platform].label;
+    return t;
+  }
   const t = el('span', 'pf', p ? p.short : '');
   if (p) t.style.background = p.color;
   return t;
@@ -119,4 +126,44 @@ export function confetti(colors = ['#8FD3FF', '#FFFFFF', '#B9A7FF', '#F3D38A'], 
     parts.push({ x: innerWidth / 2 + (Math.random() - 0.5) * 120, y: innerHeight * 0.7, vx: Math.cos(a) * v, vy: Math.sin(a) * v, s: 6 + Math.random() * 7, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.3, color: colors[i % colors.length], life: 160 + Math.random() * 80 });
   }
   if (start) requestAnimationFrame(confettiLoop);
+}
+
+// Nombre qui défile jusqu'à sa nouvelle valeur (compteurs, totaux, objectifs).
+export function countTo(node, to, { ms = 900, format = fmt } = {}) {
+  const target = Number(to) || 0;
+  const from = node.dataset.v === undefined ? target : Number(node.dataset.v) || 0;
+  node.dataset.v = String(target);
+  cancelAnimationFrame(Number(node.dataset.raf || 0));
+  if (from === target) { node.textContent = format(target); return; }
+  const t0 = performance.now();
+  const step = (now) => {
+    const p = Math.min(1, (now - t0) / ms);
+    const e = 1 - (1 - p) ** 3;
+    node.textContent = format(Math.round(from + (target - from) * e));
+    if (p < 1) node.dataset.raf = String(requestAnimationFrame(step));
+  };
+  node.dataset.raf = String(requestAnimationFrame(step));
+}
+
+// Relance une animation CSS sur un élément (classe retirée puis remise).
+export function replay(node, cls) {
+  if (!node) return;
+  node.classList.remove(cls);
+  void node.offsetWidth;
+  node.classList.add(cls);
+}
+
+// Icône de cadeau dessinée par Régie, pour les aperçus quand le catalogue TikTok n'est pas chargé.
+export const GIFT_ICON = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><defs>
+<linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF7AA2"/><stop offset="1" stop-color="#E0245E"/></linearGradient>
+<linearGradient id="r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE7A3"/><stop offset="1" stop-color="#F2B630"/></linearGradient></defs>
+<rect x="18" y="50" width="84" height="56" rx="10" fill="url(#b)"/><rect x="12" y="36" width="96" height="22" rx="8" fill="#FF8DB0"/>
+<rect x="53" y="36" width="14" height="70" fill="url(#r)"/><path d="M60 36c-6-14-26-22-30-10-3 9 14 12 30 10zm0 0c6-14 26-22 30-10 3 9-14 12-30 10z" fill="url(#r)"/>
+<rect x="24" y="56" width="14" height="44" rx="6" fill="#fff" opacity=".18"/></svg>`)}`;
+
+// Pastille de plateforme compacte pour les cartes en verre.
+export function gxIcon(kind) {
+  const i = el('span', `gx-ico gx-${kind}`);
+  i.textContent = { follow: '★', gift: '🎁', sub: '◆', like: '❤', share: '↗', bits: '◈', raid: '⚑', superchat: '€', member: '◆', join: '👋', redeem: '✦', superfan: '✦' }[kind] || '✦';
+  return i;
 }

@@ -1,6 +1,6 @@
 import { el, fmt, setVars, isPreview } from '../lib.js';
 
-const DEMO = { status: 'running', question: 'On joue à quoi ensuite ?', options: ['Ranked', 'Avec les viewers'], counts: [34, 21], total: 55 };
+const DEMO = { status: 'running', question: 'On joue à quoi ensuite ?', options: ['Ranked', 'Avec les spectateurs'], counts: [34, 21], total: 55 };
 
 export function mount(root) {
   const box = el('div', 'panel scaled');

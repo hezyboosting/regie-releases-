@@ -69,7 +69,7 @@ function Roulette({ s, locked }) {
     <div class="row wrap">
       <${Field} label="Commande"><${Lazy} value=${m.rouletteCommand} onSave=${(rouletteCommand) => save({ rouletteCommand })} /><//>
       <${Field} label="Prix en points"><${Num} value=${m.rouletteCost} min="0" onSave=${(rouletteCost) => save({ rouletteCost })} /><//>
-      <${Field} label="Attente par viewer (s)"><${Num} value=${m.rouletteCooldown} min="0" onSave=${(rouletteCooldown) => save({ rouletteCooldown })} /><//>
+      <${Field} label="Attente par spectateur (s)"><${Num} value=${m.rouletteCooldown} min="0" onSave=${(rouletteCooldown) => save({ rouletteCooldown })} /><//>
     </div>
     <div class="col">
       ${m.roulette.map((x, i) => html`<div class="rank-row wheel-row" key=${x.id}>
@@ -93,6 +93,6 @@ export function MiniGamesView({ s }) {
     <${Current} s=${s} />
     <div class="two"><${Guess} locked=${locked} /><${Quiz} s=${s} locked=${locked} /></div>
     <${Roulette} s=${s} locked=${locked} />
-    <${Upsell}>Les mini-jeux sont inclus dans PRO. Les Battles et le Boss Battle restent disponibles en FREE.<//>
+    <${Upsell}>Les mini-jeux sont inclus dans PRO. Les duels et le combat de boss restent disponibles en FREE.<//>
   </div>`;
 }

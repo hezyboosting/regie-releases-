@@ -13,10 +13,11 @@ body { display: flex; flex-direction: column; background: var(--bg); color: var(
 button, input, select { font: inherit; color: inherit; }
 button { border: 0; background: none; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--ice); outline-offset: 1px; }
-header { display: flex; align-items: center; gap: 4px; padding: 7px 8px; overflow-x: auto; scrollbar-width: none; flex: none; }
+header { display: flex; align-items: center; gap: 4px; padding: 7px 8px; flex: none; }
+.tabs { flex: 1; min-width: 0; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.tools { flex: none; display: flex; gap: 2px; }
 .tab { flex: none; height: 28px; padding: 0 11px; border-radius: 14px; color: var(--mute); font-size: 12.5px; }
 .tab:hover { color: var(--text); } .tab.on { background: var(--s2); color: var(--text); box-shadow: inset 0 1px 0 rgba(255,255,255,.12); }
-.sp { flex: 1; min-width: 6px; }
 .tool { flex: none; width: 28px; height: 28px; border-radius: 50%; color: var(--mute); font-size: 12px; } .tool:hover { background: var(--s1); color: var(--text); } .tool.on { color: var(--ice); }
 #feed { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 8px 8px; display: flex; flex-direction: column; gap: 1px; user-select: text; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.15) transparent; }
 .m { padding: 3px 7px; border-radius: 9px; overflow-wrap: anywhere; } .m:hover { background: var(--s1); }
@@ -25,6 +26,9 @@ header { display: flex; align-items: center; gap: 4px; padding: 7px 8px; overflo
 .m .b { font-size: .78em; color: var(--faint); margin-right: 5px; }
 .m.ev { color: var(--mute); background: var(--s1); margin: 2px 0; padding: 5px 9px; } .m.ev b { color: var(--text); font-weight: 600; }
 .m.me { box-shadow: inset 0 0 0 1px var(--ice); }
+.m .tr { display: block; margin: 1px 0 0 13px; color: var(--mute); font-size: .92em; font-style: italic; }
+.m .lg { display: inline-block; margin-right: 5px; padding: 0 5px; border-radius: 5px; background: var(--s2); color: var(--text); font-size: .74em; font-style: normal; font-weight: 700; letter-spacing: .04em; vertical-align: .1em; }
+.m .orig { text-decoration: underline dotted rgba(255,255,255,.3); text-underline-offset: 3px; cursor: help; }
 #more { position: absolute; left: 50%; bottom: 62px; transform: translateX(-50%); height: 30px; padding: 0 14px; border-radius: 15px; background: var(--text); color: #101216; font-size: 12.5px; font-weight: 600; }
 footer { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8px; background: rgba(255,255,255,.03); }
 #target { height: 28px; padding: 0 8px; border: 0; border-radius: 10px; background: var(--s1); color: var(--mute); font-size: 12.5px; max-width: 100%; }
@@ -35,13 +39,13 @@ footer { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8
 </style>
 </head>
 <body>
-<header id="tabs" role="tablist" aria-label="Plateformes"></header>
+<header id="tabs"></header>
 <main id="feed" aria-live="polite"></main>
-<button type="button" id="more" hidden>Nouveaux messages</button>
+<button type="button" id="more" hidden data-i="Nouveaux messages">Nouveaux messages</button>
 <footer>
   <div id="err" role="alert"></div>
-  <select id="target" aria-label="Chaîne où écrire"></select>
-  <form id="form"><input id="text" autocomplete="off" maxlength="500" placeholder="Écrire dans le chat" aria-label="Message"><button id="send" type="submit">Envoyer</button></form>
+  <select id="target" aria-label="Chaîne où écrire" data-aria="Chaîne où écrire"></select>
+  <form id="form"><input id="text" autocomplete="off" maxlength="500" placeholder="Écrire dans le chat" aria-label="Message"><button id="send" type="submit" data-i="Envoyer">Envoyer</button></form>
 </footer>
 <script type="module">
 const k = new URLSearchParams(location.search).get('k');
@@ -49,18 +53,48 @@ const q = (p) => `${p}?k=${encodeURIComponent(k)}`;
 const $ = (id) => document.getElementById(id);
 const COLORS = { tiktok: '#FF4F7B', twitch: '#B58CFF', youtube: '#FF6B6B', kick: '#7BE36A' };
 const NAMES = { tiktok: 'TikTok', twitch: 'Twitch', youtube: 'YouTube', kick: 'Kick' };
-const TEXT = {
-  follow: () => 'suit la chaîne', sub: () => 's\'abonne', resub: (e) => `se réabonne, ${e.months || 1} mois`, giftsub: (e) => `offre ${e.amount || 1} abonnement${e.amount > 1 ? 's' : ''}`,
-  bits: (e) => `envoie ${e.amount} bits`, raid: (e) => `arrive en raid avec ${e.amount}`, redeem: (e) => `utilise ${e.reward || 'une récompense'}`, gift: (e) => `envoie ${e.count || e.amount || 1} × ${e.gift?.name || e.giftName || 'cadeau'}`,
-  share: () => 'partage le live', superchat: (e) => `envoie un Super Chat${e.text ? ' : ' + e.text : ''}`, supersticker: () => 'envoie un Super Sticker', member: () => 'devient membre', milestone: (e) => `fête ${e.months || 1} mois`, superfan: () => 'devient Super Fan', vip: () => 'devient VIP',
+// Le dock suit la langue de l'appli. Ce que les viewers écrivent n'est jamais traduit ici :
+// seule la traduction du chat (si elle est activée) s'ajoute sous le message.
+const EN = {
+  'Chat unifié': 'Unified chat', 'Plateformes': 'Platforms', 'Chaîne où écrire': 'Channel to write in', 'Nouveaux messages': 'New messages', 'Envoyer': 'Send',
+  'Tout': 'All', 'Masquer les événements': 'Hide events', 'Afficher les événements': 'Show events', 'Réduire le texte': 'Smaller text', 'Agrandir le texte': 'Larger text',
+  'Masquer les traductions': 'Hide translations', 'Afficher les traductions': 'Show translations', 'Texte d\'origine': 'Original text',
+  'Toutes mes chaînes': 'All my channels', 'Aucune chaîne ne peut écrire pour le moment': 'No channel can write right now', 'Écrire dans le chat': 'Write in chat',
+  'Connecte Twitch pour écrire ici': 'Connect Twitch to write here', 'Les messages de tes chaînes arriveront ici.': 'Messages from your channels will show up here.',
+  'Régie ne répond pas.': 'Régie isn\'t responding.', 'Anonyme': 'Anonymous', 'Live': 'Live', 'Modo': 'Mod', 'VIP': 'VIP', 'Abo': 'Sub',
 };
+let lang = 'fr';
+const t = (fr) => (lang === 'en' && EN[fr]) || fr;
+const plural = (n, one, many) => (Number(n) > 1 ? many : one);
+const TEXTS = {
+  fr: {
+    follow: () => 'suit la chaîne', sub: () => 's\'abonne', resub: (e) => `se réabonne, ${e.months || 1} mois`, giftsub: (e) => `offre ${e.amount || 1} abonnement${e.amount > 1 ? 's' : ''}`,
+    bits: (e) => `envoie ${e.amount} bits`, raid: (e) => `arrive en raid avec ${e.amount}`, redeem: (e) => `utilise ${e.reward || 'une récompense'}`, gift: (e) => `envoie ${e.count || e.amount || 1} × ${e.gift?.name || e.giftName || 'cadeau'}`,
+    share: () => 'partage le live', superchat: (e) => `envoie un Super Chat${e.text ? ' : ' + e.text : ''}`, supersticker: () => 'envoie un Super Sticker', member: () => 'devient membre', milestone: (e) => `fête ${e.months || 1} mois`, superfan: () => 'devient Super Fan', vip: () => 'devient VIP',
+  },
+  en: {
+    follow: () => 'followed', sub: () => 'subscribed', resub: (e) => `resubscribed, ${e.months || 1} ${plural(e.months || 1, 'month', 'months')}`, giftsub: (e) => `gifted ${e.amount || 1} ${plural(e.amount || 1, 'sub', 'subs')}`,
+    bits: (e) => `sent ${e.amount} bits`, raid: (e) => `raided with ${e.amount}`, redeem: (e) => `redeemed ${e.reward || 'a reward'}`, gift: (e) => `sent ${e.count || e.amount || 1} × ${e.gift?.name || e.giftName || 'gift'}`,
+    share: () => 'shared the live', superchat: (e) => `sent a Super Chat${e.text ? ': ' + e.text : ''}`, supersticker: () => 'sent a Super Sticker', member: () => 'became a member', milestone: (e) => `celebrates ${e.months || 1} ${plural(e.months || 1, 'month', 'months')}`, superfan: () => 'became a Super Fan', vip: () => 'became a VIP',
+  },
+};
+const TEXT = TEXTS.fr;
+const evText = (e) => (TEXTS[lang][e.type] || TEXTS.fr[e.type])?.(e) || '';
+function staticLabels() {
+  document.documentElement.lang = lang;
+  document.title = t('Chat unifié');
+  for (const n of document.querySelectorAll('[data-i]')) n.textContent = t(n.dataset.i);
+  for (const n of document.querySelectorAll('[data-aria]')) n.setAttribute('aria-label', t(n.dataset.aria));
+}
 let filter = 'all';
 let events = true;
 let size = 14;
 let targets = [];
 let canAll = false;
+let tr = { enabled: false, mode: 'below', showLang: true };
+let showTr = true;
 const items = [];
-try { size = Number(localStorage.getItem('dockSize')) || 14; events = localStorage.getItem('dockEvents') !== '0'; } catch { /* préférence facultative */ }
+try { size = Number(localStorage.getItem('dockSize')) || 14; events = localStorage.getItem('dockEvents') !== '0'; showTr = localStorage.getItem('dockTr') !== '0'; } catch { /* préférence facultative */ }
 document.documentElement.style.setProperty('--size', `${size}px`);
 
 const stuck = () => { const f = $('feed'); return f.scrollHeight - f.scrollTop - f.clientHeight < 40; };
@@ -68,21 +102,39 @@ const toEnd = () => { const f = $('feed'); f.scrollTop = f.scrollHeight; $('more
 
 function row(e) {
   const isChat = e.type === 'chat';
-  const name = e.user?.display || e.user?.name || 'Anonyme';
+  const name = e.user?.display || e.user?.name || t('Anonyme');
   const n = document.createElement('div');
   n.className = `m${isChat ? '' : ' ev'}`;
   n.dataset.p = e.platform; n.dataset.chat = isChat ? '1' : '';
+  if (e.id) n.dataset.id = e.id;
   const dot = document.createElement('span');
   dot.className = 'p'; dot.style.background = COLORS[e.platform] || '#fff'; dot.title = NAMES[e.platform] || '';
   n.append(dot);
   const role = e.user?.owner ? 'Live' : e.user?.mod ? 'Modo' : e.user?.vip ? 'VIP' : e.user?.sub ? 'Abo' : '';
-  if (isChat && role) { const b = document.createElement('span'); b.className = 'b'; b.textContent = role; n.append(b); }
+  if (isChat && role) { const b = document.createElement('span'); b.className = 'b'; b.textContent = t(role); n.append(b); }
   const who = document.createElement(isChat ? 'span' : 'b');
   who.className = 'who'; who.textContent = name;
   if (isChat) who.style.color = e.color || COLORS[e.platform] || 'inherit';
   who.onclick = () => { const t = $('text'); t.value = `@${e.user?.name || name} ${t.value}`; t.focus(); };
   n.append(who);
-  n.append(document.createTextNode(isChat ? e.text || '' : (TEXT[e.type]?.(e) || '')));
+  const x = isChat && showTr && e.translation?.text ? e.translation : null;
+  if (x && tr.mode === 'replace') {
+    // À la place du message : le texte d'origine reste lisible au survol.
+    const o = document.createElement('span');
+    o.className = 'orig'; o.title = `${t('Texte d\'origine')} : ${e.text || ''}`; o.setAttribute('translate', 'no');
+    if (tr.showLang && x.from) { const lg = document.createElement('b'); lg.className = 'lg'; lg.textContent = String(x.from).toUpperCase(); o.append(lg); }
+    o.append(document.createTextNode(x.text));
+    n.append(o);
+  } else {
+    n.append(document.createTextNode(isChat ? e.text || '' : evText(e)));
+    if (x) {
+      const s = document.createElement('span');
+      s.className = 'tr'; s.setAttribute('translate', 'no');
+      if (tr.showLang && x.from) { const lg = document.createElement('b'); lg.className = 'lg'; lg.textContent = String(x.from).toUpperCase(); s.append(lg); }
+      s.append(document.createTextNode(x.text));
+      n.append(s);
+    }
+  }
   if (isChat && targets.some((c) => e.text && e.text.toLowerCase().includes(`@${String(c.label).replace(/^@/, '').toLowerCase()}`))) n.classList.add('me');
   return n;
 }
@@ -93,7 +145,7 @@ function redraw() {
   f.textContent = '';
   const list = items.filter(showable).slice(-300);
   for (const e of list) f.append(row(e));
-  if (!list.length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = 'Les messages de tes chaînes arriveront ici.'; f.append(p); }
+  if (!list.length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = t('Les messages de tes chaînes arriveront ici.'); f.append(p); }
   toEnd();
 }
 
@@ -110,21 +162,40 @@ function add(e) {
   if (keep) toEnd(); else $('more').hidden = false;
 }
 
+// La traduction arrive après le message : on complète la ligne déjà affichée.
+function patch(d) {
+  const e = items.find((i) => i.id === d.id);
+  if (!e) return;
+  e.translation = d.translation;
+  if (d.mode) tr.mode = d.mode;
+  if (d.showLang !== undefined) tr.showLang = d.showLang;
+  if (!tr.enabled) { tr.enabled = true; tabs(); }
+  if (!showTr) return;
+  const old = $('feed').querySelector(`.m[data-id="${CSS.escape(d.id)}"]`);
+  if (!old) return;
+  const keep = stuck();
+  old.replaceWith(row(e));
+  if (keep) toEnd();
+}
+
 function tabs() {
-  const h = $('tabs');
-  h.textContent = '';
+  const head = $('tabs');
+  head.textContent = '';
+  const h = document.createElement('div'); h.className = 'tabs'; h.setAttribute('role', 'tablist'); h.setAttribute('aria-label', t('Plateformes'));
+  const box = document.createElement('div'); box.className = 'tools';
+  head.append(h, box);
   const ps = [...new Set(targets.map((c) => c.platform))];
-  for (const [id, label] of [['all', 'Tout'], ...ps.map((p) => [p, NAMES[p]])]) {
+  for (const [id, label] of [['all', t('Tout')], ...ps.map((p) => [p, NAMES[p]])]) {
     const b = document.createElement('button');
     b.type = 'button'; b.className = `tab${filter === id ? ' on' : ''}`; b.textContent = label; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', filter === id);
     b.onclick = () => { filter = id; tabs(); redraw(); };
     h.append(b);
   }
-  const sp = document.createElement('span'); sp.className = 'sp'; h.append(sp);
-  const tool = (txt, label, on, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = `tool${on ? ' on' : ''}`; b.textContent = txt; b.title = label; b.setAttribute('aria-label', label); b.onclick = fn; h.append(b); };
-  tool('E', events ? 'Masquer les événements' : 'Afficher les événements', events, () => { events = !events; try { localStorage.setItem('dockEvents', events ? '1' : '0'); } catch { /* facultatif */ } tabs(); redraw(); });
-  tool('A−', 'Réduire le texte', false, () => zoom(-1));
-  tool('A+', 'Agrandir le texte', false, () => zoom(1));
+  const tool = (txt, label, on, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = `tool${on ? ' on' : ''}`; b.textContent = txt; b.title = label; b.setAttribute('aria-label', label); b.onclick = fn; box.append(b); };
+  tool(lang === 'en' ? 'E' : 'É', t(events ? 'Masquer les événements' : 'Afficher les événements'), events, () => { events = !events; try { localStorage.setItem('dockEvents', events ? '1' : '0'); } catch { /* facultatif */ } tabs(); redraw(); });
+  if (tr.enabled) tool('文', t(showTr ? 'Masquer les traductions' : 'Afficher les traductions'), showTr, () => { showTr = !showTr; try { localStorage.setItem('dockTr', showTr ? '1' : '0'); } catch { /* facultatif */ } tabs(); redraw(); });
+  tool('A−', t('Réduire le texte'), false, () => zoom(-1));
+  tool('A+', t('Agrandir le texte'), false, () => zoom(1));
 }
 function zoom(d) { size = Math.min(22, Math.max(11, size + d)); document.documentElement.style.setProperty('--size', `${size}px`); try { localStorage.setItem('dockSize', size); } catch { /* facultatif */ } }
 
@@ -133,27 +204,32 @@ function fillTargets() {
   const keep = sel.value;
   sel.textContent = '';
   const usable = targets.filter((c) => c.canSend);
-  if (usable.length > 1 && canAll) sel.append(new Option('Toutes mes chaînes', 'all'));
+  if (usable.length > 1 && canAll) sel.append(new Option(t('Toutes mes chaînes'), 'all'));
   for (const c of usable) sel.append(new Option(`${NAMES[c.platform]} : ${c.label}`, c.id));
-  if (!usable.length) sel.append(new Option('Aucune chaîne ne peut écrire pour le moment', ''));
+  if (!usable.length) sel.append(new Option(t('Aucune chaîne ne peut écrire pour le moment'), ''));
   if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
   $('send').disabled = !usable.length;
   $('text').disabled = !usable.length;
-  $('text').placeholder = usable.length ? 'Écrire dans le chat' : 'Connecte Twitch pour écrire ici';
+  $('text').placeholder = t(usable.length ? 'Écrire dans le chat' : 'Connecte Twitch pour écrire ici');
 }
 
 async function state(first) {
   try {
     const d = await (await fetch(q('/dock/state'))).json();
     targets = d.targets; canAll = d.all;
-    if (first) { items.push(...d.feed); redraw(); }
+    const relang = (d.lang === 'en' ? 'en' : 'fr') !== lang;
+    const retr = d.tr && (d.tr.enabled !== tr.enabled || d.tr.mode !== tr.mode || d.tr.showLang !== tr.showLang);
+    lang = d.lang === 'en' ? 'en' : 'fr';
+    if (d.tr) tr = d.tr;
+    if (first || relang) staticLabels();
+    if (first) { items.push(...d.feed); redraw(); } else if (relang || retr) redraw();
     tabs(); fillTargets();
   } catch { /* réessai au prochain passage */ }
 }
 
 function connect() {
   const ws = new WebSocket(`ws://${location.host}/ws?k=${encodeURIComponent(k)}&dock=1`);
-  ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.t === 'ev') add(d.ev); };
+  ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.t === 'ev') add(d.ev); else if (d.t === 'evx') patch(d); };
   ws.onclose = () => setTimeout(connect, 2000);
 }
 
@@ -163,7 +239,7 @@ $('form').onsubmit = async (e) => {
   e.preventDefault();
   const t = $('text');
   if (!t.value.trim()) return;
-  const r = await (await fetch(q('/dock/send'), { method: 'POST', body: JSON.stringify({ text: t.value, target: $('target').value }) })).json().catch(() => ({ ok: false, error: 'Régie ne répond pas.' }));
+  const r = await (await fetch(q('/dock/send'), { method: 'POST', body: JSON.stringify({ text: t.value, target: $('target').value }) })).json().catch(() => ({ ok: false, error: t('Régie ne répond pas.') }));
   $('err').textContent = r.ok ? '' : r.error;
   if (r.ok) t.value = '';
 };

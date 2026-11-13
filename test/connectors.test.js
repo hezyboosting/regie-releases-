@@ -294,3 +294,16 @@ test('TikTok : hors live, aucun appel au service de connexion ; en cas de limite
     if (saved) require.cache[lib] = saved; else delete require.cache[lib];
   }
 });
+
+test('TikTok : le cadeau garde sa vraie image avec le format actuel de la bibliothèque (image.urlList)', () => {
+  const ev = tiktok.normalize('gift', {
+    user: { displayId: 'lena', nickname: 'Lena', avatarThumb: { urlList: ['https://p16/avatar.webp'] } },
+    giftId: '5655', repeatCount: 3, repeatEnd: 1,
+    gift: { id: '5655', name: 'Rose', diamondCount: 1, type: 1, image: { urlList: ['https://p16/rose.png'] }, icon: { urlList: ['https://p16/rose-icon.png'] } },
+  });
+  assert.equal(ev.type, 'gift');
+  assert.equal(ev.gift.name, 'Rose');
+  assert.equal(ev.gift.image, 'https://p16/rose.png');
+  assert.equal(ev.user.avatar, 'https://p16/avatar.webp');
+  assert.equal(ev.value, 3);
+});

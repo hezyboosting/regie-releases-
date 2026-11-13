@@ -1,5 +1,5 @@
 // Boutique : modèles prêts à l'emploi, création par IA, import.
-import { html, useState, useEffect, useRef, act, reload, setState, toast } from '../store.js';
+import { html, useState, useEffect, useRef, act, reload, setState, toast, tr } from '../store.js';
 import { ICONS, Btn, Bay, PageHead, Pro, Segments, Upsell } from '../ui.js';
 import { renderElement, sampleVars } from '../../overlays/custom-render.js';
 
@@ -11,7 +11,9 @@ function Mini({ elements, format }) {
     const fit = () => { if (host.current && box.current) host.current.style.transform = `scale(${box.current.clientWidth / W})`; };
     fit();
     host.current.textContent = '';
-    for (const e of elements) host.current.append(renderElement(e, sampleVars()));
+    // En anglais, les textes du modèle et les valeurs d'exemple passent par le dictionnaire.
+    const vars = Object.fromEntries(Object.entries(sampleVars()).map(([k, v]) => [k, typeof v === 'string' ? tr(v) : v]));
+    for (const e of elements) host.current.append(renderElement(e.text ? { ...e, text: tr(e.text) } : e, vars));
     const ro = new ResizeObserver(fit);
     ro.observe(box.current);
     return () => ro.disconnect();
@@ -41,7 +43,7 @@ export function Shop({ s }) {
     <//>
     <${Bay} title=${html`Créer avec l'IA ${canAi ? '' : html`<${Pro} tier="ULTIMATE" />`}`}>
       <form class="ai-box" onSubmit=${generate}>
-        <input class="in" value=${prompt} disabled=${!canAi || busy} onInput=${(e) => setPrompt(e.target.value)} placeholder="Un bandeau néon violet en bas, avec les spectateurs et le dernier follow" />
+        <input class="in" value=${prompt} disabled=${!canAi || busy} onInput=${(e) => setPrompt(e.target.value)} placeholder="Un bandeau néon violet en bas, avec les spectateurs et le dernier suivi" />
         <${Btn} kind="primary" type="submit" disabled=${!canAi || busy || !prompt.trim()} icon=${ICONS.spark}>${busy ? 'Création en cours' : 'Créer l\'overlay'}<//>
       </form>
       <${Segments} value=${format} onChange=${setFormat} options=${[{ value: '16:9', label: '16:9' }, { value: '9:16', label: 'Vertical 9:16' }]} />

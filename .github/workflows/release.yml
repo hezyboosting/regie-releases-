@@ -1,3 +1,5 @@
+# Publie Régie à chaque envoi sur main : tests, compilation sur Windows, puis release GitHub
+# avec latest.yml (c'est ce fichier que les applis installées lisent pour se mettre à jour).
 name: Build & Release
 
 on:
@@ -5,56 +7,64 @@ on:
     branches: [main]
     paths-ignore:
       - '.github/**'
+      - '**.md'
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
-  release:
+  test:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+
+  release:
+    needs: test
+    runs-on: windows-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
-      - name: Bump version automatiquement
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          npm version patch --no-git-tag-version
-          VERSION=$(node -p "require('./package.json').version")
-          git add package.json package-lock.json
-          git commit -m "v${VERSION}" || true
-          git tag "v${VERSION}"
-          git push origin main --tags
-
-      - run: npm ci
-
-      - name: Build Windows exe
-        run: |
-          sudo dpkg --add-architecture i386
-          sudo apt-get update
-          sudo apt-get install -y wine64 wine32 xvfb
-          WINEDEBUG=-all WINEPREFIX=/tmp/wine xvfb-run -a npx electron-builder --win --x64 --publish never
-
-      - name: Read version
+      # Si cette version est déjà publiée, on monte le dernier chiffre (2.14.0 → 2.14.1).
+      - name: Version
         id: ver
-        run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+        shell: bash
+        run: |
+          V=$(node -p "require('./package.json').version")
+          if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then
+            npm version patch --no-git-tag-version
+            V=$(node -p "require('./package.json').version")
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package.json package-lock.json
+            git commit -m "v$V"
+            git push origin HEAD:main
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Version publiée : $V"
 
-      - name: Publier la release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.ver.outputs.version }}
-          name: Régie v${{ steps.ver.outputs.version }}
-          files: |
-            dist/Regie-Setup-*.exe
-            dist/Regie-Setup-*.exe.blockmap
-            dist/latest.yml
-          body: "Mise à jour automatique v${{ steps.ver.outputs.version }}"
-          make_latest: true
+      - run: npm ci --ignore-scripts
+
+      - name: Compiler et publier
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          case "${{ steps.ver.outputs.version }}" in *-*) export EP_PRE_RELEASE=true ;; esac
+          npx electron-builder --win --x64 --publish always

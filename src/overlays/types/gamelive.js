@@ -26,7 +26,7 @@ export function mount(root) {
       if (d.me) st.append(stat(d.me.goals, 'Buts'), stat(d.me.assists, 'Passes'), stat(d.me.saves, 'Arrêts'));
     } else if (d.kind === 'cs2') {
       box.append(sides(d.mine, d.theirs, `Manche ${d.round + 1}`, 'var(--accent)', 'rgba(255,255,255,.18)'));
-      st.append(stat(d.kills, 'Kills'), stat(d.deaths, 'Morts'), stat(d.assists, 'Assists'));
+      st.append(stat(d.kills, 'Éliminations'), stat(d.deaths, 'Morts'), stat(d.assists, 'Assists'));
     } else {
       box.append(sides(d.kills, d.deaths, d.champion || clock(d.time), 'var(--accent)', 'rgba(255,255,255,.18)'));
       st.append(stat(d.assists, 'Assists'), stat(d.cs, 'CS'), stat(d.level, 'Niveau'));

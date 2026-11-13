@@ -1,7 +1,7 @@
 import { el, tag, clock, avatar, isPreview } from '../lib.js';
 
 const DEMO = {
-  status: 'fight', title: 'Chat Battle', joinWord: '!fight', attackWord: '!attaque', endsAt: 0, winner: null,
+  status: 'fight', title: 'Bataille du chat', joinWord: '!fight', attackWord: '!attaque', endsAt: 0, winner: null,
   fighters: [['Lena', 'twitch', 72], ['kenza.live', 'tiktok', 48], ['Nolan', 'youtube', 100], ['Sofia', 'twitch', 0], ['Yanis', 'tiktok', 22], ['Maya', 'youtube', 64]].map(([name, platform, hp], i) => ({ key: String(i), name, platform, hp, maxHp: 100, alive: hp > 0, kills: i % 3 })),
   log: [{ a: 'Lena', t: 'Sofia', d: 31, ko: true }, { a: 'Nolan', t: 'Yanis', d: 18 }],
 };

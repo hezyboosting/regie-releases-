@@ -37,8 +37,8 @@ function Inspector({ el, up, s, insertVar }) {
     ${n('opacity', 'Opacité', 0, 100, 1, ' %')}${n('rot', 'Rotation', -180, 180, 1, '°')}
     ${n('shadow', 'Ombre', 0, 60, 1, ' px')}
     ${el.shadow > 0 && html`<${Field} label="Couleur de l'ombre"><${Color} value=${el.shadowColor || '#000000'} onChange=${(shadowColor) => up({ shadowColor })} /><//>`}
-    ${n('glow', 'Glow', 0, 60, 1, ' px')}
-    ${el.glow > 0 && html`<${Field} label="Couleur du glow"><${Color} value=${el.glowColor} onChange=${(glowColor) => up({ glowColor })} /><//>`}
+    ${n('glow', 'Halo', 0, 60, 1, ' px')}
+    ${el.glow > 0 && html`<${Field} label="Couleur du halo"><${Color} value=${el.glowColor} onChange=${(glowColor) => up({ glowColor })} /><//>`}
     ${n('blur', 'Blur', 0, 60, 1, ' px')}${n('backdrop', 'Flou derrière', 0, 30, 1, ' px')}
     <${Field} label="Animation"><${Select} value=${el.anim} options=${ANIMS} onChange=${(anim) => up({ anim })} /><//>
     <div class="two-in">
@@ -55,7 +55,7 @@ function Versions({ s, overlay, onRestore }) {
   const on = s.features.overlayVersions;
   const sync = (o) => setState({ overlays: s.overlays.map((x) => (x.id === o.id ? { ...x, settings: o.settings } : x)) });
   return html`<${Bay} title=${html`Versions ${on ? '' : html`<${Pro} />`}`} aside=${html`<${Btn} disabled=${!on} onClick=${async () => { const o = await act('saveVersion', overlay.id); if (o) { sync(o); toast('Version enregistrée'); } }}>Enregistrer<//>`}>
-    ${list.length ? html`<div class="layers">${list.map((v) => html`<button type="button" class="layer" key=${v.id} title="Revenir à cette version" onClick=${async () => { const o = await act('restoreVersion', overlay.id, v.id); if (o) { sync(o); onRestore(o.settings.elements); toast('Version restaurée'); } }}><span>${v.name}, ${new Date(v.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span></button>`)}</div>` : html`<p class="note">Garde une copie avant un gros changement.</p>`}
+    ${list.length ? html`<div class="layers">${list.map((v) => html`<button type="button" class="layer" key=${v.id} title="Revenir à cette version" onClick=${async () => { const o = await act('restoreVersion', overlay.id, v.id); if (o) { sync(o); onRestore(o.settings.elements); toast('Version restaurée'); } }}><span>${v.name}, ${new Date(v.at).toLocaleString(document.documentElement.lang === 'en' ? 'en-GB' : 'fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span></button>`)}</div>` : html`<p class="note">Garde une copie avant un gros changement.</p>`}
   <//>`;
 }
 
@@ -212,7 +212,7 @@ export function Builder({ s }) {
   return html`<div class="page" style=${{ maxWidth: 'none' }}>
     <${PageHead} title="Éditeur">
       <span class="count">${limit === -1 ? `${list.length} overlays` : `${list.length} sur ${limit} emplacements`}</span>
-      ${list.length > 0 && html`<select class="in" aria-label="Overlay à modifier" value=${current?.id} onChange=${(e) => setState({ customId: e.target.value })}>${list.map((o) => html`<option value=${o.id}>${o.name}</option>`)}</select>`}
+      ${list.length > 0 && html`<${Select} label="Overlay à modifier" value=${current?.id} onChange=${(v) => setState({ customId: v })} options=${list.map((o) => ({ value: o.id, label: o.name }))} />`}
       ${current && html`<${Btn} onClick=${() => act('exportOverlay', current.id)}>Exporter<//>`}
       ${current && html`<${Btn} kind="danger" onClick=${async () => { await act('removeOverlay', current.id); await reload(); setState({ customId: null }); }}>Supprimer<//>`}
       <${Btn} onClick=${() => setState({ view: 'shop' })}>Modèles<//>

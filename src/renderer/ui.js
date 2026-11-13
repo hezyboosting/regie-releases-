@@ -1,6 +1,7 @@
 // Composants de base de la console.
-import { html, useState, useStore, PLATFORM, setState } from './store.js';
+import { html, useState, useEffect, useRef, useStore, PLATFORM, setState, preactRender } from './store.js';
 import { crest } from '../overlays/crest.js';
+import { brandSvg } from '../overlays/brands.js';
 
 const I = (d) => html`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d=${d} /></svg>`;
 export const ICONS = {
@@ -52,7 +53,7 @@ export const ICONS = {
 export function Tag({ platform }) {
   const p = PLATFORM[platform];
   if (!p) return html`<span class="pf neutral">Test</span>`;
-  return html`<span class="pf" style=${{ background: p.color }} title=${p.label}>${p.short}</span>`;
+  return html`<span class="pf pf-icon" title=${p.label} aria-label=${p.label} dangerouslySetInnerHTML=${{ __html: brandSvg(platform) }}></span>`;
 }
 
 export function Bay({ title, aside, children, class: cls = '' }) {
@@ -65,8 +66,8 @@ export function Bay({ title, aside, children, class: cls = '' }) {
 export const Btn = ({ children, kind = '', onClick, disabled, title, type = 'button', icon }) => html`<button type=${type} class="key ${kind}" onClick=${onClick} disabled=${disabled} title=${title}>${icon}${children}</button>`;
 
 // Interrupteur.
-export function Lamp({ on, onChange, label, disabled, locked, hint }) {
-  return html`<button type="button" role="switch" aria-checked=${Boolean(on)} class="sw ${on ? 'on' : ''}" disabled=${disabled || locked} onClick=${() => onChange(!on)} title=${locked ? 'Réservé à une offre supérieure' : hint}>
+export function Lamp({ on, onChange, label, disabled, locked, hint, 'aria-label': aria }) {
+  return html`<button type="button" role="switch" aria-checked=${Boolean(on)} aria-label=${aria || undefined} class="sw ${on ? 'on' : ''}" disabled=${disabled || locked} onClick=${() => onChange(!on)} title=${locked ? 'Réservé à une offre supérieure' : hint}>
     <i aria-hidden="true"></i><span>${label}</span>${locked && html`<${Pro} />`}
   </button>`;
 }
@@ -102,9 +103,87 @@ export function Num({ value, onSave, min, max, step = 1, ...rest }) {
   return html`<${Lazy} type="number" value=${value} min=${min} max=${max} step=${step} onSave=${(v) => onSave(Number(v))} ...${rest} />`;
 }
 
-export const Select = ({ value, onChange, options, disabled }) => html`<select class="in" value=${value} disabled=${disabled} onChange=${(e) => onChange(e.target.value)}>
-  ${options.map((o) => html`<option value=${o.value} disabled=${o.disabled}>${o.label}</option>`)}
-</select>`;
+// Menu déroulant maison : la liste native de Windows ignorait le thème (texte illisible).
+// Le menu s'ouvre dans un calque posé sur la page, au-dessus ou au-dessous selon la place.
+export function Select({ value, onChange, options, disabled, label }) {
+  const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(0);
+  const [pos, setPos] = useState(null);
+  const btn = useRef(null);
+  const host = useRef(null);
+  const typed = useRef({ text: '', at: 0 });
+  const list = options || [];
+  const idx = Math.max(0, list.findIndex((o) => String(o.value) === String(value)));
+  const cur = list[idx];
+
+  const place = () => {
+    const r = btn.current.getBoundingClientRect();
+    const below = innerHeight - r.bottom - 12;
+    const above = r.top - 12;
+    const want = Math.min(340, list.length * 38 + 12);
+    const up = below < want && above > below;
+    setPos({ left: r.left, width: Math.max(r.width, 180), top: up ? null : r.bottom + 6, bottom: up ? innerHeight - r.top + 6 : null, max: Math.max(140, Math.min(340, up ? above : below)) });
+  };
+  const openIt = () => { if (disabled || !list.length) return; place(); setHi(idx); setOpen(true); };
+  const close = (focus = true) => { setOpen(false); if (focus) btn.current?.focus(); };
+  const choose = (o) => {
+    if (!o || o.disabled) return;
+    close();
+    if (String(o.value) !== String(value)) onChange(String(o.value));
+  };
+  const step = (from, dir) => {
+    for (let i = from + dir; i >= 0 && i < list.length; i += dir) if (!list[i].disabled) return i;
+    return from;
+  };
+
+  const onKey = (e) => {
+    if (disabled) return;
+    if (!open && ['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) { e.preventDefault(); openIt(); return; }
+    if (!open) return;
+    if (e.key === 'Escape' || e.key === 'Tab') { close(e.key === 'Escape'); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHi((h) => step(h, 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHi((h) => step(h, -1)); }
+    else if (e.key === 'Home') { e.preventDefault(); setHi(step(-1, 1)); }
+    else if (e.key === 'End') { e.preventDefault(); setHi(step(list.length, -1)); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(list[hi]); }
+    else if (e.key.length === 1) {
+      const now = Date.now();
+      typed.current = { text: (now - typed.current.at < 700 ? typed.current.text : '') + e.key.toLowerCase(), at: now };
+      const found = list.findIndex((o) => !o.disabled && String(o.label).toLowerCase().startsWith(typed.current.text));
+      if (found >= 0) setHi(found);
+    }
+  };
+
+  // Fermeture au clic dehors, au défilement de la page et au redimensionnement.
+  useEffect(() => {
+    if (!open) return undefined;
+    const outside = (e) => { if (!btn.current?.contains(e.target) && !host.current?.contains(e.target)) close(false); };
+    const scroll = (e) => { if (!host.current?.contains(e.target)) close(false); };
+    const resize = () => close(false);
+    addEventListener('pointerdown', outside, true);
+    addEventListener('scroll', scroll, true);
+    addEventListener('resize', resize);
+    return () => { removeEventListener('pointerdown', outside, true); removeEventListener('scroll', scroll, true); removeEventListener('resize', resize); };
+  }, [open]);
+
+  // Le calque vit dans <body> pour ne pas être coupé par les cartes en verre.
+  useEffect(() => {
+    if (!host.current) { host.current = document.createElement('div'); host.current.className = 'sel-host'; document.body.append(host.current); }
+    if (!open || !pos) { preactRender(null, host.current); return; }
+    preactRender(html`<div class="sel-pop" role="listbox" aria-label=${label || ''} style=${{ left: `${pos.left}px`, width: `${pos.width}px`, top: pos.top !== null ? `${pos.top}px` : 'auto', bottom: pos.bottom !== null ? `${pos.bottom}px` : 'auto', maxHeight: `${pos.max}px` }}>
+      ${list.map((o, i) => html`<div key=${String(o.value)} role="option" aria-selected=${i === idx} aria-disabled=${Boolean(o.disabled)} class="sel-opt ${i === hi ? 'hi' : ''} ${i === idx ? 'on' : ''} ${o.disabled ? 'off' : ''}" onPointerEnter=${() => !o.disabled && setHi(i)} onClick=${() => choose(o)}>
+        <span>${o.label}</span>${i === idx && html`<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="m3 8.5 3 3 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`}
+      </div>`)}
+    </div>`, host.current);
+    host.current.querySelector('.sel-opt.hi')?.scrollIntoView({ block: 'nearest' });
+  });
+  useEffect(() => () => { if (host.current) { preactRender(null, host.current); host.current.remove(); } }, []);
+
+  return html`<button type="button" ref=${btn} class="in sel ${open ? 'open' : ''}" disabled=${disabled} aria-haspopup="listbox" aria-expanded=${open} aria-label=${label} onClick=${() => (open ? close() : openIt())} onKeyDown=${onKey}>
+    <span class="sel-val">${cur ? cur.label : ''}</span>
+    <svg class="sel-chev" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="m2 4 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>`;
+}
 
 export function Fader({ value, onChange, min, max, step, unit = '', disabled }) {
   const [v, set] = useState(value);
@@ -130,7 +209,7 @@ export function Color({ value, onChange, disabled }) {
 export function Platforms({ value = [], onChange }) {
   const toggle = (p) => onChange(value.includes(p) ? value.filter((x) => x !== p) : [...value, p]);
   return html`<span class="pf-pick">
-    ${Object.entries(PLATFORM).map(([k, p]) => html`<button type="button" class="pf-key ${value.includes(k) ? 'on' : ''}" aria-pressed=${value.includes(k)} onClick=${() => toggle(k)} style=${{ '--p': p.color }}>${p.label}</button>`)}
+    ${Object.entries(PLATFORM).map(([k, p]) => html`<button type="button" class="pf-key ${value.includes(k) ? 'on' : ''}" aria-pressed=${value.includes(k)} onClick=${() => toggle(k)} style=${{ '--p': p.color }}><span class="pf-icon" aria-hidden="true" dangerouslySetInnerHTML=${{ __html: brandSvg(k, 16) }}></span>${p.label}</button>`)}
   </span>`;
 }
 

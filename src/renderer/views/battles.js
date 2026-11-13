@@ -2,17 +2,17 @@ import { html, useState, useEffect, act, setState, fmt, clock, copy, reload } fr
 import { ICONS, Btn, Bay, Field, Num, Lazy, Color, Platforms, Segments, PageHead, Lamp, Select, Tag } from '../ui.js';
 
 const MODES = [
-  { value: 'chat', label: 'Vote au chat' }, { value: 'teams', label: 'Équipes de viewers', premium: true }, { value: 'platforms', label: 'Plateforme contre plateforme', premium: true },
-  { value: 'gifts', label: 'Cadeau contre cadeau', premium: true }, { value: 'tiktok', label: 'Battle TikTok', premium: true },
+  { value: 'chat', label: 'Vote au chat' }, { value: 'teams', label: 'Équipes de spectateurs', premium: true }, { value: 'platforms', label: 'Plateforme contre plateforme', premium: true },
+  { value: 'gifts', label: 'Cadeau contre cadeau', premium: true }, { value: 'tiktok', label: 'Match TikTok', premium: true },
 ];
 const HELP = {
   chat: 'Chaque message avec le mot de l\'équipe ajoute un point.',
-  teams: 'Les viewers rejoignent une équipe avec son mot. Ensuite, tous leurs soutiens comptent pour elle.',
+  teams: 'Les spectateurs rejoignent une équipe avec son mot. Ensuite, tous leurs soutiens comptent pour elle.',
   platforms: 'Chaque équipe représente des plateformes. Tout ce qui arrive sur elles rapporte des points.',
   gifts: 'Chaque équipe a ses cadeaux TikTok. Choisis-les dans l\'onglet Cadeaux.',
-  tiktok: 'Reprend les scores de tes vraies battles TikTok dès qu\'elles démarrent.',
+  tiktok: 'Reprend les scores de tes vrais matchs TikTok dès qu\'ils démarrent.',
 };
-const SCORES = [['chat', 'Message'], ['like', 'Like'], ['follow', 'Follow'], ['share', 'Partage'], ['sub', 'Abonnement'], ['coin', 'Pièce TikTok'], ['bit', 'Bit'], ['money', '1 € en Super Chat']];
+const SCORES = [['chat', 'Message'], ['like', 'Like'], ['follow', 'Suivi'], ['share', 'Partage'], ['sub', 'Abonnement'], ['coin', 'Pièce TikTok'], ['bit', 'Bit'], ['money', '1 € en Super Chat']];
 
 function OverlayBtn({ s, type }) {
   const o = s.overlays.find((x) => x.type === type);
@@ -54,7 +54,7 @@ function Boss({ s }) {
   const run = (action, cfg) => act('boss', action, cfg);
   const up = (patch) => run('config', patch);
   const fight = b.status === 'fight';
-  const DMG = [['chat', 'Message'], ['hit', 'Mot de frappe'], ['like', 'Like'], ['follow', 'Follow'], ['share', 'Partage'], ['sub', 'Abonnement'], ['coin', 'Pièce'], ['bit', 'Bit'], ['money', '1 € en Super Chat']];
+  const DMG = [['chat', 'Message'], ['hit', 'Mot de frappe'], ['like', 'Like'], ['follow', 'Suivi'], ['share', 'Partage'], ['sub', 'Abonnement'], ['coin', 'Pièce'], ['bit', 'Bit'], ['money', '1 € en Super Chat']];
   const pct = (b.hp / b.maxHp) * 100;
   return html`<div class="col">
     <div class="row tight">
@@ -88,8 +88,8 @@ function Boss({ s }) {
 export function Battles({ s }) {
   const [tab, setTab] = useState('teams');
   return html`<div class="page">
-    <${PageHead} title="Battles" />
-    <${Segments} value=${tab} onChange=${setTab} options=${[{ value: 'teams', label: 'Équipes' }, { value: 'arena', label: 'Chat Battle' }, { value: 'boss', label: 'Boss Battle' }]} />
+    <${PageHead} title="Duels" />
+    <${Segments} value=${tab} onChange=${setTab} options=${[{ value: 'teams', label: 'Équipes' }, { value: 'arena', label: 'Bataille du chat' }, { value: 'boss', label: 'Combat de boss' }]} />
     ${tab === 'teams' && html`<${TeamBattle} s=${s} />`}
     ${tab === 'arena' && html`<${Arena} s=${s} />`}
     ${tab === 'boss' && html`<${Boss} s=${s} />`}
@@ -106,7 +106,7 @@ function TeamBattle({ s }) {
   const total = b.teams[0].score + b.teams[1].score;
   return html`<div class="col">
     <div class="row tight">
-      ${running ? html`<${Btn} kind="danger" onClick=${() => act('endBattle')}>Terminer la battle<//>` : html`<${Btn} kind="primary" onClick=${() => act('startBattle', {})}>Lancer la battle<//>`}
+      ${running ? html`<${Btn} kind="danger" onClick=${() => act('endBattle')}>Terminer le duel<//>` : html`<${Btn} kind="primary" onClick=${() => act('startBattle', {})}>Lancer le duel<//>`}
       ${b.status === 'ended' && html`<${Btn} onClick=${() => act('resetBattle')}>Effacer<//>`}
       <${OverlayBtn} s=${s} type="battle" />
     </div>
@@ -134,7 +134,7 @@ function TeamBattle({ s }) {
       <p class="note">${HELP[b.mode]}</p>
       <div class="row wrap">
         <${Field} label="Titre"><${Lazy} value=${b.title} onSave=${(v) => up({ title: v })} /><//>
-        <${Field} label="Durée (secondes)" hint="0 pour une battle sans fin"><${Num} value=${b.duration} min="0" onSave=${(v) => up({ duration: v })} /><//>
+        <${Field} label="Durée (secondes)" hint="0 pour un duel sans fin"><${Num} value=${b.duration} min="0" onSave=${(v) => up({ duration: v })} /><//>
       </div>
     <//>
 

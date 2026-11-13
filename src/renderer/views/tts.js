@@ -1,7 +1,7 @@
 import { html, useState, useEffect, act, setState } from '../store.js';
 import { Btn, Bay, Field, Lamp, Lazy, Num, Select, Fader, Platforms, Segments, PageHead, Pro, Upsell } from '../ui.js';
 
-const READ = [['command', 'Commande TTS'], ['chat', 'Tout le chat'], ['gift', 'Cadeaux'], ['superchat', 'Super Chats'], ['bits', 'Bits avec message'], ['sub', 'Messages d\'abonnement']];
+const READ = [['command', 'Commande de synthèse vocale'], ['chat', 'Tout le chat'], ['gift', 'Cadeaux'], ['superchat', 'Super Chats'], ['bits', 'Bits avec message'], ['sub', 'Messages d\'abonnement']];
 
 export function TtsView({ s }) {
   const t = s.tts;
@@ -16,8 +16,8 @@ export function TtsView({ s }) {
   const voices = (s.voices || []).map((v) => ({ value: v.id, label: `${v.name} (${v.lang})`, disabled: allowed && !ok.has(v.id) }));
   const frFirst = [...voices].sort((a, b) => (b.label.includes('fr') ? 1 : 0) - (a.label.includes('fr') ? 1 : 0));
   return html`<div class="page">
-    <${PageHead} title="TTS">
-      <${Lamp} on=${t.enabled} onChange=${(enabled) => up({ enabled })} label="TTS actif" />
+    <${PageHead} title="Synthèse vocale">
+      <${Lamp} on=${t.enabled} onChange=${(enabled) => up({ enabled })} label="Synthèse vocale active" />
       <${Btn} onClick=${() => act('ttsSkip')}>Passer<//>
       <${Btn} onClick=${() => act('ttsClear')}>Vider la file<//>
     <//>
@@ -53,7 +53,7 @@ export function TtsView({ s }) {
           <${Field} label="Toujours autorisés" hint="Pseudos séparés par des virgules"><${Lazy} value=${(t.allowUsers || []).join(', ')} onSave=${(v) => up({ allowUsers: v.split(',').map((x) => x.trim()).filter(Boolean) })} /><//>
           <${Field} label="Jamais lus" hint="Pseudos séparés par des virgules"><${Lazy} value=${(t.blockUsers || []).join(', ')} onSave=${(v) => up({ blockUsers: v.split(',').map((x) => x.trim()).filter(Boolean) })} /><//>
           <${Field} label="Longueur max"><${Num} value=${t.maxLength} min="10" max="500" onSave=${(maxLength) => up({ maxLength })} /><//>
-          <${Field} label="Attente par viewer (s)"><${Num} value=${t.cooldown} min="0" onSave=${(cooldown) => up({ cooldown })} /><//>
+          <${Field} label="Attente par spectateur (s)"><${Num} value=${t.cooldown} min="0" onSave=${(cooldown) => up({ cooldown })} /><//>
           <${Lamp} on=${t.stripLinks} label="Ne pas lire les liens" onChange=${(stripLinks) => up({ stripLinks })} />
           <${Lamp} on=${t.stripEmoji} label="Ne pas lire les émojis" onChange=${(stripEmoji) => up({ stripEmoji })} />
           <${Field} label="Mots bloqués" hint="Séparés par des virgules"><${Lazy} value=${(t.blocked || []).join(', ')} onSave=${(v) => up({ blocked: v.split(',').map((x) => x.trim()).filter(Boolean) })} /><//>

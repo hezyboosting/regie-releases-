@@ -1,0 +1,7 @@
+Logos des plateformes (TikTok, Twitch, YouTube, Kick, Instagram, X, Discord)
+======================================================
+
+Les glyphes viennent de Simple Icons (https://simpleicons.org), publiés sous licence CC0 1.0.
+Les marques et logos restent la propriété de leurs titulaires (ByteDance, Twitch Interactive,
+Google, Kick Streaming, Meta, X Corp., Discord Inc.). Régie les affiche uniquement pour indiquer de quelle plateforme vient
+un message ou un soutien, sans les modifier, aux couleurs officielles.

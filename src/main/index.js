@@ -8,6 +8,7 @@ const { JsonFile, Vault } = require('./store');
 const { Roles } = require('./roles');
 const { OverlayServer } = require('./server');
 const { Engine } = require('./engine');
+const { VirtualPad } = require('./vpad');
 const { Stats } = require('./stats');
 const { Viewers } = require('./viewers');
 const { Tts } = require('./tts');
@@ -18,6 +19,8 @@ const { InputHub } = require('./input');
 const { createApi } = require('./api');
 const { GameHub, newGsiToken } = require('./gamehub');
 const { Updater } = require('./updater');
+const { GiftCatalog } = require('./giftcatalog');
+const dockEnglish = require('../shared/translate').makeTranslator(require('../shared/i18n-en.json'));
 
 const isDemo = process.argv.includes('--demo') || process.env.REGIE_DEMO === '1';
 if (process.env.REGIE_USER_DATA) app.setPath('userData', process.env.REGIE_USER_DATA);
@@ -108,6 +111,7 @@ async function boot() {
   if (!primary) return;
   const dir = app.getPath('userData');
   const mediaDir = path.join(dir, 'media');
+  const giftsDir = path.join(dir, 'gifts');
   fs.mkdirSync(mediaDir, { recursive: true });
 
   const file = new JsonFile(path.join(dir, 'state.json'), defaultState());
@@ -125,7 +129,7 @@ async function boot() {
   let engine;
   let api;
   const server = new OverlayServer({
-    overlaysDir: path.join(__dirname, '../overlays'), mediaDir, port: file.data.settings.port || brand.defaultPort, lan: file.data.settings.lan, token: file.data.settings.overlayToken,
+    overlaysDir: path.join(__dirname, '../overlays'), mediaDir, giftsDir, port: file.data.settings.port || brand.defaultPort, lan: file.data.settings.lan, token: file.data.settings.overlayToken,
     getOverlay: (id) => file.data.overlays.find((o) => o.id === id),
     onGsi: (body) => hub.gsi(body),
     dock: {
@@ -133,8 +137,12 @@ async function boot() {
         targets: engine.channels().map((c) => ({ id: c.id, label: c.label, platform: c.platform, canSend: c.canSend })),
         feed: engine.feed.slice(-150),
         all: license.features().replyAllChannels,
+        lang: file.data.settings.uiLang === 'en' ? 'en' : 'fr',
+        tr: { enabled: !!file.data.chatTranslate?.enabled, mode: file.data.chatTranslate?.mode || 'below', showLang: file.data.chatTranslate?.showLang !== false },
       }),
-      send: (text, target) => api.sendChat(text, target),
+      send: async (text, target) => {
+        try { return await api.sendChat(text, target); } catch (e) { throw new Error(file.data.settings.uiLang === 'en' ? dockEnglish(e.message) : e.message); }
+      },
     },
     clipFile: (id) => file.data.clips.list.find((c) => c.id === id)?.path,
     deck: {
@@ -175,7 +183,12 @@ async function boot() {
   await server.start();
   log(`Serveur d'overlays sur le port ${server.port}`);
   engine = new Engine({ file, vault, server, spotify, tts, stats, obs, license, push, log, viewers, input, audio: audioSend });
+  engine.vpad = new VirtualPad(log);
+  if (file.data.vpad?.enabled) setTimeout(() => engine.vpad.start(), 3000);
+  // Catalogue officiel des cadeaux TikTok : chargé au démarrage s'il est vide ou vieux de plus de trois jours.
+  engine.catalog = new GiftCatalog({ dir: giftsDir, state: () => file.data, save: () => file.save(), log });
   if (file.data.giftCache) engine.gifts = file.data.giftCache;
+  setTimeout(() => engine.refreshGiftCatalog(null).catch(() => {}), 12000);
   engine.input = input;
   engine.notify = (text) => { if (Notification.isSupported()) new Notification({ title: brand.name, body: text }).show(); };
   hub.on('update', (o) => { engine.onHubUpdate(o); if (o.state !== undefined) push('gameLive', o.state); });
@@ -216,7 +229,7 @@ async function boot() {
     desktopCapturer.getSources({ types: ['screen'] }).then((src) => cb({ video: src[0], audio: 'loopback' })).catch(() => cb({}));
   });
 
-  const updater = new Updater({ log, push });
+  const updater = new Updater({ log, push, getSettings: () => file.data.settings });
 
   const created = createApi({
     file, vault, engine, server, spotify, tts, stats, obs, license, input, mediaDir, push, viewers, applyHotkeys, hub, statsFile, viewersFile, logs: () => recentLog, win: () => mainWin, openDock: () => openDock(server.dockLink()), updater,
@@ -244,6 +257,22 @@ async function boot() {
   if (file.data.obs.enabled) obs.connect(file.data.obs);
   license.fetchRemote();
   ctx.remoteTimer = setInterval(() => license.fetchRemote(), 3600 * 1000);
+
+  // Vrais emblèmes de rang : installés tout seuls au premier lancement (et repris tant qu'il en manque),
+  // sans jamais écraser une image choisie par le streamer.
+  const RANKS_VERSION = 2;
+  const autoRanks = async () => {
+    const g = file.data.gaming;
+    if (g.officialRanks?.version === RANKS_VERSION && !g.officialRanks.missing) return;
+    try {
+      const r = await api.installOfficialRanks('all', { auto: true });
+      g.officialRanks = { version: RANKS_VERSION, at: Date.now(), done: r.done, missing: r.failed.length };
+      file.save();
+      push('gaming', file.data.gaming);
+      log(`Emblèmes de rang : ${r.done} installés, ${r.failed.length} manquants`);
+    } catch (e) { log(`Emblèmes de rang : ${e.message}`); }
+  };
+  setTimeout(autoRanks, 4000);
 
   // Un overlay Spotify réactif demande l'analyse audio uniquement quand il est ouvert.
   ctx.audioPoll = setInterval(() => {
@@ -278,6 +307,7 @@ app.on('before-quit', () => {
   clearInterval(ctx.demo);
   ctx.updater.stop();
   ctx.engine.stop();
+  try { ctx.engine.vpad?.stop(); } catch { /* déjà débranchée */ }
   ctx.hub.stop();
   ctx.spotify.stop();
   ctx.input.stop();

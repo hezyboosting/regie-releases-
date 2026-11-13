@@ -165,9 +165,9 @@ function rconSend({ host = '127.0.0.1', port = 25575, password }, command) {
     let buf = Buffer.alloc(0);
     let authed = false;
     const finish = (fn, v) => { clearTimeout(t); sock.destroy(); fn(v); };
-    const t = setTimeout(() => finish(reject, new Error('Le serveur Minecraft ne répond pas.')), 4000);
+    const t = setTimeout(() => finish(reject, new Error('Le serveur de jeu ne répond pas.')), 4000);
     sock.on('connect', () => sock.write(rconPacket(1, 3, password || '')));
-    sock.on('error', () => finish(reject, new Error('Connexion au serveur Minecraft impossible. Vérifie RCON.')));
+    sock.on('error', () => finish(reject, new Error('Connexion au serveur de jeu impossible. Vérifie RCON.')));
     sock.on('data', (d) => {
       buf = Buffer.concat([buf, d]);
       while (buf.length >= 4 && buf.length >= 4 + buf.readInt32LE(0)) {

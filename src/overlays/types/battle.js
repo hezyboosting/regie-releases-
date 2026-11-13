@@ -1,6 +1,6 @@
 import { el, fmt, clock, setVars, isPreview } from '../lib.js';
 
-const DEMO = { status: 'running', title: 'Battle', endsAt: Date.now() + 180000, teams: [{ id: 'a', name: 'Rouge', color: '#F0392B', score: 1240, top: [{ name: 'Lena', points: 600 }] }, { id: 'b', name: 'Bleu', color: '#4AA8F0', score: 910, top: [{ name: 'Yanis', points: 450 }] }] };
+const DEMO = { status: 'running', title: 'Duel', endsAt: Date.now() + 180000, teams: [{ id: 'a', name: 'Rouge', color: '#F0392B', score: 1240, top: [{ name: 'Lena', points: 600 }] }, { id: 'b', name: 'Bleu', color: '#4AA8F0', score: 910, top: [{ name: 'Yanis', points: 450 }] }] };
 
 export function mount(root) {
   let s = {};

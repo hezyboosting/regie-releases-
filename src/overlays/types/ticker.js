@@ -1,4 +1,4 @@
-import { el, tag, setVars, fmt, isPreview } from '../lib.js';
+import { el, tag, setVars, fmt, isPreview, gxIcon } from '../lib.js';
 
 const line = (e) => {
   const u = e.user?.display || '';
@@ -19,7 +19,7 @@ const line = (e) => {
 export function mount(root) {
   let s = {};
   let items = [];
-  const box = el('div', 'tick');
+  const box = el('div', 'tick gx');
   const rail = el('div', 'tick-rail');
   box.append(rail);
   root.append(box);
@@ -31,10 +31,11 @@ export function mount(root) {
     for (const e of items) {
       const l = line(e);
       if (!l) continue;
-      const span = el('span');
+      const span = el('span', 'tk-item');
+      if (e.type === 'gift' && e.gift?.image) { const g = el('img', 'tk-gift'); g.src = e.gift.image; g.alt = ''; g.referrerPolicy = 'no-referrer'; span.append(g); } else span.append(gxIcon(e.type === 'resub' || e.type === 'giftsub' ? 'sub' : e.type));
       if (e.platform) span.append(tag(e.platform));
-      span.append(el('b', '', l[0]), document.createTextNode(l[1]));
-      rail.append(span);
+      span.append(el('b', '', l[0]), el('span', 'tk-what', l[1]));
+      rail.append(span, el('i', 'tk-sep'));
     }
   };
 

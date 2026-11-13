@@ -415,7 +415,7 @@ test('points et récompenses : gagner, consulter, dépenser', async () => {
   await new Promise((d) => setTimeout(d, 20));
   assert.match(replies[0], /il te faut 100 points/);
   assert.match(replies[1], /30\d points/);
-  assert.match(replies[2], /Lena utilise Hydrate/);
+  assert.match(replies[2], /Lena achète Hydrate/);
   assert.equal(r.sounds.length, 1);
   assert.ok(r.viewers.points(r.ev('chat')) < 210);
   r.engine.stop();
@@ -590,4 +590,41 @@ test('les messages du chat ne lancent jamais une commande système', () => {
   const out = renderTemplate('{user}', { user: '$(rm -rf /) {text}' });
   assert.equal(out, '$(rm -rf /) {text}');
   r.engine.stop();
+});
+
+test('file d\'attente : !join, doublon refusé, !quitter, appeler le suivant', () => {
+  const { engine, sent, ev } = rig();
+  engine.handle(ev('chat', { text: '!join' }));
+  engine.handle(ev('chat', { text: '!join' }));
+  engine.handle(ev('chat', { text: '!join', user: { id: 'u2', name: 'nolan', display: 'Nolan' } }));
+  let q = engine.queueView();
+  assert.deepEqual(q.list.map((x) => x.name), ['Lena', 'Nolan']);
+  engine.handle(ev('chat', { text: '!quitter' }));
+  assert.deepEqual(engine.queueView().list.map((x) => x.name), ['Nolan']);
+  engine.queueControl('next');
+  q = engine.queueView();
+  assert.equal(q.current.name, 'Nolan');
+  assert.equal(q.list.length, 0);
+  assert.ok(sent.some((x) => x.m.t === 'queue' && x.t === 'queue'));
+  engine.stop();
+});
+
+test('un thème peut ne s\'appliquer qu\'à un overlay, effets compris', () => {
+  const { engine, file } = rig();
+  const chat = file.data.overlays.find((o) => o.type === 'chat');
+  const goal = file.data.overlays.find((o) => o.type === 'goal');
+  const before = goal.settings.accent;
+  engine.applyTheme('neon', chat.id);
+  assert.equal(chat.settings.fxGlow, 14);
+  assert.equal(chat.settings.look, 'neon');
+  assert.equal(goal.settings.accent, before);
+  engine.stop();
+});
+
+test('les cadeaux partent aussi vers le pot, les émojis et le feu d\'artifice', () => {
+  const { engine, sent, ev } = rig();
+  engine.handle(ev('gift', { gift: { name: 'Rose', image: 'http://r' }, amount: 3, value: 3 }));
+  const to = sent.find((x) => x.m.t === 'ev').t;
+  for (const t of ['coinjar', 'emojify', 'firework']) assert.ok(to.includes(t));
+  engine.stop();
 });

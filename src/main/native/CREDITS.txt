@@ -1,0 +1,3 @@
+ViGEmClient.dll : compilée depuis https://github.com/nefarius/ViGEmClient (licence MIT, Nefarius Software Solutions e.U.),
+sans modification du code, avec zig c++ (cible x86_64-windows-gnu).
+La manette virtuelle a besoin du pilote ViGEmBus installé sur le PC : https://github.com/nefarius/ViGEmBus/releases
