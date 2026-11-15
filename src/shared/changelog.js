@@ -1,6 +1,16 @@
 // Nouveautés montrées dans « Quoi de neuf » après une mise à jour. La plus récente en premier.
 const CHANGELOG = [
   {
+    version: '2.16.1',
+    title: 'Les messages TikTok ne se perdent plus',
+    items: [
+      'Les messages faits d\'une emote ou d\'un autocollant TikTok s\'affichent enfin, et les emotes au milieu d\'un message aussi (chat unifié, dock, overlay de chat).',
+      'Le dock rattrape les messages arrivés pendant une coupure (OBS qui recharge, PC chargé) : tout de suite à la reconnexion, et toutes les 10 secondes.',
+      'Sur un gros live, les likes et les arrivées ne poussent plus les messages hors de l\'historique.',
+      'Connexions › TikTok : « Des messages TikTok n\'apparaissent pas ? » explique comment couper le filtre de commentaires de TikTok, et propose de lire tout le chat avec ton compte.',
+    ],
+  },
+  {
     version: '2.16.0',
     title: 'Suivi = Rang fiable et appli mieux rangée',
     items: [

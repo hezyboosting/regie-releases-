@@ -105,7 +105,7 @@ function createApi(ctx) {
     const out = {};
     for (const k of ['twitchClientId', 'youtubeClientId', 'spotifyClientId']) out[k] = vault.get(`key:${k}`) || '';
     for (const k of ['youtubeClientSecret', 'eulerKey', 'elevenKey', 'anthropicKey', 'deeplKey']) out[k] = has(k);
-    out.provided = { twitchClientId: Boolean(d.twitchClientId), youtubeClientId: Boolean(d.youtubeClientId), spotifyClientId: Boolean(d.spotifyClientId) };
+    out.provided = { twitchClientId: Boolean(d.twitchClientId), youtubeClientId: Boolean(d.youtubeClientId), spotifyClientId: Boolean(d.spotifyClientId), eulerKey: Boolean(d.eulerKey) };
     return out;
   };
 
@@ -338,6 +338,16 @@ function createApi(ctx) {
     },
     muteAccount(id) { const a = find(s().accounts, id, 'Chaîne'); a.muted = !a.muted; file.save(); engine.pushChannels(); return engine.channels(); },
     reconnectAccount(id) { engine.startAccount(find(s().accounts, id, 'Chaîne')); return true; },
+    // TikTok : lire tout le chat avec le compte connecté dans Régie (option, voir connectors/tiktok.js).
+    setFullChat(id, on) {
+      const a = find(s().accounts, id, 'Chaîne');
+      if (on && !engine.webchat?.logged?.tiktok) throw new Error('Connecte d\'abord ton compte TikTok (Écrire dans le chat, juste au-dessus).');
+      a.fullChat = Boolean(on);
+      file.save();
+      engine.startAccount(a);
+      engine.pushChannels();
+      return engine.channels();
+    },
     setTikTokSession(id, sessionId, ttTargetIdc) {
       find(s().accounts, id, 'Chaîne');
       vault.set(`tiktok:${id}`, sessionId ? { sessionId: sessionId.trim(), ttTargetIdc: ttTargetIdc.trim() } : null);

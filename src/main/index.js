@@ -136,7 +136,8 @@ async function boot() {
     dock: {
       state: () => ({
         targets: engine.channels().filter((c) => c.enabled).map((c) => ({ id: c.id, label: c.label, platform: c.platform, canSend: c.canSend, hint: c.sendHint ? (file.data.settings.uiLang === 'en' ? dockEnglish(c.sendHint) : c.sendHint) : '' })),
-        feed: engine.feed.slice(-150),
+        // Sans les likes et les arrivées, qui noieraient les messages : le dock rattrape les 250 derniers.
+        feed: engine.mainFeed.slice(-250),
         all: license.features().replyAllChannels,
         lang: file.data.settings.uiLang === 'en' ? 'en' : 'fr',
         tr: { enabled: !!file.data.chatTranslate?.enabled, mode: file.data.chatTranslate?.mode || 'below', showLang: file.data.chatTranslate?.showLang !== false },

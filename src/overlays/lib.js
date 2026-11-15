@@ -167,3 +167,21 @@ export function gxIcon(kind) {
   i.textContent = { follow: '★', gift: '🎁', sub: '◆', like: '❤', share: '↗', bits: '◈', raid: '⚑', superchat: '€', member: '◆', join: '👋', redeem: '✦', superfan: '✦' }[kind] || '✦';
   return i;
 }
+
+// Texte d'un message avec ses emotes (TikTok) insérées à leur place : un fragment prêt à ajouter.
+export function richText(text, emotes, cls = 'emo') {
+  const frag = document.createDocumentFragment();
+  const chars = Array.from(String(text || ''));
+  const list = (emotes || []).filter((x) => x && x.url).slice().sort((a, b) => (a.i || 0) - (b.i || 0));
+  let at = 0;
+  for (const x of list) {
+    const i = Math.max(at, Math.min(chars.length, x.i || 0));
+    if (i > at) frag.append(document.createTextNode(chars.slice(at, i).join('')));
+    const im = document.createElement('img');
+    im.className = cls; im.src = x.url; im.alt = ''; im.referrerPolicy = 'no-referrer'; im.loading = 'lazy';
+    frag.append(im);
+    at = i;
+  }
+  if (at < chars.length) frag.append(document.createTextNode(chars.slice(at).join('')));
+  return frag;
+}

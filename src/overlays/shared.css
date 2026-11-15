@@ -1086,3 +1086,4 @@ img.ej-i { height: auto; object-fit: contain; }
 .pk-it { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto auto; align-items: center; gap: 9px; padding: 5px 12px 5px 6px; border-radius: 12px; background: rgba(255,255,255,.06); box-shadow: inset 3px 0 0 var(--c); animation: gf2In .4s ease-out both; font-size: 14px; }
 .pk-it img { width: 26px; height: 26px; object-fit: contain; } .pk-it b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pk-it-l { font-weight: 800; color: var(--c); } .pk-it-p { font-weight: 800; font-variant-numeric: tabular-nums; min-width: 40px; text-align: right; }
+.msg .txt .emo { height: 1.5em; width: auto; vertical-align: -0.4em; margin: 0 .05em; }

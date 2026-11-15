@@ -151,7 +151,7 @@ export function Journal({ s }) {
           ${e.user?.avatar ? html`<img src=${e.user.avatar} alt="" referrerpolicy="no-referrer" />` : html`<span class="feed-mono">${(e.user?.display || '?').slice(0, 1).toUpperCase()}</span>`}
           <i class="dot" style=${{ background: PLATFORM[e.platform]?.color || '#8279A3' }} title=${PLATFORM[e.platform]?.label}></i>
         </div>
-        <div class="txt"><span class="who">${e.user?.display}</span>${e.type === 'chat' ? e.text : describe(e)}${e.type !== 'chat' && e.text ? html`<em>${e.text}</em>` : ''}${e.translation && html`<small class="feed-tr"><b>${e.translation.from.toUpperCase()}</b> ${e.translation.text}</small>`}</div>
+        <div class="txt"><span class="who">${e.user?.display}</span>${e.type === 'chat' ? html`${e.text}${(e.emotes || []).map((x, i) => html`<img class="emo" key=${i} src=${x.url} alt="" referrerpolicy="no-referrer" />`)}` : describe(e)}${e.type !== 'chat' && e.text ? html`<em>${e.text}</em>` : ''}${e.translation && html`<small class="feed-tr"><b>${e.translation.from.toUpperCase()}</b> ${e.translation.text}</small>`}</div>
       </li>`)}
       ${!items.length && html`<li class="feed-empty">Les messages et soutiens de toutes tes chaînes arrivent ici.</li>`}
     </ol>

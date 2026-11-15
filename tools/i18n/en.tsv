@@ -3292,3 +3292,17 @@ Aide et mises à jour	Help and updates
 Outils du live	Live tools
 Boutique de designs	Design shop
 Le cadre webcam refait, Suivi = Rang réglé	Webcam frame redone, Follow = Rank fixed
+# 2.16.1 : messages TikTok
+Des messages TikTok n'apparaissent pas ?	Some TikTok messages don't show up?
+Désactive le filtre de commentaires de TikTok.	Turn off TikTok's comment filter.
+C'est la cause la plus fréquente : il cache aussi les messages aux outils comme Régie. Dans TikTok LIVE Studio, roue dentée du chat, coupe « Masquer les commentaires potentiellement indésirables ou offensants ». Sur téléphone : Paramètres, Commentaires, Filtrer les commentaires, tout désactiver.	It's the most common cause: it also hides messages from tools like Régie. In TikTok LIVE Studio, open the chat's gear icon and turn off "Hide potential spam or offensive comments". On your phone: Settings, Comments, Filter comments, turn everything off.
+Lis le chat avec ton compte.	Read chat with your account.
+En lecture anonyme, TikTok n'envoie pas toujours tous les messages. Cette option se connecte au nom de ton compte TikTok connecté dans Régie. Elle demande une clé Euler Stream, et ta session TikTok est transmise à ce service pour signer la connexion.	When reading anonymously, TikTok doesn't always send every message. This option connects as your TikTok account signed in to Régie. It requires a Euler Stream key, and your TikTok session is sent to that service to sign the connection.
+Lire tout le chat avec mon compte ({0})	Read all chat with my account ({0})
+{0} messages reçus depuis le début du live	{0} messages received since the live started
+Connecte d'abord ton compte TikTok avec « Se connecter pour écrire ».	First connect your TikTok account with "Sign in to write".
+Ajoute une clé Euler Stream (ci-dessus) pour activer cette option.	Add a Euler Stream key (above) to turn this option on.
+Connecte d'abord ton compte TikTok (Écrire dans le chat, juste au-dessus).	First connect your TikTok account (Write in chat, just above).
+Connecté au live de @{0} avec ton compte (lecture complète du chat)	Connected to @{0}'s live with your account (full chat reading)
+Lecture avec ton compte refusée ({0}) : retour à la lecture normale.	Reading with your account was refused ({0}): back to normal reading.
+Les messages TikTok ne se perdent plus	TikTok messages no longer get lost

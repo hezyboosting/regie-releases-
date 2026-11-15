@@ -478,3 +478,14 @@ test('suivi = rang : les effets communs qui gênaient la caisse sont retirés, m
   assert.ok(!keys.includes('fxIdle') && keys.includes('spinCustom') && keys.includes('offsetX'));
   engine.play.stop();
 });
+
+test('dock : les likes et arrivées ne poussent plus les messages hors de l\'historique rattrapable', () => {
+  const { engine, ev } = rig();
+  engine.handle(ev('chat', { text: 'premier message' }));
+  for (let i = 0; i < 700; i += 1) engine.handle(ev(i % 2 ? 'like' : 'join', { amount: 1 }));
+  engine.handle(ev('chat', { text: 'dernier message' }));
+  const texts = engine.mainFeed.filter((e) => e.type === 'chat').map((e) => e.text);
+  assert.deepEqual(texts, ['premier message', 'dernier message']);
+  assert.ok(!engine.feed.some((e) => e.text === 'premier message'));
+  engine.play.stop();
+});

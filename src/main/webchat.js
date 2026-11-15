@@ -64,6 +64,13 @@ class WebChat {
     return this.logged[site];
   }
 
+  // Cookies de session (pour la lecture du chat TikTok avec le compte, si l'utilisateur l'active).
+  async cookies(site) {
+    const c = await this.ses(site).cookies.get({ url: SITES[site].home });
+    const get = (n) => c.find((x) => x.name === n)?.value || '';
+    return site === 'tiktok' ? { sessionId: get('sessionid'), ttTargetIdc: get('tt-target-idc') } : {};
+  }
+
   async refreshAll() { for (const s of Object.keys(SITES)) await this.refresh(s); return { ...this.logged }; }
 
   status() { return Object.fromEntries(Object.keys(SITES).map((s) => [s, Boolean(this.logged[s])])); }

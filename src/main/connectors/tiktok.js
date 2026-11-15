@@ -36,10 +36,25 @@ function normalizeGift(d = {}) {
   };
 }
 
+// Emotes TikTok : image et place dans le message (index en caractères, 0 = au début).
+function emoteUrl(e) { return first(e?.image?.urlList?.[0], e?.image?.url?.[0], e?.image?.imageUrl, e?.image?.mUrls?.[0], ''); }
+function inlineEmotes(d) {
+  return (Array.isArray(d.emotes) ? d.emotes : []).map((x) => ({ i: Number(x.index ?? x.placeInComment) || 0, url: emoteUrl(x.emote), id: String(x.emote?.emoteId || '') })).filter((x) => x.url);
+}
+
 // Transforme un message brut en événement unifié (fonction pure, testée dans test/).
 function normalize(kind, d) {
   switch (kind) {
-    case 'chat': return { type: 'chat', user: normalizeUser(d.user), text: String(first(d.comment, d.content, '')) };
+    case 'chat': {
+      const emotes = inlineEmotes(d);
+      return { type: 'chat', user: normalizeUser(d.user), text: String(first(d.comment, d.content, '')), ...(emotes.length ? { emotes } : {}) };
+    }
+    // Message fait uniquement d'une emote (autocollant d'abonné) : un message du chat comme les autres.
+    case 'emote': {
+      const list = (Array.isArray(d.emoteList) ? d.emoteList : d.emote ? [d.emote] : []).map((e) => ({ i: 0, url: emoteUrl(e), id: String(e?.emoteId || '') })).filter((x) => x.url);
+      if (!list.length) return null;
+      return { type: 'chat', user: normalizeUser(d.user), text: '', emotes: list, sticker: true };
+    }
     case 'gift': {
       const gift = normalizeGift(d);
       if (gift.streaking) return { type: 'giftstreak', user: normalizeUser(d.user), gift, amount: gift.count };
@@ -48,7 +63,6 @@ function normalize(kind, d) {
     case 'like': return { type: 'like', user: normalizeUser(d.user), amount: Number(first(d.likeCount, d.count, 1)) || 1, total: Number(first(d.totalLikeCount, d.total, 0)) || 0 };
     case 'follow': return { type: 'follow', user: normalizeUser(d.user) };
     case 'share': return { type: 'share', user: normalizeUser(d.user) };
-    case 'emote': return null;
     case 'member': return { type: 'join', user: normalizeUser(d.user) };
     case 'superfan': return { type: 'superfan', user: normalizeUser(d.user) };
     case 'sub': return { type: 'sub', user: normalizeUser(d.user), months: Number(d.subMonth) || 1 };
@@ -137,7 +151,21 @@ class TikTokConnector extends EventEmitter {
     clearTimeout(this.retry);
     const { TikTokLiveConnection, WebcastEvent, ControlEvent, IsLiveRouteConfig } = require('tiktok-live-connector');
     this.status('connecting');
-    const conn = new TikTokLiveConnection(this.username, this.options());
+    const opts = this.options();
+    // Option « Lire tout le chat avec mon compte » : connexion au nom du compte TikTok connecté dans
+    // Régie. TikTok envoie moins de messages à un lecteur anonyme ; connecté, on en reçoit davantage.
+    // La session part au service de signature Euler Stream : option désactivée par défaut, clé requise.
+    this.authUsed = false;
+    if (this.account.fullChat && this.signKey && !this.authFailed && !opts.authenticateWs && this.webchat?.logged?.tiktok) {
+      const ck = await this.webchat.cookies('tiktok').catch(() => null);
+      if (ck?.sessionId && ck?.ttTargetIdc) {
+        opts.authenticateWs = true;
+        opts.session = { cookie: { type: 'cookie', value: ck } };
+        this.authUsed = true;
+      }
+    }
+    if (this.stopped) return;
+    const conn = new TikTokLiveConnection(this.username, opts);
     this.conn = conn;
 
     // Hors live, on vérifie directement chez TikTok, sans toucher au quota du service de connexion.
@@ -158,6 +186,7 @@ class TikTokConnector extends EventEmitter {
       if (out) this.emit('event', out);
     });
     on(WebcastEvent.CHAT, 'chat');
+    on(WebcastEvent.EMOTE, 'emote');
     on(WebcastEvent.GIFT, 'gift');
     on(WebcastEvent.LIKE, 'like');
     on(WebcastEvent.FOLLOW, 'follow');
@@ -184,10 +213,19 @@ class TikTokConnector extends EventEmitter {
       await conn.connect();
       this.failures = 0;
       this.status('live');
-      this.emit('log', `Connecté au live de @${this.username}`);
+      this.emit('log', `Connecté au live de @${this.username}${this.authUsed ? ' avec ton compte (lecture complète du chat)' : ''}`);
     } catch (err) {
       if (this.stopped) return;
       if (isOffline(err)) { this.failures = 0; this.status('offline', 'Pas en live pour le moment'); this.scheduleRetry(60000); return; }
+      // La lecture avec le compte a échoué (clé sans cet accès, session expirée) : on repasse en
+      // lecture normale tout de suite plutôt que de rester déconnecté.
+      if (this.authUsed) {
+        this.authFailed = true;
+        this.emit('log', `Lecture avec ton compte refusée (${String(err?.message || err).slice(0, 160)}) : retour à la lecture normale.`);
+        this.safeDisconnect();
+        this.retry = setTimeout(() => { if (!this.stopped) this.start(); }, 1500);
+        return;
+      }
       this.failures += 1;
       const wait = retryDelay(err, this.failures);
       this.emit('log', `${err?.constructor?.name || 'Erreur'} : ${String(err?.message || err).replace(/\s+/g, ' ').slice(0, 400)}`);

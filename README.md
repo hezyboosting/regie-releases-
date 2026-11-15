@@ -139,6 +139,12 @@ Le cadre webcam (`types/webcam.js`, classes `cam-*`) propose verre, néon, dégr
 
 TikTok et Kick écrivent par `src/main/webchat.js` : le streamer se connecte une fois sur la vraie page du site, dans une fenêtre de Régie (partition `persist:webchat-<site>`, la session reste sur le PC). Pour écrire, une fenêtre cachée ouvre la page du live (vidéo bloquée, son coupé), trouve la zone de commentaire, tape le message avec `insertText` puis Entrée (événement clavier réel), un message à la fois. Avec une clé Euler Stream payante et une session, TikTok passe d'abord par l'API du connecteur.
 
+## Messages TikTok manquants
+
+Causes connues, de la plus fréquente à la moins fréquente : le filtre de commentaires de TikTok (« Masquer les commentaires potentiellement indésirables ou offensants » dans LIVE Studio) cache les messages à tous les lecteurs ; la lecture anonyme reçoit moins de messages qu'un compte connecté ; côté Régie, les emotes seules (`WebcastEvent.EMOTE`) étaient ignorées et le dock ne rattrapait pas une coupure.
+
+Les emotes arrivent maintenant comme des messages (`emotes: [{ i, url }]`, `sticker` pour une emote seule), affichées par `richText` dans les overlays et par le dock. `engine.mainFeed` garde les 400 derniers messages et événements sans likes ni arrivées ; le dock fusionne cet historique par identifiant à chaque reconnexion et toutes les 10 secondes. L'option `account.fullChat` connecte TikTok au nom du compte de `webchat` (cookies `sessionid` et `tt-target-idc`, `authenticateWs`, clé Euler requise) et repasse en lecture normale si la connexion est refusée.
+
 ## Discord et téléphone
 
 `src/main/discord.js` poste par un webhook (gardé dans le coffre chiffré) l'annonce du début de live, au plus une fois par demi-heure, et le récap de fin. La télécommande et le chat s'ouvrent sur un téléphone du même Wi-Fi par QR code (`api.phoneLinks`, paquet `qrcode`) ; `api.setLanLive` ouvre le serveur au réseau local sans redémarrer Régie.

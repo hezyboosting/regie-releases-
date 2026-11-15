@@ -1,4 +1,4 @@
-import { el, tag, setVars, rgba, PLATFORM, isPreview, avatar } from '../lib.js';
+import { el, tag, setVars, rgba, PLATFORM, isPreview, avatar, richText } from '../lib.js';
 
 const EVENT_TEXT = {
   follow: (e) => `${e.user.display} suit la chaîne`, sub: (e) => `${e.user.display} s'abonne`, resub: (e) => (e.months ? `${e.user.display} se réabonne (${e.months} mois)` : `${e.user.display} se réabonne`),
@@ -40,7 +40,9 @@ export function mount(root) {
         const b = e.user?.owner ? 'Live' : e.user?.mod ? 'Modo' : e.user?.vip ? 'VIP' : e.user?.sub ? 'Abo' : '';
         if (b) head.append(el('span', `bdg b-${b.toLowerCase()}`, b));
       }
-      body.append(head, el('span', 'txt', e.text));
+      const txt = el('span', 'txt');
+      txt.append(richText(e.text, e.emotes));
+      body.append(head, txt);
     } else {
       if (s.platformTag && PLATFORM[e.platform]) body.append(tag(e.platform));
       body.append(el('span', 'txt sys', EVENT_TEXT[e.type](e)));

@@ -23,6 +23,7 @@ header { display: flex; align-items: center; gap: 4px; padding: 7px 8px; flex: n
 .m { padding: 3px 7px; border-radius: 9px; overflow-wrap: anywhere; } .m:hover { background: var(--s1); }
 .m .p { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; vertical-align: .1em; }
 .m .who { font-weight: 600; cursor: pointer; margin-right: 5px; } .m .who:hover { text-decoration: underline; }
+.m .emo { height: 1.6em; width: auto; vertical-align: -0.45em; margin: 0 1px; }
 .m .b { font-size: .78em; color: var(--faint); margin-right: 5px; }
 .m.ev { color: var(--mute); background: var(--s1); margin: 2px 0; padding: 5px 9px; } .m.ev b { color: var(--text); font-weight: 600; }
 .m.me { box-shadow: inset 0 0 0 1px var(--ice); }
@@ -100,6 +101,23 @@ document.documentElement.style.setProperty('--size', `${size}px`);
 const stuck = () => { const f = $('feed'); return f.scrollHeight - f.scrollTop - f.clientHeight < 40; };
 const toEnd = () => { const f = $('feed'); f.scrollTop = f.scrollHeight; $('more').hidden = true; };
 
+// Texte avec les emotes TikTok insérées à leur place.
+function rich(text, emotes) {
+  const frag = document.createDocumentFragment();
+  const chars = Array.from(String(text || ''));
+  const list = (emotes || []).filter((x) => x && x.url).slice().sort((a, b) => (a.i || 0) - (b.i || 0));
+  let at = 0;
+  for (const x of list) {
+    const i = Math.max(at, Math.min(chars.length, x.i || 0));
+    if (i > at) frag.append(document.createTextNode(chars.slice(at, i).join('')));
+    const im = document.createElement('img'); im.className = 'emo'; im.src = x.url; im.alt = ''; im.referrerPolicy = 'no-referrer'; im.loading = 'lazy';
+    frag.append(im);
+    at = i;
+  }
+  if (at < chars.length) frag.append(document.createTextNode(chars.slice(at).join('')));
+  return frag;
+}
+
 function row(e) {
   const isChat = e.type === 'chat';
   const name = e.user?.display || e.user?.name || t('Anonyme');
@@ -126,7 +144,7 @@ function row(e) {
     o.append(document.createTextNode(x.text));
     n.append(o);
   } else {
-    n.append(document.createTextNode(isChat ? e.text || '' : evText(e)));
+    if (isChat) n.append(rich(e.text, e.emotes)); else n.append(document.createTextNode(evText(e)));
     if (x) {
       const s = document.createElement('span');
       s.className = 'tr'; s.setAttribute('translate', 'no');
@@ -151,6 +169,7 @@ function redraw() {
 
 function add(e) {
   if (!['chat', ...Object.keys(TEXT)].includes(e.type)) return;
+  if (e.id && items.some((x) => x.id === e.id)) return;
   items.push(e);
   if (items.length > 600) items.shift();
   if (!showable(e)) return;
@@ -232,13 +251,21 @@ async function state(first) {
     lang = d.lang === 'en' ? 'en' : 'fr';
     if (d.tr) tr = d.tr;
     if (first || relang) staticLabels();
-    if (first) { items.push(...d.feed); redraw(); } else if (relang || retr) redraw();
+    // Rattrapage : les messages que Régie a reçus mais que le dock n'a pas eus (coupure de quelques
+    // secondes, OBS qui recharge le dock) sont remis à leur place, dans l'ordre.
+    const have = new Set(items.map((e) => e.id));
+    const missed = (d.feed || []).filter((e) => e.id && !have.has(e.id));
+    if (missed.length) { items.push(...missed); items.sort((a, b) => (a.ts || 0) - (b.ts || 0)); while (items.length > 600) items.shift(); }
+    if (first || missed.length || relang || retr) redraw();
     tabs(); fillTargets();
   } catch { /* réessai au prochain passage */ }
 }
 
+let opened = false;
 function connect() {
   const ws = new WebSocket(`ws://${location.host}/ws?k=${encodeURIComponent(k)}&dock=1`);
+  // À la reconnexion, on récupère tout de suite ce qui est arrivé pendant la coupure.
+  ws.onopen = () => { if (opened) state(false); opened = true; };
   ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.t === 'ev') add(d.ev); else if (d.t === 'evx') patch(d); };
   ws.onclose = () => setTimeout(connect, 2000);
 }

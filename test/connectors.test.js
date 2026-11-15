@@ -327,3 +327,17 @@ test('écrire sur TikTok et Kick passe par le compte connecté dans Régie quand
   await kk.send('yo');
   assert.deepEqual(sent, [['tiktok', 'lena', 'salut'], ['kick', 'lena', 'yo']]);
 });
+
+test('TikTok : les emotes ne sont plus perdues (message fait d\'une emote, emote au milieu d\'un message)', () => {
+  const { normalize } = require('../src/main/connectors/tiktok');
+  const user = { uniqueId: 'lena', nickname: 'Léna' };
+  const sticker = normalize('emote', { user, emoteList: [{ emoteId: '42', image: { urlList: ['https://p16.tiktokcdn.com/emote42.png'] } }] });
+  assert.equal(sticker.type, 'chat');
+  assert.equal(sticker.text, '');
+  assert.deepEqual(sticker.emotes, [{ i: 0, url: 'https://p16.tiktokcdn.com/emote42.png', id: '42' }]);
+  const mixed = normalize('chat', { user, comment: 'gg  bien joué', emotes: [{ index: 3, emote: { emoteId: '7', image: { urlList: ['https://x/e7.png'] } } }] });
+  assert.equal(mixed.text, 'gg  bien joué');
+  assert.equal(mixed.emotes[0].i, 3);
+  assert.equal(normalize('emote', { user, emoteList: [] }), null);
+  assert.equal(normalize('chat', { user, comment: 'salut' }).emotes, undefined);
+});

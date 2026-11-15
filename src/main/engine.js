@@ -57,6 +57,10 @@ class Engine {
     this.liveCounts = {};
     this.liveSince = {};
     this.feed = [];
+    // Messages et événements sans les likes ni les arrivées : sur un gros live TikTok, ceux-ci
+    // arrivent par dizaines chaque seconde et pousseraient les messages hors du fil.
+    this.mainFeed = [];
+    this.chatCounts = {};
     this.alertQueue = [];
     this.alertBusy = false;
     this.cool = new Map();
@@ -215,6 +219,7 @@ class Engine {
     for (const g of this.s.goals) if (g.reset === 'live') { g.current = 0; g.reached = false; }
     this.pushGoals();
     this.pushLive();
+    this.chatCounts = {};
     this.discord.onLiveStart();
   }
 
@@ -262,7 +267,7 @@ class Engine {
 
   channels() {
     return this.s.accounts.map((a) => ({
-      id: a.id, platform: a.platform, label: a.label, avatar: a.avatar || '', enabled: a.enabled !== false, mode: a.mode, username: a.username, channel: a.channel,
+      id: a.id, platform: a.platform, label: a.label, avatar: a.avatar || '', enabled: a.enabled !== false, mode: a.mode, username: a.username, channel: a.channel, fullChat: Boolean(a.fullChat), chatCount: this.chatCounts?.[a.id] || 0,
       status: this.status[a.id] || { state: 'stopped', detail: '' }, viewers: this.liveCounts[a.id] || 0, muted: Boolean(a.muted),
       activity: this.stats.activity(a.id), canSend: this.connectors.get(a.id)?.canSend?.() || false, sendHint: this.connectors.get(a.id)?.sendHint?.() || '', liveSince: this.liveSince[a.id] || 0,
     }));
@@ -307,6 +312,8 @@ class Engine {
     if (this.recentTypes[ev.type].length > 200) this.recentTypes[ev.type].shift();
     this.feed.push(ev);
     if (this.feed.length > 500) this.feed.shift();
+    if (ev.type !== 'like' && ev.type !== 'join') { this.mainFeed.push(ev); if (this.mainFeed.length > 400) this.mainFeed.shift(); }
+    if (ev.type === 'chat' && ev.accountId && !ev.test) this.chatCounts[ev.accountId] = (this.chatCounts[ev.accountId] || 0) + 1;
     this.push('event', ev);
     if (ev.type === 'chat' && this.s.chatTranslate?.enabled) this.translateChat(ev);
     this.server.broadcast({ t: 'ev', ev }, ['chat', 'ticker', 'giftfeed', 'webcam', 'dock', 'coinjar', 'emojify', 'firework', 'avatars', 'giftcannon', 'likefountain']);
@@ -327,6 +334,7 @@ class Engine {
 
   // Traduction du chat : le message part tout de suite, sa traduction suit dès qu'elle arrive.
   async translateChat(ev) {
+    if (!String(ev.text || '').trim()) return;
     const c = this.s.chatTranslate;
     const target = c.target === 'auto' || !c.target ? (this.s.settings.uiLang === 'en' ? 'en' : 'fr') : c.target;
     const res = await this.translator.translate(ev.text, target, c.engine === 'deepl' ? 'deepl' : 'google');

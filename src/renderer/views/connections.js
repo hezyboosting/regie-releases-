@@ -1,6 +1,6 @@
 // Connexions : un seul endroit pour relier ses chaînes et ses logiciels, sans mot de passe stocké.
 import { html, useState, useEffect, useRef, act, reload, setState, copy, toast, PLATFORM } from '../store.js';
-import { Btn, Bay, Field, Text, PageHead } from '../ui.js';
+import { Btn, Bay, Field, Text, PageHead, Lamp } from '../ui.js';
 import { brandSvg } from '../../overlays/brands.js';
 
 const STATE = { live: 'Connecté', connecting: 'Connexion en cours', offline: 'Hors ligne', error: 'À vérifier', stopped: 'En pause', locked: 'Réservé à PRO' };
@@ -55,6 +55,26 @@ function WriteChat({ s, site, name }) {
   </div>`;
 }
 
+// Des messages TikTok manquent : la cause la plus fréquente est le filtre de TikTok, puis la lecture anonyme.
+function TikTokMissing({ s }) {
+  const chans = s.channels.filter((c) => c.platform === 'tiktok');
+  const key = s.keys.eulerKey || s.keys.provided?.eulerKey;
+  const logged = Boolean(s.webChat?.tiktok);
+  const set = async (id, on) => { const r = await act('setFullChat', id, on); if (r) setState({ channels: r }); };
+  return html`<details class="cx-miss">
+    <summary>Des messages TikTok n'apparaissent pas ?</summary>
+    <ol class="steps-mini">
+      <li><b>Désactive le filtre de commentaires de TikTok.</b> C'est la cause la plus fréquente : il cache aussi les messages aux outils comme Régie. Dans TikTok LIVE Studio, roue dentée du chat, coupe « Masquer les commentaires potentiellement indésirables ou offensants ». Sur téléphone : Paramètres, Commentaires, Filtrer les commentaires, tout désactiver.</li>
+      <li><b>Lis le chat avec ton compte.</b> En lecture anonyme, TikTok n'envoie pas toujours tous les messages. Cette option se connecte au nom de ton compte TikTok connecté dans Régie. Elle demande une clé Euler Stream, et ta session TikTok est transmise à ce service pour signer la connexion.</li>
+    </ol>
+    ${chans.map((c) => html`<div class="row tight wrap" key=${c.id}>
+      <${Lamp} on=${c.fullChat} label=${`Lire tout le chat avec mon compte (${c.label})`} disabled=${!logged || !key} onChange=${(v) => set(c.id, v)} />
+      <span class="tagline">${`${c.chatCount} messages reçus depuis le début du live`}</span>
+    </div>`)}
+    ${(!logged || !key) && html`<p class="note">${!logged ? 'Connecte d\'abord ton compte TikTok avec « Se connecter pour écrire ».' : 'Ajoute une clé Euler Stream (ci-dessus) pour activer cette option.'}</p>`}
+  </details>`;
+}
+
 function TikTok({ s }) {
   const [typed, setTyped] = useState(false);
   return html`<${Service} s=${s} platform="tiktok">
@@ -65,6 +85,7 @@ function TikTok({ s }) {
     ${typed && html`<${Pseudo} platform="tiktok" label="Pseudo TikTok" placeholder="@tonpseudo" />`}
     <p class="note">Tu te connectes sur la vraie page TikTok. Régie garde uniquement ton pseudo public.</p>
     ${s.channels.some((c) => c.platform === 'tiktok') && html`<${WriteChat} s=${s} site="tiktok" name="TikTok" />`}
+    ${s.channels.some((c) => c.platform === 'tiktok') && html`<${TikTokMissing} s=${s} />`}
     ${s.channels.some((c) => c.platform === 'tiktok' && /limite|service de connexion/i.test(c.status?.detail || '')) && html`<div class="code-box">
       <p>TikTok passe par un service de connexion gratuit, limité par réseau. Les autres applis TikTok ouvertes chez toi, comme TikFinity, Social Stream ou Bubbly, utilisent la même limite.</p>
       <p>Une clé Euler Stream gratuite, à ton nom, te donne ta propre limite.</p>
