@@ -141,6 +141,9 @@ async function boot() {
         all: license.features().replyAllChannels,
         lang: file.data.settings.uiLang === 'en' ? 'en' : 'fr',
         tr: { enabled: !!file.data.chatTranslate?.enabled, mode: file.data.chatTranslate?.mode || 'below', showLang: file.data.chatTranslate?.showLang !== false },
+        // Sans compte TikTok connecté, TikTok garde les messages de certains spectateurs : on le dit dans le dock.
+        notice: engine.channels().some((c) => c.enabled && c.platform === 'tiktok' && (!c.fullChat || c.reader?.state === 'login'))
+          ? 'Des messages TikTok peuvent manquer : connecte ton compte TikTok dans Régie (Connexions).' : '',
       }),
       send: async (text, target) => {
         const en = file.data.settings.uiLang === 'en';

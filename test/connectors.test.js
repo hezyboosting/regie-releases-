@@ -341,3 +341,128 @@ test('TikTok : les emotes ne sont plus perdues (message fait d\'une emote, emote
   assert.equal(normalize('emote', { user, emoteList: [] }), null);
   assert.equal(normalize('chat', { user, comment: 'salut' }).emotes, undefined);
 });
+
+// ---------- 2.17 : messages perdus selon le compte qui écrit ----------
+// Encode de vrais paquets TikTok (même format que la page du live) avec le schéma de la bibliothèque.
+async function tiktokProto() {
+  const path = require('path');
+  const { pathToFileURL } = require('url');
+  const root = require.resolve('tiktok-live-connector').split(`${path.sep}tiktok-live-connector${path.sep}`)[0];
+  const P = await import(pathToFileURL(path.join(root, 'tiktok-live-proto', 'dist', 'node', 'v3.js')).href);
+  const mk = (T, part) => Object.assign(T.decode(new Uint8Array(0)), part);
+  const chat = (id, name, text, at = Date.now()) => mk(P.BaseProtoMessage, {
+    method: 'WebcastChatMessage', msgId: id,
+    payload: Buffer.from(P.WebcastChatMessage.encode(mk(P.WebcastChatMessage, {
+      common: mk(P.CommonMessageData, { method: 'WebcastChatMessage', msgId: id, createTime: String(at) }),
+      user: mk(P.User, { id: `9${id}`, displayId: name, nickname: name.toUpperCase(), avatarThumb: mk(P.ImageModel, { urlList: [`https://p16/${name}.jpg`] }) }),
+      content: text,
+    })).finish()),
+  });
+  const result = (messages, now = Date.now()) => Buffer.from(P.ProtoMessageFetchResult.encode(mk(P.ProtoMessageFetchResult, { messages, now: String(now) })).finish());
+  const frame = (messages) => Buffer.from(P.WebcastPushFrame.encode(mk(P.WebcastPushFrame, { payloadEncoding: 'pb', payloadType: 'msg', payload: require('zlib').gzipSync(result(messages)) })).finish());
+  return { P, mk, chat, result, frame };
+}
+
+test('TikTok : les paquets lus par la page du live donnent les messages du chat (historique écarté)', async () => {
+  const { chat, frame, result, mk, P } = await tiktokProto();
+  const old = Date.now() - 5 * 60000;
+  const hist = chat('11', 'ancien', 'déjà vu');
+  hist.isHistory = true;
+  const gift = mk(P.BaseProtoMessage, { method: 'WebcastGiftMessage', msgId: '12', payload: Buffer.alloc(0) });
+  const items = await tiktok.decodeReaderPacket('ws', frame([chat('10', 'nouveaucompte', 'tu me vois ?'), hist, chat('13', 'vieux', 'il y a 5 min', old), gift]));
+  assert.equal(items.length, 1);
+  const ev = tiktok.normalize(items[0].kind, items[0].data);
+  assert.deepEqual([ev.type, ev.text, ev.user.name, ev.user.display, ev.user.avatar, ev.user.id], ['chat', 'tu me vois ?', 'nouveaucompte', 'NOUVEAUCOMPTE', 'https://p16/nouveaucompte.jpg', '910']);
+  // Même chose par le relevé HTTP de secours de la page.
+  const viaFetch = await tiktok.decodeReaderPacket('fetch', result([chat('14', 'autre', 'salut')]));
+  assert.equal(viaFetch[0].data.content, 'salut');
+});
+
+test('TikTok : un message arrivé par la lecture anonyme et par ton compte ne s\'affiche qu\'une fois', async () => {
+  const { chat, frame, P } = await tiktokProto();
+  const webchat = { logged: { tiktok: true }, watch: (site, user, opts) => { webchat.opts = opts; return { stop() {}, poke() {} }; } };
+  const c = new tiktok.TikTokConnector({ id: 'a1', username: '@moi' }, { vault: { get: () => null }, webchat });
+  const out = [];
+  c.on('event', (e) => out.push(e));
+  c.stopped = false;
+  c.startReader();
+  assert.ok(webchat.opts, 'la lecture avec le compte démarre par défaut');
+  // Lecture anonyme : message de A.
+  const a = P.WebcastChatMessage.decode(chat('100', 'compteA', 'message A').payload);
+  if (c.fresh('chat', a, 'anonyme')) out.push(tiktok.normalize('chat', a));
+  // La page du live reçoit A (doublon) et B (que la lecture anonyme n'a jamais eu).
+  await webchat.opts.onData('ws', frame([chat('100', 'compteA', 'message A'), chat('101', 'compteB', 'message B')]));
+  await webchat.opts.onData('ws', frame([chat('101', 'compteB', 'message B')]));
+  assert.deepEqual(out.map((e) => e.text), ['message A', 'message B']);
+  assert.deepEqual(c.readerInfo(), { state: 'starting', count: 3, extra: 1 });
+  // B arrive ensuite aussi en anonyme : pas de doublon, et il ne compte plus comme récupéré.
+  const b = P.WebcastChatMessage.decode(chat('101', 'compteB', 'message B').payload);
+  assert.equal(c.fresh('chat', b, 'anonyme'), false);
+  assert.equal(c.readerInfo().extra, 0);
+  // Coupée par l'utilisateur, la lecture ne redémarre pas.
+  c.stopReader();
+  c.account.fullChat = false;
+  webchat.opts = null;
+  c.startReader();
+  assert.equal(webchat.opts, null);
+  assert.equal(c.readerInfo().state, 'off');
+});
+
+test('TikTok : sans identifiant, le même texte du même compte n\'est écarté que quelques secondes', () => {
+  const seen = new tiktok.Seen({ textMs: 1000 });
+  const d = { user: { id: '5' }, content: 'gg' };
+  assert.equal(seen.check('chat', d, 'anonyme', 0), null);
+  assert.ok(seen.check('chat', d, 'compte', 500));
+  assert.equal(seen.check('chat', d, 'anonyme', 5000), null, 'le spectateur peut réécrire « gg » plus tard');
+  assert.equal(seen.check('chat', { ...d, user: { id: '6' } }, 'anonyme', 5000), null, 'un autre compte qui écrit pareil passe');
+});
+
+test('YouTube : le mode simple lit « Chat en direct » (tous les messages) et pas « Chat principal »', () => {
+  const data = { contents: { liveChatRenderer: { continuations: [{ reloadContinuationData: { continuation: 'TOP' } }], header: { liveChatHeaderRenderer: { viewSelector: { sortFilterSubMenuRenderer: { subMenuItems: [
+    { title: 'Chat principal', selected: true, continuation: { reloadContinuationData: { continuation: 'TOP' } }, subtitle: 'Certains messages, comme le spam potentiel, peuvent ne pas être visibles' },
+    { title: 'Chat en direct', selected: false, continuation: { reloadContinuationData: { continuation: 'ALL"\\]x' } }, subtitle: 'Tous les messages sont visibles' },
+  ] } } } } } } };
+  const html = `<html><script>var ytInitialData = ${JSON.stringify(data)};</script></html>`;
+  assert.equal(youtube.liveChatContinuation(html), 'ALL"\\]x');
+  assert.equal(youtube.liveChatContinuation('<html>rien</html>'), '');
+  // Un menu de tri des commentaires ne se confond pas avec celui du chat.
+  const comments = `"sortFilterSubMenuRenderer":{"subMenuItems":[{"title":"Top"},{"title":"Récents","serviceEndpoint":{}}]}`;
+  assert.equal(youtube.liveChatContinuation(comments + html), 'ALL"\\]x');
+});
+
+test('YouTube : le correctif lit « Chat en direct », marque l\'historique et évite les relevés qui se chevauchent', async () => {
+  const requests = require('youtube-chat/dist/requests');
+  const parser = require('youtube-chat/dist/parser');
+  const keep = { chat: requests.fetchChat, page: requests.fetchLivePage, opts: parser.getOptionsFromLivePage };
+  let calls = 0;
+  let release;
+  requests.fetchChat = async (o) => { calls += 1; if (calls === 2) await new Promise((r) => { release = r; }); return [[{ id: `m${calls}` }], `${o.continuation}+`]; };
+  requests.fetchLivePage = async () => ({ liveId: 'abc', continuation: 'ALL', allChat: true });
+  try {
+    youtube.patchYoutubeChat();
+    const page = '<link rel="canonical" href="https://www.youtube.com/watch?v=abc">"INNERTUBE_API_KEY":"k","clientVersion":"2.2024","continuation":"TOP",'
+      + '"sortFilterSubMenuRenderer":{"subMenuItems":[{"selected":true,"continuation":{"reloadContinuationData":{"continuation":"TOP"}}},{"selected":false,"continuation":{"reloadContinuationData":{"continuation":"ALL"}}}]}';
+    const opts = parser.getOptionsFromLivePage(page);
+    assert.deepEqual([opts.continuation, opts.allChat], ['ALL', true]);
+    const o = await requests.fetchLivePage({ handle: '@x' });
+    const [first] = await requests.fetchChat(o);
+    assert.equal(first[0].history, true, 'le premier relevé est l\'historique');
+    const slow = requests.fetchChat(o);
+    const overlap = await requests.fetchChat(o);
+    assert.deepEqual(overlap, [[], o.continuation], 'pas de second relevé tant que le précédent n\'est pas revenu');
+    release();
+    const [second] = await slow;
+    assert.equal(second[0].history, undefined, 'les relevés suivants ne sont jamais filtrés');
+    assert.equal(calls, 2);
+  } finally {
+    Object.assign(requests, { fetchChat: keep.chat, fetchLivePage: keep.page });
+    parser.getOptionsFromLivePage = keep.opts;
+  }
+});
+
+test('Twitch : « /me » n\'affiche plus les caractères de contrôle', () => {
+  const { parseIrc, normalizeIrc } = require('../src/main/connectors/twitch-irc');
+  const ev = normalizeIrc(parseIrc('@display-name=Bob;user-id=1 :bob!bob@bob.tmi.twitch.tv PRIVMSG #chan :\u0001ACTION danse\u0001'));
+  assert.deepEqual([ev.type, ev.text, ev.action], ['chat', 'danse', true]);
+  assert.equal(normalizeIrc(parseIrc(':bob!bob@bob.tmi.twitch.tv PRIVMSG #chan :salut')).text, 'salut');
+});

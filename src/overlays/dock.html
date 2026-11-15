@@ -36,11 +36,13 @@ footer { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8
 #form { display: flex; gap: 6px; } #text { flex: 1; min-width: 0; height: 36px; padding: 0 12px; border: 0; border-radius: 18px; background: var(--s1); outline: 0; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); } #text:focus { box-shadow: inset 0 0 0 1.5px var(--ice); }
 #send { flex: none; height: 36px; padding: 0 14px; border-radius: 18px; background: var(--text); color: #101216; font-weight: 600; font-size: 13px; } #send:disabled { opacity: .4; cursor: default; }
 #err { color: #FF9AA8; font-size: 12.5px; } #err:empty { display: none; }
+#notice { flex: none; margin: 0 8px 6px; padding: 6px 10px; border-radius: 10px; background: rgba(240,180,41,.12); color: #F5D58A; font-size: 12px; line-height: 1.35; } #notice:empty { display: none; }
 .empty { margin: auto; padding: 20px; text-align: center; color: var(--faint); }
 </style>
 </head>
 <body>
 <header id="tabs"></header>
+<div id="notice" role="status"></div>
 <main id="feed" aria-live="polite"></main>
 <button type="button" id="more" hidden data-i="Nouveaux messages">Nouveaux messages</button>
 <footer>
@@ -251,6 +253,7 @@ async function state(first) {
     lang = d.lang === 'en' ? 'en' : 'fr';
     if (d.tr) tr = d.tr;
     if (first || relang) staticLabels();
+    $('notice').textContent = d.notice ? t(d.notice) : '';
     // Rattrapage : les messages que Régie a reçus mais que le dock n'a pas eus (coupure de quelques
     // secondes, OBS qui recharge le dock) sont remis à leur place, dans l'ordre.
     const have = new Set(items.map((e) => e.id));

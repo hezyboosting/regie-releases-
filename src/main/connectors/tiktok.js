@@ -42,18 +42,21 @@ function inlineEmotes(d) {
   return (Array.isArray(d.emotes) ? d.emotes : []).map((x) => ({ i: Number(x.index ?? x.placeInComment) || 0, url: emoteUrl(x.emote), id: String(x.emote?.emoteId || '') })).filter((x) => x.url);
 }
 
+// Modérateur ou abonné : TikTok le dit sur le message (userIdentity), plus toujours sur le compte.
+const withIdentity = (d) => (d.userIdentity && d.user ? { ...d.user, userIdentity: d.userIdentity } : d.user);
+
 // Transforme un message brut en événement unifié (fonction pure, testée dans test/).
 function normalize(kind, d) {
   switch (kind) {
     case 'chat': {
       const emotes = inlineEmotes(d);
-      return { type: 'chat', user: normalizeUser(d.user), text: String(first(d.comment, d.content, '')), ...(emotes.length ? { emotes } : {}) };
+      return { type: 'chat', user: normalizeUser(withIdentity(d)), text: String(first(d.comment, d.content, '')), ...(emotes.length ? { emotes } : {}) };
     }
     // Message fait uniquement d'une emote (autocollant d'abonné) : un message du chat comme les autres.
     case 'emote': {
       const list = (Array.isArray(d.emoteList) ? d.emoteList : d.emote ? [d.emote] : []).map((e) => ({ i: 0, url: emoteUrl(e), id: String(e?.emoteId || '') })).filter((x) => x.url);
       if (!list.length) return null;
-      return { type: 'chat', user: normalizeUser(d.user), text: '', emotes: list, sticker: true };
+      return { type: 'chat', user: normalizeUser(withIdentity(d)), text: '', emotes: list, sticker: true };
     }
     case 'gift': {
       const gift = normalizeGift(d);
@@ -81,6 +84,53 @@ function battleScores(d) {
     for (const item of d.battleItems || []) {
       out.push({ hostId: item.hostUserId, points: (item.battleGroups || []).reduce((n, g) => n + (Number(g.points) || 0), 0) });
     }
+  }
+  return out;
+}
+
+// ---------- Lecture avec ton compte ----------
+// Les messages du chat arrivent par deux chemins : la lecture anonyme (bibliothèque) et la page de ton
+// live ouverte avec ton compte (webchat.watch). Chaque message TikTok a un identifiant unique : on ne
+// l'affiche qu'une fois, quel que soit le chemin qui l'apporte en premier.
+const READER_KINDS = { WebcastChatMessage: 'chat', WebcastEmoteChatMessage: 'emote' };
+const toMs = (v) => { const n = Number(v) || 0; return n && n < 1e11 ? n * 1000 : n; };
+
+class Seen {
+  constructor({ max = 4000, idMs = 10 * 60 * 1000, textMs = 8000 } = {}) { this.max = max; this.idMs = idMs; this.textMs = textMs; this.map = new Map(); }
+
+  static key(kind, d = {}) {
+    const id = String(d?.common?.msgId || '');
+    if (id && id !== '0') return { key: `m:${id}`, byId: true };
+    const u = d?.user || {};
+    return { key: `t:${kind}:${first(u.id, u.userId, u.displayId, u.uniqueId, '')}:${first(d.comment, d.content, '')}`, byId: false };
+  }
+
+  // Renvoie l'entrée précédente si le message a déjà été vu, sinon l'enregistre et renvoie null.
+  check(kind, d, src, now = Date.now()) {
+    const { key, byId } = Seen.key(kind, d);
+    const old = this.map.get(key);
+    if (old && now - old.at < (byId ? this.idMs : this.textMs)) return old;
+    this.map.set(key, { at: now, src });
+    if (this.map.size > this.max) for (const k of [...this.map.keys()].slice(0, this.map.size - this.max)) this.map.delete(k);
+    return null;
+  }
+}
+
+// Paquet reçu par la page du live → messages du chat prêts à normaliser (fonction testée dans test/).
+async function decodeReaderPacket(kind, buf) {
+  const { deserializeWebSocketMessage, deserializeMessage } = require('tiktok-live-connector');
+  const result = kind === 'ws' ? (await deserializeWebSocketMessage(buf))?.protoMessageFetchResult : deserializeMessage('ProtoMessageFetchResult', buf);
+  if (!result) return [];
+  const now = toMs(result.now);
+  const out = [];
+  for (const m of result.messages || []) {
+    const k = READER_KINDS[m.method];
+    const data = m.decodedData?.data;
+    if (!k || !data || m.isHistory) continue;
+    // Les anciens messages renvoyés au chargement de la page ne sont pas rejoués.
+    const at = toMs(data.common?.createTime);
+    if (now && at && now - at > 45000) continue;
+    out.push({ kind: k, data });
   }
   return out;
 }
@@ -129,9 +179,67 @@ class TikTokConnector extends EventEmitter {
     this.stopped = true;
     this.retry = null;
     this.failures = 0;
+    this.live = false;
+    this.seen = new Seen();
+    this.reader = null;
+    this.readerState = 'off';
+    this.readerCount = 0; // messages lus par la page avec ton compte
+    this.readerExtra = 0; // dont ceux que la lecture anonyme n'a jamais reçus
+    this.readerErrors = 0;
   }
 
   get username() { return String(this.account.username || '').replace(/^@/, '').trim(); }
+
+  // Activée par défaut dès que ton compte TikTok est connecté dans Régie ; tu peux la couper.
+  get wantsReader() { return this.account.fullChat !== false; }
+
+  // Un message ne passe qu'une fois, qu'il vienne de la lecture anonyme ou de ton compte.
+  fresh(kind, d, src) {
+    if (src === 'compte') this.readerCount += 1;
+    const old = this.seen.check(kind, d, src);
+    if (!old) { if (src === 'compte') { this.readerExtra += 1; this.emit('changed'); } return true; }
+    // Arrivé d'abord par ton compte puis par la lecture anonyme : ce n'était pas un message manquant.
+    if (src !== 'compte' && old.src === 'compte' && !old.matched) { old.matched = true; this.readerExtra = Math.max(0, this.readerExtra - 1); }
+    return false;
+  }
+
+  startReader() {
+    if (this.stopped || this.reader || !this.webchat?.watch || !this.wantsReader || !this.username) return;
+    this.reader = this.webchat.watch('tiktok', this.username, {
+      onData: (kind, buf) => this.onReaderData(kind, buf),
+      isLive: () => this.live,
+      onChange: (st) => { this.readerState = st; this.emit('changed'); },
+    });
+    this.readerState = 'starting';
+    this.emit('changed');
+  }
+
+  stopReader() {
+    try { this.reader?.stop(); } catch { /* déjà arrêtée */ }
+    this.reader = null;
+    this.readerState = 'off';
+    this.emit('changed');
+  }
+
+  async onReaderData(kind, buf) {
+    let items;
+    try { items = await decodeReaderPacket(kind, buf); } catch (e) {
+      this.readerErrors += 1;
+      if (this.readerErrors === 1 || this.readerErrors % 200 === 0) this.emit('log', `Lecture avec ton compte : paquet illisible (${String(e?.message || e).slice(0, 120)})`);
+      return;
+    }
+    for (const it of items) {
+      if (!this.fresh(it.kind, it.data, 'compte')) continue;
+      const out = normalize(it.kind, it.data);
+      if (out) this.emit('event', out);
+    }
+  }
+
+  readerInfo() {
+    if (!this.wantsReader) return { state: 'off', count: 0, extra: 0 };
+    const state = this.webchat?.logged?.tiktok ? this.readerState : 'login';
+    return { state, count: this.readerCount, extra: this.readerExtra };
+  }
 
   status(state, detail = '') { this.emit('status', { state, detail }); }
 
@@ -152,18 +260,8 @@ class TikTokConnector extends EventEmitter {
     const { TikTokLiveConnection, WebcastEvent, ControlEvent, IsLiveRouteConfig } = require('tiktok-live-connector');
     this.status('connecting');
     const opts = this.options();
-    // Option « Lire tout le chat avec mon compte » : connexion au nom du compte TikTok connecté dans
-    // Régie. TikTok envoie moins de messages à un lecteur anonyme ; connecté, on en reçoit davantage.
-    // La session part au service de signature Euler Stream : option désactivée par défaut, clé requise.
-    this.authUsed = false;
-    if (this.account.fullChat && this.signKey && !this.authFailed && !opts.authenticateWs && this.webchat?.logged?.tiktok) {
-      const ck = await this.webchat.cookies('tiktok').catch(() => null);
-      if (ck?.sessionId && ck?.ttTargetIdc) {
-        opts.authenticateWs = true;
-        opts.session = { cookie: { type: 'cookie', value: ck } };
-        this.authUsed = true;
-      }
-    }
+    // La page de ton live, ouverte avec ton compte, lit aussi le chat (voir webchat.watch).
+    this.startReader();
     if (this.stopped) return;
     const conn = new TikTokLiveConnection(this.username, opts);
     this.conn = conn;
@@ -174,6 +272,7 @@ class TikTokConnector extends EventEmitter {
     let live = null;
     try { live = await conn.fetchIsLive(); } catch { live = null; } finally { IsLiveRouteConfig.skipFetchRoomIdFromEulerRoute = keep; }
     if (this.stopped || this.conn !== conn) return;
+    if (live !== null) this.setLive(live);
     if (live === false) {
       this.failures = 0;
       this.status('offline', 'Pas en live pour le moment');
@@ -182,6 +281,7 @@ class TikTokConnector extends EventEmitter {
     }
 
     const on = (ev, kind) => conn.on(ev, (d) => {
+      if ((kind === 'chat' || kind === 'emote') && !this.fresh(kind, d, 'anonyme')) return;
       const out = normalize(kind, d);
       if (out) this.emit('event', out);
     });
@@ -205,33 +305,33 @@ class TikTokConnector extends EventEmitter {
 
     conn.on(WebcastEvent.LINK_MIC_BATTLE, (d) => this.emit('event', { type: 'battle', phase: 'start', battleId: String(d.battleId || ''), raw: { anchors: Object.values(d.anchorInfo || {}).map((a) => a.user?.displayId || a.user?.nickName).filter(Boolean) } }));
     conn.on(WebcastEvent.LINK_MIC_ARMIES, (d) => this.emit('event', { type: 'battle', phase: 'score', battleId: String(d.battleId || ''), raw: { scores: battleScores(d) } }));
-    conn.on(WebcastEvent.STREAM_END, () => { this.status('offline', 'Le live est terminé'); this.scheduleRetry(); });
+    conn.on(WebcastEvent.STREAM_END, () => { this.setLive(false); this.status('offline', 'Le live est terminé'); this.scheduleRetry(); });
     conn.on(ControlEvent.DISCONNECTED, () => { if (!this.stopped) { this.status('offline', 'Connexion perdue'); this.scheduleRetry(); } });
     conn.on(ControlEvent.ERROR, (e) => { const m = String(e?.exception?.message || e?.message || e); if (!isOffline({ message: m })) this.emit('log', m); });
 
     try {
       await conn.connect();
       this.failures = 0;
+      this.setLive(true);
       this.status('live');
-      this.emit('log', `Connecté au live de @${this.username}${this.authUsed ? ' avec ton compte (lecture complète du chat)' : ''}`);
+      this.emit('log', `Connecté au live de @${this.username}`);
     } catch (err) {
       if (this.stopped) return;
-      if (isOffline(err)) { this.failures = 0; this.status('offline', 'Pas en live pour le moment'); this.scheduleRetry(60000); return; }
-      // La lecture avec le compte a échoué (clé sans cet accès, session expirée) : on repasse en
-      // lecture normale tout de suite plutôt que de rester déconnecté.
-      if (this.authUsed) {
-        this.authFailed = true;
-        this.emit('log', `Lecture avec ton compte refusée (${String(err?.message || err).slice(0, 160)}) : retour à la lecture normale.`);
-        this.safeDisconnect();
-        this.retry = setTimeout(() => { if (!this.stopped) this.start(); }, 1500);
-        return;
-      }
+      if (isOffline(err)) { this.setLive(false); this.failures = 0; this.status('offline', 'Pas en live pour le moment'); this.scheduleRetry(60000); return; }
       this.failures += 1;
       const wait = retryDelay(err, this.failures);
       this.emit('log', `${err?.constructor?.name || 'Erreur'} : ${String(err?.message || err).replace(/\s+/g, ' ').slice(0, 400)}`);
+      // La lecture anonyme est refusée (limite du service de connexion…) mais le live tourne : la page
+      // ouverte avec ton compte continue de lire le chat en attendant.
       this.status('error', frenchError(`${isRateLimit(err) ? 'rate ' : ''}${isSignError(err) ? 'sign ' : ''}${err?.message || err}`, wait));
       this.scheduleRetry(wait);
     }
+  }
+
+  setLive(on) {
+    if (this.live === on) return;
+    this.live = on;
+    if (on) this.reader?.poke();
   }
 
   scheduleRetry(wait = 60000) {
@@ -249,6 +349,8 @@ class TikTokConnector extends EventEmitter {
     this.stopped = true;
     clearTimeout(this.retry);
     this.safeDisconnect();
+    this.stopReader();
+    this.live = false;
     this.status('stopped');
   }
 
@@ -280,4 +382,4 @@ class TikTokConnector extends EventEmitter {
   }
 }
 
-module.exports = { TikTokConnector, normalize, normalizeUser, normalizeGift, battleScores, frenchError, isOffline, socialIsFollow, retryDelay, isSignError, isRateLimit };
+module.exports = { TikTokConnector, Seen, decodeReaderPacket, READER_KINDS, normalize, normalizeUser, normalizeGift, battleScores, frenchError, isOffline, socialIsFollow, retryDelay, isSignError, isRateLimit };

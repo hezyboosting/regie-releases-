@@ -3306,3 +3306,29 @@ Connecte d'abord ton compte TikTok (Écrire dans le chat, juste au-dessus).	Firs
 Connecté au live de @{0} avec ton compte (lecture complète du chat)	Connected to @{0}'s live with your account (full chat reading)
 Lecture avec ton compte refusée ({0}) : retour à la lecture normale.	Reading with your account was refused ({0}): back to normal reading.
 Les messages TikTok ne se perdent plus	TikTok messages no longer get lost
+# 2.17.0 : tous les messages du chat
+Ton compte TikTok est connecté	Your TikTok account is connected
+Connecte ton compte TikTok (recommandé)	Connect your TikTok account (recommended)
+Régie lit le chat avec ton compte, donc tous les messages arrivent, et peut écrire sur ton live (chat unifié, bot, commandes).	Régie reads chat with your account, so every message comes through, and can write on your live (unified chat, bot, commands).
+TikTok n'envoie pas les messages de certains comptes aux outils non connectés. Connecte ton compte une fois : Régie reçoit tout le chat et peut y écrire. Ta session reste sur ce PC.	TikTok doesn't send some accounts' messages to tools that aren't signed in. Connect your account once: Régie gets the whole chat and can write in it. Your session stays on this PC.
+Connecter mon compte TikTok	Connect my TikTok account
+TikTok : ton compte lit et écrit le chat	TikTok: your account reads and writes chat
+Coupée : seuls les messages envoyés aux lecteurs anonymes arrivent.	Off: only messages sent to anonymous readers come through.
+Connecte ton compte TikTok juste au-dessus.	Connect your TikTok account just above.
+Prête : elle démarre quand ton live commence.	Ready: it starts when your live begins.
+Ouverture de la page de ton live…	Opening your live page…
+Active : {0} messages récupérés que la lecture anonyme n'avait pas reçus.	On: {0} messages recovered that anonymous reading never got.
+Active : Régie lit ton chat avec ton compte.	On: Régie reads your chat with your account.
+La page de ton live ne reçoit rien : Régie la recharge. Vérifie que ton live est bien lancé.	Your live page isn't receiving anything: Régie is reloading it. Check that your live is running.
+Lecture avec ton compte impossible pour l'instant, nouvel essai automatique.	Reading with your account isn't possible right now, retrying automatically.
+Connecte ton compte TikTok dans Régie.	Connect your TikTok account in Régie.
+Sans compte, TikTok n'envoie pas les messages de certains spectateurs (comptes récents, privés ou jugés peu fiables) : c'est pour ça qu'un compte passe et un autre non. Connecté, Régie lit le chat comme toi, dans une fenêtre cachée, et ne garde chaque message qu'une fois.	Without an account, TikTok doesn't send some viewers' messages (new, private or low-trust accounts): that's why one account gets through and another doesn't. Once connected, Régie reads chat like you do, in a hidden window, and keeps each message only once.
+Il cache des messages à tout le monde, outils compris. Dans TikTok LIVE Studio, roue dentée du chat, coupe « Masquer les commentaires potentiellement indésirables ou offensants ». Sur téléphone : Paramètres, Commentaires, Filtrer les commentaires, tout désactiver.	It hides messages from everyone, tools included. In TikTok LIVE Studio, open the chat's gear icon and turn off "Hide potential spam or offensive comments". On your phone: Settings, Comments, Filter comments, turn everything off.
+Lire le chat avec mon compte ({0})	Read chat with my account ({0})
+Un message que TikTok cache à tous les spectateurs (mot bloqué, compte restreint par TikTok) ne peut être lu par aucun outil.	A message TikTok hides from every viewer (blocked word, account restricted by TikTok) can't be read by any tool.
+Des messages TikTok peuvent manquer : connecte ton compte TikTok dans Régie (Connexions).	Some TikTok messages may be missing: connect your TikTok account in Régie (Connections).
+Tous les messages du chat arrivent	Every chat message comes through
+TikTok : les messages de certains comptes (récents, privés ou jugés peu fiables) n'arrivaient jamais, parce que TikTok les garde pour les spectateurs connectés. Connecte ton compte TikTok dans Connexions : Régie lit le chat avec ton compte, dans une fenêtre cachée, et tout arrive.	TikTok: messages from some accounts (new, private or low-trust) never came through, because TikTok keeps them for signed-in viewers. Connect your TikTok account in Connections: Régie reads chat with your account, in a hidden window, and everything comes through.
+Chaque message ne s'affiche qu'une fois, même s'il arrive par les deux chemins. Connexions montre combien de messages ton compte a récupérés, et le chat unifié prévient quand des messages TikTok peuvent manquer.	Each message shows only once, even when it arrives both ways. Connections shows how many messages your account recovered, and the unified chat warns you when TikTok messages may be missing.
+YouTube sans compte : Régie lit « Chat en direct » au lieu de « Chat principal », où YouTube cache des messages. Une horloge de PC décalée ne fait plus perdre de messages.	YouTube without an account: Régie reads "Live chat" instead of "Top chat", where YouTube hides messages. A PC clock that's off no longer loses messages.
+Un module en erreur (points, statistiques, bienvenue, jeux) ne peut plus faire disparaître un message. Twitch : les messages « /me » s'affichent proprement.	A failing module (points, stats, welcome, games) can no longer make a message disappear. Twitch: "/me" messages display cleanly.

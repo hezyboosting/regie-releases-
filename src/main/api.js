@@ -338,13 +338,13 @@ function createApi(ctx) {
     },
     muteAccount(id) { const a = find(s().accounts, id, 'Chaîne'); a.muted = !a.muted; file.save(); engine.pushChannels(); return engine.channels(); },
     reconnectAccount(id) { engine.startAccount(find(s().accounts, id, 'Chaîne')); return true; },
-    // TikTok : lire tout le chat avec le compte connecté dans Régie (option, voir connectors/tiktok.js).
+    // TikTok : lire aussi le chat avec le compte connecté dans Régie (activé par défaut, voir webchat.watch).
     setFullChat(id, on) {
       const a = find(s().accounts, id, 'Chaîne');
-      if (on && !engine.webchat?.logged?.tiktok) throw new Error('Connecte d\'abord ton compte TikTok (Écrire dans le chat, juste au-dessus).');
       a.fullChat = Boolean(on);
       file.save();
-      engine.startAccount(a);
+      const c = engine.connectors.get(a.id);
+      if (c?.stopReader) { if (on) c.startReader(); else c.stopReader(); }
       engine.pushChannels();
       return engine.channels();
     },

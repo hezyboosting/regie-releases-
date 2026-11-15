@@ -33,8 +33,11 @@ function normalizeIrc(m) {
   const login = t.login || m.prefix.split('!')[0];
   const user = { id: t['user-id'] || login, name: login, display: t['display-name'] || login, avatar: '', mod: badges.includes('moderator'), sub: badges.includes('subscriber') || badges.includes('founder'), vip: badges.includes('vip'), owner: badges.includes('broadcaster') };
   if (m.command === 'PRIVMSG') {
-    if (Number(t.bits) > 0) return { type: 'bits', amount: Number(t.bits), text: m.text, user };
-    return { type: 'chat', text: m.text, color: t.color || '', user };
+    // « /me salut » arrive entouré de \x01ACTION … \x01 : on garde le texte seul.
+    const action = /^\u0001ACTION ([^\u0001]*)\u0001?$/.exec(m.text);
+    const text = action ? action[1] : m.text;
+    if (Number(t.bits) > 0) return { type: 'bits', amount: Number(t.bits), text, user };
+    return { type: 'chat', text, color: t.color || '', user, ...(action ? { action: true } : {}) };
   }
   if (m.command !== 'USERNOTICE') return null;
   switch (t['msg-id']) {

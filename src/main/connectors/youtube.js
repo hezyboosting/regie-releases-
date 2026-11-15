@@ -84,6 +84,96 @@ function normalizeSimple(c) {
   return { type: 'chat', user, text };
 }
 
+// ---------- Mode simple : lire « Chat en direct » et pas « Chat principal » ----------
+// youtube-chat suit la vue par défaut de YouTube, « Chat principal » (Top chat), où YouTube masque des
+// messages (comptes récents, spam possible) : d'où des spectateurs dont les messages n'arrivent jamais.
+// On passe sur « Chat en direct », où tous les messages sont visibles, comme dans YouTube Studio.
+
+// Extrait un tableau JSON qui commence à `open` (gère les chaînes et leurs échappements).
+function sliceJson(src, open) {
+  if (open < 0 || src[open] !== '[') return '';
+  let depth = 0;
+  let inStr = false;
+  for (let i = open; i < src.length && i < open + 200000; i += 1) {
+    const ch = src[i];
+    if (inStr) { if (ch === '\\') i += 1; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') inStr = true;
+    else if (ch === '[' || ch === '{') depth += 1;
+    else if (ch === ']' || ch === '}') { depth -= 1; if (depth === 0) return src.slice(open, i + 1); }
+  }
+  return '';
+}
+
+// Dans le menu du chat, YouTube range toujours « Chat principal » puis « Chat en direct ».
+function liveChatContinuation(html) {
+  const src = String(html || '');
+  let at = src.indexOf('"sortFilterSubMenuRenderer"');
+  while (at >= 0) {
+    const key = src.indexOf('"subMenuItems"', at);
+    if (key < 0) break;
+    const json = sliceJson(src, src.indexOf('[', key));
+    try {
+      const items = JSON.parse(json);
+      const token = (it) => it?.continuation?.reloadContinuationData?.continuation || '';
+      if (Array.isArray(items) && items.length >= 2 && token(items[1])) return token(items[1]);
+    } catch { /* morceau illisible : on cherche plus loin */ }
+    at = src.indexOf('"sortFilterSubMenuRenderer"', key);
+  }
+  return '';
+}
+
+async function fetchLiveChatContinuation(liveId, fetchImpl = fetch) {
+  const res = await fetchImpl(`https://www.youtube.com/live_chat?is_popout=1&v=${encodeURIComponent(liveId)}`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+      'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+      Cookie: 'SOCS=CAI; CONSENT=YES+1',
+    },
+  });
+  if (!res.ok) return '';
+  return liveChatContinuation(await res.text());
+}
+
+const ALL_CHAT = new Map(); // liveId → true si « Chat en direct » est lu
+let patched = false;
+function patchYoutubeChat() {
+  if (patched) return;
+  patched = true;
+  const parser = require('youtube-chat/dist/parser');
+  const requests = require('youtube-chat/dist/requests');
+  const readPage = parser.getOptionsFromLivePage;
+  parser.getOptionsFromLivePage = (data) => {
+    const o = readPage(data);
+    const all = liveChatContinuation(data);
+    if (all) { o.continuation = all; o.allChat = true; }
+    return o;
+  };
+  const fetchPage = requests.fetchLivePage;
+  requests.fetchLivePage = async (id) => {
+    const o = await fetchPage(id);
+    if (!o.allChat && o.liveId) {
+      const all = await fetchLiveChatContinuation(o.liveId).catch(() => '');
+      if (all) { o.continuation = all; o.allChat = true; }
+    }
+    ALL_CHAT.set(o.liveId, Boolean(o.allChat));
+    return o;
+  };
+  // Le premier relevé contient l'historique ; deux relevés ne se chevauchent jamais (sinon doublons
+  // et suite du chat écrasée par une réponse en retard).
+  const fetchChat = requests.fetchChat;
+  const firstDone = new WeakSet();
+  const busy = new WeakSet();
+  requests.fetchChat = async (o) => {
+    if (busy.has(o)) return [[], o.continuation];
+    busy.add(o);
+    try {
+      const res = await fetchChat(o);
+      if (!firstDone.has(o)) { firstDone.add(o); for (const item of res[0] || []) item.history = true; }
+      return res;
+    } finally { busy.delete(o); }
+  };
+}
+
 class YouTubeConnector extends EventEmitter {
   constructor(account, { vault, clientId, clientSecret, quota }) {
     super();
@@ -114,16 +204,24 @@ class YouTubeConnector extends EventEmitter {
   async startSimple() {
     try {
       const { LiveChat } = require('youtube-chat');
+      patchYoutubeChat();
       const raw = String(this.account.channel || '').trim();
       const handle = raw.startsWith('@') ? raw : null;
       const id = handle ? { handle } : /^[\w-]{11}$/.test(raw) ? { liveId: raw } : { channelId: raw };
       this.live = new LiveChat(id, 5000);
       const started = Date.now();
-      this.live.on('start', () => this.status('live'));
+      const ids = new Set();
+      this.live.on('start', (liveId) => {
+        this.status('live');
+        this.emit('log', ALL_CHAT.get(liveId) ? 'Lecture de « Chat en direct » : tous les messages' : 'YouTube n\'a pas donné « Chat en direct » : lecture du chat par défaut');
+      });
       this.live.on('end', () => { this.status('offline', 'Le live est terminé'); this.later(() => this.startSimple(), 60000); });
       this.live.on('error', (e) => this.emit('log', String(e?.message || e)));
       this.live.on('chat', (c) => {
-        if (c.timestamp && new Date(c.timestamp).getTime() < started) return; // historique
+        // Historique affiché à l'ouverture : seul le premier relevé est trié par l'heure (une horloge
+        // de PC décalée ne fait donc jamais perdre les messages suivants).
+        if (c.history && !(c.timestamp && new Date(c.timestamp).getTime() >= started)) return;
+        if (c.id) { if (ids.has(c.id)) return; ids.add(c.id); if (ids.size > 3000) ids.delete(ids.values().next().value); }
         this.emit('event', normalizeSimple(c));
       });
       const ok = await this.live.start();
@@ -237,4 +335,4 @@ class YouTubeConnector extends EventEmitter {
   }
 }
 
-module.exports = { YouTubeConnector, oauthFlow, normalizeApi, normalizeSimple, DAILY_QUOTA };
+module.exports = { YouTubeConnector, oauthFlow, normalizeApi, normalizeSimple, liveChatContinuation, fetchLiveChatContinuation, patchYoutubeChat, DAILY_QUOTA };

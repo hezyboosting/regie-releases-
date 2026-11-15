@@ -635,3 +635,15 @@ test('les cadeaux partent aussi vers le pot, les émojis et le feu d\'artifice',
   for (const t of ['coinjar', 'emojify', 'firework']) assert.ok(to.includes(t));
   engine.stop();
 });
+
+test('Un module en erreur ne fait jamais perdre un message du chat', () => {
+  const { engine, sent, ev, viewers, stats } = rig();
+  viewers.record = () => { throw new Error('pseudo bizarre'); };
+  stats.record = () => { throw new Error('stats cassées'); };
+  engine.welcome = () => { throw new Error('bienvenue cassée'); };
+  engine.handle(ev('chat', { id: 'x1', text: 'tu me vois ?', user: { id: 'u9', name: 'nouveau', display: '' } }));
+  const out = sent.filter((s) => s.m.t === 'ev' && s.m.ev.id === 'x1');
+  assert.equal(out.length, 1);
+  assert.ok(out[0].t.includes('dock') && out[0].t.includes('chat'));
+  assert.equal(engine.mainFeed.at(-1).text, 'tu me vois ?');
+});

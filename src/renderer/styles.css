@@ -797,4 +797,6 @@ textarea.in { font: inherit; font-size: 13.5px; resize: vertical; }
 .journal .emo { height: 1.5em; width: auto; vertical-align: -0.4em; margin-left: 3px; }
 .cx-miss { margin-top: 10px; padding: 10px 12px; border-radius: 14px; background: rgba(var(--w), .03); box-shadow: inset 0 0 0 1px rgba(var(--w), .07); }
 .cx-miss summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--mute); } .cx-miss[open] summary { margin-bottom: 8px; color: var(--text); }
+.cx-reader { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; }
+.cx-reader-st { font-size: 12.5px; color: var(--faint); } .cx-reader-st.ok { color: #3ddc97; } .cx-reader-st.nodata, .cx-reader-st.error, .cx-reader-st.login { color: #f0b429; }
 .cx-miss .steps-mini { list-style: decimal; } .cx-miss .steps-mini li { line-height: 1.45; } .cx-miss .row { margin-top: 6px; }

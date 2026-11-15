@@ -181,6 +181,7 @@ class Engine {
     c.on('event', (raw) => this.ingest(a, raw));
     c.on('profile', (p) => { Object.assign(a, p); if (p.display) a.label = p.display; this.save(); this.pushChannels(); });
     c.on('log', (m) => this.log(`[${a.platform}:${a.label}] ${m}`));
+    c.on('changed', () => this.pushChannelsSoon());
     this.connectors.set(a.id, c);
     Promise.resolve(c.start()).catch((e) => this.setStatus(a.id, { state: 'error', detail: e.message }));
   }
@@ -267,13 +268,15 @@ class Engine {
 
   channels() {
     return this.s.accounts.map((a) => ({
-      id: a.id, platform: a.platform, label: a.label, avatar: a.avatar || '', enabled: a.enabled !== false, mode: a.mode, username: a.username, channel: a.channel, fullChat: Boolean(a.fullChat), chatCount: this.chatCounts?.[a.id] || 0,
+      id: a.id, platform: a.platform, label: a.label, avatar: a.avatar || '', enabled: a.enabled !== false, mode: a.mode, username: a.username, channel: a.channel, fullChat: a.fullChat !== false, chatCount: this.chatCounts?.[a.id] || 0, reader: this.connectors.get(a.id)?.readerInfo?.() || null,
       status: this.status[a.id] || { state: 'stopped', detail: '' }, viewers: this.liveCounts[a.id] || 0, muted: Boolean(a.muted),
       activity: this.stats.activity(a.id), canSend: this.connectors.get(a.id)?.canSend?.() || false, sendHint: this.connectors.get(a.id)?.sendHint?.() || '', liveSince: this.liveSince[a.id] || 0,
     }));
   }
 
-  pushChannels() { this.push('channels', this.channels()); }
+  pushChannels() { clearTimeout(this.channelsTimer); this.channelsTimer = null; this.push('channels', this.channels()); }
+
+  pushChannelsSoon() { if (!this.channelsTimer) this.channelsTimer = setTimeout(() => this.pushChannels(), 800); }
 
   totalViewers() { return Object.values(this.liveCounts).reduce((n, v) => n + v, 0); }
 
@@ -302,12 +305,22 @@ class Engine {
     this.handle({ id: uid('e'), ts: Date.now(), platform: account.platform, accountId: account.id, channel: account.label, user: {}, ...raw });
   }
 
+  // Une erreur dans un module (statistiques, points, bienvenue…) ne doit jamais faire perdre le message.
+  safely(what, fn) {
+    try { return fn(); } catch (e) {
+      this.faults = this.faults || {};
+      this.faults[what] = (this.faults[what] || 0) + 1;
+      if (this.faults[what] <= 3) this.log(`Erreur ${what} : ${e?.message || e}`);
+      return undefined;
+    }
+  }
+
   handle(ev) {
-    if (ev.gift) this.giftImage(ev.gift);
-    if (!ev.test) this.stats.record(ev);
-    const result = this.viewers.record(ev, this.s.rewards);
-    this.trackLast(ev);
-    if (ev.type === 'join' || ev.type === 'chat') this.welcome(ev);
+    if (ev.gift) this.safely('image du cadeau', () => this.giftImage(ev.gift));
+    if (!ev.test) this.safely('statistiques', () => this.stats.record(ev));
+    const result = this.safely('spectateurs', () => this.viewers.record(ev, this.s.rewards)) || null;
+    this.safely('derniers événements', () => this.trackLast(ev));
+    if (ev.type === 'join' || ev.type === 'chat') this.safely('bienvenue', () => this.welcome(ev));
     (this.recentTypes[ev.type] = this.recentTypes[ev.type] || []).push(Date.now());
     if (this.recentTypes[ev.type].length > 200) this.recentTypes[ev.type].shift();
     this.feed.push(ev);
@@ -315,21 +328,21 @@ class Engine {
     if (ev.type !== 'like' && ev.type !== 'join') { this.mainFeed.push(ev); if (this.mainFeed.length > 400) this.mainFeed.shift(); }
     if (ev.type === 'chat' && ev.accountId && !ev.test) this.chatCounts[ev.accountId] = (this.chatCounts[ev.accountId] || 0) + 1;
     this.push('event', ev);
-    if (ev.type === 'chat' && this.s.chatTranslate?.enabled) this.translateChat(ev);
+    if (ev.type === 'chat' && this.s.chatTranslate?.enabled) this.translateChat(ev).catch((e) => this.safely('traduction', () => { throw e; }));
     this.server.broadcast({ t: 'ev', ev }, ['chat', 'ticker', 'giftfeed', 'webcam', 'dock', 'coinjar', 'emojify', 'firework', 'avatars', 'giftcannon', 'likefountain']);
     if (ev.type !== 'chat') {
-      this.queueAlert(ev);
-      this.applySubathon(ev);
+      this.safely('alertes', () => this.queueAlert(ev));
+      this.safely('subathon', () => this.applySubathon(ev));
     }
-    if (this.modOn('goals')) this.applyGoals(ev);
-    if (this.modOn('battles')) this.applyBattle(ev);
-    if (this.modOn('chatgames')) this.games.onEvent(ev, result);
-    if (this.modOn('interactive')) this.fun.onEvent(ev);
-    if (this.s.plinko?.enabled) this.plinko.onEvent(ev);
-    this.pushLive();
-    this.runTriggers(ev);
-    if (this.modOn('tts')) this.tts.fromEvent(ev);
-    if (ev.type === 'chat') this.handleChat(ev);
+    if (this.modOn('goals')) this.safely('objectifs', () => this.applyGoals(ev));
+    if (this.modOn('battles')) this.safely('battles', () => this.applyBattle(ev));
+    if (this.modOn('chatgames')) this.safely('jeux du chat', () => this.games.onEvent(ev, result));
+    if (this.modOn('interactive')) this.safely('roue et course', () => this.fun.onEvent(ev));
+    if (this.s.plinko?.enabled) this.safely('plinko', () => this.plinko.onEvent(ev));
+    this.safely('tableau du live', () => this.pushLive());
+    this.safely('automatisations', () => this.runTriggers(ev));
+    if (this.modOn('tts')) this.safely('voix', () => this.tts.fromEvent(ev));
+    if (ev.type === 'chat') this.safely('commandes', () => this.handleChat(ev));
   }
 
   // Traduction du chat : le message part tout de suite, sa traduction suit dès qu'elle arrive.

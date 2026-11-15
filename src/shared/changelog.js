@@ -1,6 +1,16 @@
 // Nouveautés montrées dans « Quoi de neuf » après une mise à jour. La plus récente en premier.
 const CHANGELOG = [
   {
+    version: '2.17.0',
+    title: 'Tous les messages du chat arrivent',
+    items: [
+      'TikTok : les messages de certains comptes (récents, privés ou jugés peu fiables) n\'arrivaient jamais, parce que TikTok les garde pour les spectateurs connectés. Connecte ton compte TikTok dans Connexions : Régie lit le chat avec ton compte, dans une fenêtre cachée, et tout arrive.',
+      'Chaque message ne s\'affiche qu\'une fois, même s\'il arrive par les deux chemins. Connexions montre combien de messages ton compte a récupérés, et le chat unifié prévient quand des messages TikTok peuvent manquer.',
+      'YouTube sans compte : Régie lit « Chat en direct » au lieu de « Chat principal », où YouTube cache des messages. Une horloge de PC décalée ne fait plus perdre de messages.',
+      'Un module en erreur (points, statistiques, bienvenue, jeux) ne peut plus faire disparaître un message. Twitch : les messages « /me » s\'affichent proprement.',
+    ],
+  },
+  {
     version: '2.16.1',
     title: 'Les messages TikTok ne se perdent plus',
     items: [

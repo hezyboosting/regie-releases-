@@ -139,11 +139,15 @@ Le cadre webcam (`types/webcam.js`, classes `cam-*`) propose verre, néon, dégr
 
 TikTok et Kick écrivent par `src/main/webchat.js` : le streamer se connecte une fois sur la vraie page du site, dans une fenêtre de Régie (partition `persist:webchat-<site>`, la session reste sur le PC). Pour écrire, une fenêtre cachée ouvre la page du live (vidéo bloquée, son coupé), trouve la zone de commentaire, tape le message avec `insertText` puis Entrée (événement clavier réel), un message à la fois. Avec une clé Euler Stream payante et une session, TikTok passe d'abord par l'API du connecteur.
 
-## Messages TikTok manquants
+## Messages manquants selon le compte qui écrit
 
-Causes connues, de la plus fréquente à la moins fréquente : le filtre de commentaires de TikTok (« Masquer les commentaires potentiellement indésirables ou offensants » dans LIVE Studio) cache les messages à tous les lecteurs ; la lecture anonyme reçoit moins de messages qu'un compte connecté ; côté Régie, les emotes seules (`WebcastEvent.EMOTE`) étaient ignorées et le dock ne rattrapait pas une coupure.
+**TikTok.** TikTok n'envoie pas à un lecteur anonyme les messages de certains comptes (récents, privés, jugés peu fiables) : c'est pourquoi le message d'un compte arrive et celui d'un autre non. Le filtre de commentaires de TikTok (« Masquer les commentaires potentiellement indésirables ou offensants » dans LIVE Studio) cache en plus des messages à tout le monde.
 
-Les emotes arrivent maintenant comme des messages (`emotes: [{ i, url }]`, `sticker` pour une emote seule), affichées par `richText` dans les overlays et par le dock. `engine.mainFeed` garde les 400 derniers messages et événements sans likes ni arrivées ; le dock fusionne cet historique par identifiant à chaque reconnexion et toutes les 10 secondes. L'option `account.fullChat` connecte TikTok au nom du compte de `webchat` (cookies `sessionid` et `tt-target-idc`, `authenticateWs`, clé Euler requise) et repasse en lecture normale si la connexion est refusée.
+Quand le compte TikTok est connecté dans Régie (Connexions, la même session sert à écrire), `webchat.watch()` ouvre la page du live dans la fenêtre cachée et écoute ce qu'elle reçoit avec le protocole DevTools (`webContents.debugger`, domaine `Network`) : trames WebSocket du chat (`/webcast/im/push`), relevés `/webcast/im/fetch`, y compris depuis un worker (`Target.setAutoAttach`). Les paquets sont décodés avec `deserializeWebSocketMessage` / `deserializeMessage` de tiktok-live-connector (`decodeReaderPacket` : chat et emotes seulement, historique écarté). La lecture anonyme continue en parallèle ; `Seen` ne laisse passer chaque message qu'une fois (identifiant `common.msgId`, ou compte + texte pendant 8 s). La page n'est ouverte que pendant le live, rechargée si elle n'a plus de connexion au chat depuis 75 s, et fermée quelques minutes après la fin. `account.fullChat` (activé par défaut) coupe cette lecture. La session ne quitte pas le PC.
+
+**YouTube sans compte.** youtube-chat suivait « Chat principal », où YouTube masque des messages. `patchYoutubeChat()` prend la suite de « Chat en direct » (deuxième entrée du menu du chat, dans la page du live ou dans `live_chat?v=`), marque le premier relevé comme historique au lieu de trier par l'heure du PC, et empêche deux relevés de se chevaucher.
+
+Côté Régie, `engine.handle()` diffuse le message même si un module (statistiques, points, bienvenue, jeux…) lève une erreur. Les emotes TikTok arrivent comme des messages (`emotes: [{ i, url }]`, `sticker` pour une emote seule) et le dock rattrape `engine.mainFeed` à chaque reconnexion et toutes les 10 secondes.
 
 ## Discord et téléphone
 

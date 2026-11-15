@@ -38,40 +38,57 @@ function WriteChat({ s, site, name }) {
   const on = Boolean(s.webChat?.[site]);
   const chans = s.channels.filter((c) => c.platform === site);
   const [busy, setBusy] = useState(false);
-  const login = async () => { setBusy(true); const r = await act('webChatLogin', site); setBusy(false); if (r) { setState({ webChat: r.status }); toast(r.ok ? `${name} : tu peux écrire dans le chat` : 'Connexion non terminée'); } };
+  const login = async () => { setBusy(true); const r = await act('webChatLogin', site); setBusy(false); if (r) { setState({ webChat: r.status }); toast(r.ok ? (site === 'tiktok' ? 'TikTok : ton compte lit et écrit le chat' : `${name} : tu peux écrire dans le chat`) : 'Connexion non terminée'); } };
   const logout = async () => { const st = await act('webChatLogout', site); if (st) { setState({ webChat: st }); toast('Déconnecté'); } };
   const test = async () => { if (!chans[0]) return; setBusy(true); const r = await act('sendChat', '👋 Test depuis Régie', chans[0].id); setBusy(false); if (r?.sent?.length) toast('Message envoyé'); };
   return html`<div class="cx-write ${on ? 'on' : ''}">
     <i class="led ${on ? 'live' : 'stopped'}"></i>
     <div class="cx-write-txt">
-      <b>${`Écrire dans le chat ${name}`}</b>
-      <span>${on ? 'Ton compte est connecté dans Régie : le chat unifié, les réponses du bot et les commandes écrivent sur ton live.' : 'Connecte ton compte une fois : Régie pourra écrire dans ton chat, sans abonnement. Ton live doit être lancé.'}</span>
+      <b>${site === 'tiktok' ? (on ? 'Ton compte TikTok est connecté' : 'Connecte ton compte TikTok (recommandé)') : `Écrire dans le chat ${name}`}</b>
+      <span>${site === 'tiktok'
+        ? (on ? 'Régie lit le chat avec ton compte, donc tous les messages arrivent, et peut écrire sur ton live (chat unifié, bot, commandes).' : 'TikTok n\'envoie pas les messages de certains comptes aux outils non connectés. Connecte ton compte une fois : Régie reçoit tout le chat et peut y écrire. Ta session reste sur ce PC.')
+        : (on ? 'Ton compte est connecté dans Régie : le chat unifié, les réponses du bot et les commandes écrivent sur ton live.' : 'Connecte ton compte une fois : Régie pourra écrire dans ton chat, sans abonnement. Ton live doit être lancé.')}</span>
     </div>
     ${on ? html`<div class="row tight">
       <${Btn} disabled=${busy || !chans.length} onClick=${test}>${busy ? 'Envoi…' : 'Essayer'}<//>
       ${chans[0] && html`<${Btn} kind="ghost" onClick=${() => act('webChatShow', chans[0].id)}>Voir la fenêtre<//>`}
       <${Btn} kind="ghost" onClick=${logout}>Déconnecter<//>
-    </div>` : html`<${Btn} kind="primary" disabled=${busy} onClick=${login}>${busy ? 'Connexion…' : 'Se connecter pour écrire'}<//>`}
+    </div>` : html`<${Btn} kind="primary" disabled=${busy} onClick=${login}>${busy ? 'Connexion…' : site === 'tiktok' ? 'Connecter mon compte TikTok' : 'Se connecter pour écrire'}<//>`}
   </div>`;
 }
 
-// Des messages TikTok manquent : la cause la plus fréquente est le filtre de TikTok, puis la lecture anonyme.
+// Des messages TikTok manquent : lecture anonyme (TikTok garde des messages pour les comptes connectés)
+// ou filtre de commentaires de TikTok.
+const READER = {
+  off: () => 'Coupée : seuls les messages envoyés aux lecteurs anonymes arrivent.',
+  login: () => 'Connecte ton compte TikTok juste au-dessus.',
+  waiting: () => 'Prête : elle démarre quand ton live commence.',
+  starting: () => 'Ouverture de la page de ton live…',
+  ok: (r) => (r.extra ? `Active : ${r.extra} messages récupérés que la lecture anonyme n'avait pas reçus.` : 'Active : Régie lit ton chat avec ton compte.'),
+  nodata: () => 'La page de ton live ne reçoit rien : Régie la recharge. Vérifie que ton live est bien lancé.',
+  error: () => 'Lecture avec ton compte impossible pour l\'instant, nouvel essai automatique.',
+};
+
 function TikTokMissing({ s }) {
   const chans = s.channels.filter((c) => c.platform === 'tiktok');
-  const key = s.keys.eulerKey || s.keys.provided?.eulerKey;
   const logged = Boolean(s.webChat?.tiktok);
   const set = async (id, on) => { const r = await act('setFullChat', id, on); if (r) setState({ channels: r }); };
-  return html`<details class="cx-miss">
+  return html`<details class="cx-miss" open=${!logged}>
     <summary>Des messages TikTok n'apparaissent pas ?</summary>
     <ol class="steps-mini">
-      <li><b>Désactive le filtre de commentaires de TikTok.</b> C'est la cause la plus fréquente : il cache aussi les messages aux outils comme Régie. Dans TikTok LIVE Studio, roue dentée du chat, coupe « Masquer les commentaires potentiellement indésirables ou offensants ». Sur téléphone : Paramètres, Commentaires, Filtrer les commentaires, tout désactiver.</li>
-      <li><b>Lis le chat avec ton compte.</b> En lecture anonyme, TikTok n'envoie pas toujours tous les messages. Cette option se connecte au nom de ton compte TikTok connecté dans Régie. Elle demande une clé Euler Stream, et ta session TikTok est transmise à ce service pour signer la connexion.</li>
+      <li><b>Connecte ton compte TikTok dans Régie.</b> Sans compte, TikTok n'envoie pas les messages de certains spectateurs (comptes récents, privés ou jugés peu fiables) : c'est pour ça qu'un compte passe et un autre non. Connecté, Régie lit le chat comme toi, dans une fenêtre cachée, et ne garde chaque message qu'une fois.</li>
+      <li><b>Désactive le filtre de commentaires de TikTok.</b> Il cache des messages à tout le monde, outils compris. Dans TikTok LIVE Studio, roue dentée du chat, coupe « Masquer les commentaires potentiellement indésirables ou offensants ». Sur téléphone : Paramètres, Commentaires, Filtrer les commentaires, tout désactiver.</li>
     </ol>
-    ${chans.map((c) => html`<div class="row tight wrap" key=${c.id}>
-      <${Lamp} on=${c.fullChat} label=${`Lire tout le chat avec mon compte (${c.label})`} disabled=${!logged || !key} onChange=${(v) => set(c.id, v)} />
-      <span class="tagline">${`${c.chatCount} messages reçus depuis le début du live`}</span>
-    </div>`)}
-    ${(!logged || !key) && html`<p class="note">${!logged ? 'Connecte d\'abord ton compte TikTok avec « Se connecter pour écrire ».' : 'Ajoute une clé Euler Stream (ci-dessus) pour activer cette option.'}</p>`}
+    ${chans.map((c) => {
+      const r = c.reader || { state: logged ? 'waiting' : 'login', extra: 0 };
+      const st = c.fullChat ? r.state : 'off';
+      return html`<div class="cx-reader" key=${c.id}>
+        <${Lamp} on=${c.fullChat} label=${`Lire le chat avec mon compte (${c.label})`} onChange=${(v) => set(c.id, v)} />
+        <span class="cx-reader-st ${st}">${(READER[st] || READER.waiting)(r)}</span>
+        ${c.fullChat && logged && (st === 'nodata' || st === 'error') && html`<button type="button" class="linkish" onClick=${() => act('webChatShow', c.id)}>Voir la fenêtre</button>`}
+      </div>`;
+    })}
+    <p class="note">Un message que TikTok cache à tous les spectateurs (mot bloqué, compte restreint par TikTok) ne peut être lu par aucun outil.</p>
   </details>`;
 }
 
