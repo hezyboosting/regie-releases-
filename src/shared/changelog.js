@@ -1,6 +1,13 @@
 // Nouveautés montrées dans « Quoi de neuf » après une mise à jour. La plus récente en premier.
 const CHANGELOG = [
   {
+    version: '2.21.1',
+    title: 'Nouveau logo',
+    items: [
+      'Nouvelle icône : une touche de pupitre rétroéclairée, avec le R allumé et le voyant rouge du direct, sur fond transparent. Elle remplace le bouton rouge dans la barre des tâches, l\'installateur et en haut du menu.',
+    ],
+  },
+  {
     version: '2.21.0',
     title: 'Menu plus simple, nouveau design, chaque overlay se place à la main',
     items: [

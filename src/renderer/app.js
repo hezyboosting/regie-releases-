@@ -90,7 +90,7 @@ function Side({ s }) {
   const active = sectionOf(s.view);
   const row = (key, icon, text, on, go, led, sep) => html`<button type="button" key=${key} class="nav-item ${on ? 'on' : ''} ${sep ? 'sep' : ''}" title=${mini ? text : (led ? led[1] : undefined)} aria-label=${led ? `${text}, ${led[1]}` : text} aria-current=${on ? 'page' : undefined} onClick=${go}>${ICONS[icon]}<span>${text}</span>${led && html`<i class="led ${led[0]}" aria-hidden="true"></i>`}</button>`;
   return html`<aside class="side ${mini ? 'mini' : ''}">
-    <div class="logo"><span>${s.brand.name}</span>
+    <div class="logo"><img class="logo-mark" src="logo.png" alt="" width="34" height="34" /><span>${s.brand.name}</span>
       <button type="button" class="nav-fold" aria-label=${mini ? 'Déplier le menu' : 'Replier le menu'} title=${mini ? 'Déplier le menu' : 'Replier le menu'} onClick=${async () => { const r = await act('updateSettings', { navCollapsed: !mini }); if (r) setState({ settings: r }); }}>${ICONS.panel}</button>
     </div>
     <nav class="nav" aria-label="Sections">

@@ -1067,3 +1067,9 @@ input[type=range]::-webkit-slider-thumb { width: 14px; height: 20px; margin-top:
 .lk-scope { background: var(--amber-soft); box-shadow: inset 0 0 0 1px rgba(255,178,36,.3); border-radius: var(--r-m); }
 .lk-scope.own { background: rgba(62,220,142,.1); box-shadow: inset 0 0 0 1px rgba(62,220,142,.3); }
 .lk-zoom { border-radius: var(--r-s); background: rgba(18,19,22,.85); box-shadow: 0 0 0 1px rgba(255,255,255,.1); }
+
+/* Logo : la touche rétroéclairée (rendu 3D, build/icon-source.png) à côté du nom. */
+.logo { gap: 9px; padding-left: 6px; }
+.logo-mark { flex: none; width: 34px; height: 34px; margin: -4px 0 -4px -2px; -webkit-user-drag: none; }
+.side.mini .logo-mark { width: 32px; height: 32px; margin: 0; }
+.side.mini .logo { flex-direction: column; gap: 8px; }

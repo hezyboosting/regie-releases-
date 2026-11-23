@@ -161,6 +161,10 @@ Chaque overlay (sauf l'éditeur libre et les scènes) a un réglage `decor` : de
 
 `SKIN` dans `overlay-schema.js` donne le sélecteur des cartes de chaque overlay ; les réglages `sk*` (silhouette, fond, motif, bordure) deviennent une règle CSS générée par `skinCss()` dans `overlays/boot.js`, placée avant le CSS personnalisé du streamer. `canvas` (et `canvasW`, `canvasH`) change la taille de la source ; `overlaySize()` sert au lien OBS, aux scènes et à l'aperçu.
 
+## Icône
+
+L'icône est un rendu 3D (three.js) d'une touche de pupitre rétroéclairée : `tools/icon/key.html` dessine la touche, `tools/icon/compose.py` ajoute le rétroéclairage et l'ombre sur fond transparent et écrit `build/icon-source.png`. `node tools/make-icon.js` en tire `build/icon.ico` (16 à 256 px), `build/icon.png`, `src/assets/icon.png` et le logo du menu (`src/renderer/logo.png`).
+
 ## Disposition libre
 
 Les overlays qui déclarent `parts` dans `overlay-schema.js` (presque tous, sauf les effets plein écran, la scène et l'éditeur libre) ont un onglet Disposition. Chaque définition donne la carte (`card`, répétée pour le chat ou les lignes d'un classement) et ses éléments (`items` : clé, sélecteur, nom, `text` ou `box`), avec `keepPos` / `noSize` pour une carte qui garde sa place ou sa taille et `grow` pour une carte qui grandit avec le texte. Au passage en Libre, l'aperçu relève la place, la taille et le texte de chaque élément sur le rendu du style (`capture` dans `boot.js`) : on part de ce qu'on voit. Les alertes et les derniers événements gardent une disposition de départ dessinée (`start`).
