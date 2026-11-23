@@ -2,6 +2,7 @@
 import { query, setFont, confetti, playSound, media } from './lib.js';
 import { setParticles } from './particles.js';
 import { renderElement, sampleVars } from './custom-render.js';
+import { skinCss, layoutCss } from './style-gen.js';
 
 const root = document.getElementById('root');
 const mark = document.getElementById('mark');
@@ -93,43 +94,36 @@ window.regieTr = (text) => {
 const skinStyle = document.createElement('style');
 skinStyle.id = 'skin';
 custom.before(skinStyle); // le CSS personnalisé du streamer garde le dernier mot
-const hexOk = (v, d) => (/^#[0-9a-f]{6}$/i.test(String(v || '')) ? v : d);
-const rgbaHex = (v, a) => { const h = hexOk(v, '#000000'); return `rgba(${parseInt(h.slice(1, 3), 16)},${parseInt(h.slice(3, 5), 16)},${parseInt(h.slice(5, 7), 16)},${a})`; };
-const TEXTURE = {
-  rayures: 'repeating-linear-gradient(45deg, rgba(255,255,255,.08) 0 6px, transparent 6px 14px)',
-  points: 'radial-gradient(rgba(255,255,255,.16) 1.2px, transparent 1.8px) 0 0 / 12px 12px',
-  grille: 'linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px) 0 0 / 16px 16px, linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px) 0 0 / 16px 16px',
-  lignes: 'repeating-linear-gradient(0deg, rgba(0,0,0,.2) 0 2px, transparent 2px 4px)',
-};
-export function skinCss(sel, s) {
-  if (!sel) return '';
-  const out = [];
-  const c = `${Math.max(4, Math.min(60, Number(s.skCut) || 16))}px`;
-  const clip = {
-    coupe: `polygon(${c} 0, calc(100% - ${c}) 0, 100% ${c}, 100% calc(100% - ${c}), calc(100% - ${c}) 100%, ${c} 100%, 0 calc(100% - ${c}), 0 ${c})`,
-    biseau: `polygon(${c} 0, 100% 0, calc(100% - ${c}) 100%, 0 100%)`,
-    fleche: `polygon(0 0, calc(100% - ${c}) 0, 100% 50%, calc(100% - ${c}) 100%, 0 100%, ${c} 50%)`,
-    hexa: `polygon(${c} 0, calc(100% - ${c}) 0, 100% 50%, calc(100% - ${c}) 100%, ${c} 100%, 0 50%)`,
-    onglet: `polygon(0 0, calc(100% - ${c}) 0, 100% ${c}, 100% 100%, 0 100%)`,
-  }[s.skShape];
-  if (s.skShape === 'carre') out.push('border-radius: 0');
-  if (s.skShape === 'arrondi') out.push(`border-radius: ${Math.max(0, Math.min(60, Number(s.skRadius) || 0))}px`);
-  if (s.skShape === 'pilule') out.push('border-radius: 999px');
-  if (clip) {
-    out.push('border-radius: 0', `clip-path: ${clip}`);
-    if (['biseau', 'fleche', 'hexa'].includes(s.skShape)) out.push(`padding-left: calc(${c} + .5em)`, `padding-right: calc(${c} + .5em)`);
-  }
-  const a = Math.max(0, Math.min(100, s.skAlpha ?? 90)) / 100;
-  const tex = TEXTURE[s.skTexture] ? `${TEXTURE[s.skTexture]}, ` : '';
-  if (s.skFill === 'uni') out.push(`background: ${tex}${rgbaHex(s.skColor1, a)}`, 'backdrop-filter: none');
-  if (s.skFill === 'degrade') out.push(`background: ${tex}linear-gradient(${Number(s.skAngle) || 0}deg, ${rgbaHex(s.skColor1, a)}, ${rgbaHex(s.skColor2, a)})`, 'backdrop-filter: none');
-  if (s.skFill === 'verre') out.push(`background: ${tex}linear-gradient(150deg, rgba(255,255,255,.22), rgba(255,255,255,.05)), ${rgbaHex(s.skColor1, 0.38)}`, 'backdrop-filter: blur(14px) saturate(1.4)', 'box-shadow: inset 0 1px 0 rgba(255,255,255,.42), inset 0 0 0 1px rgba(255,255,255,.14), 0 8px 26px rgba(0,0,0,.3)');
-  if (s.skFill === 'aucun') out.push('background: none', 'box-shadow: none', 'backdrop-filter: none');
-  const bw = Math.max(0, Math.min(12, Number(s.skBorder) || 0));
-  if (bw) out.push(`border: ${bw}px ${['solid', 'dashed', 'dotted', 'double'].includes(s.skBorderStyle) ? s.skBorderStyle : 'solid'} ${hexOk(s.skBorderColor, '#FFFFFF')}`);
-  if (!out.length) return '';
-  const list = sel.split(',').map((x) => `#root ${x.trim()}`).join(', ');
-  return `${list} { ${out.map((r) => `${r} !important`).join('; ')}; }`;
+// Disposition libre : chaque élément de la carte (image, pseudo, texte…) à la place choisie, par type d'alerte.
+const layoutStyle = document.createElement('style');
+layoutStyle.id = 'layout';
+skinStyle.after(layoutStyle);
+let partsDef = null;
+let layoutNow = null;
+let heldKind = null;
+function applyLayout(layout) {
+  layoutNow = layout;
+  layoutStyle.textContent = layoutCss(partsDef, layout);
+  document.documentElement.dataset.layout = layout?.mode === 'libre' ? 'libre' : 'auto';
+  if (query.get('preview')) requestAnimationFrame(sendRects);
+}
+// L'éditeur demande où sont les éléments pour pouvoir les attraper à la souris.
+function sendRects() {
+  if (!partsDef || window.parent === window) return;
+  const sel = heldKind && heldKind !== 'all' ? `${partsDef.card}[data-kind="${heldKind}"]` : partsDef.card;
+  const card = root.querySelector(sel) || root.querySelector(partsDef.card);
+  const rect = (n) => { if (!n) return null; const r = n.getBoundingClientRect(); return r.width || r.height ? { x: r.left, y: r.top, w: r.width, h: r.height } : null; };
+  const rects = {};
+  for (const it of partsDef.items) rects[it.key] = rect(card?.querySelector(it.sel));
+  window.parent.postMessage({ regie: 'rects', card: rect(card), kind: card?.dataset.kind || '', rects }, '*');
+}
+if (query.get('preview')) {
+  addEventListener('message', (e) => {
+    const d = e.data || {};
+    if (d.regie === 'layout') applyLayout(d.layout);
+    if (d.regie === 'hold') { heldKind = d.kind || null; mod?.hold?.(heldKind); setTimeout(sendRects, 80); setTimeout(sendRects, 700); }
+    if (d.regie === 'rects') sendRects();
+  });
 }
 
 function applyCommon(msg) {
@@ -147,6 +141,8 @@ function applyCommon(msg) {
   paintDecor();
   custom.textContent = s.customCss || '';
   skinStyle.textContent = skinCss(msg.overlay.skin || '', s);
+  partsDef = msg.overlay.parts || null;
+  applyLayout(s.layout);
   setFont(s.font);
   const css = document.documentElement.style;
   css.setProperty('--scale', (s.scale || 100) / 100);

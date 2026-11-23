@@ -91,7 +91,7 @@ export function Stats({ s }) {
   const [metric, setMetric] = useState('chat');
   const [table, setTable] = useState(false);
   useEffect(() => { act('statsReport').then(setR); }, [s.feed.length]);
-  if (!r) return html`<div class="page"><${PageHead} title="Stats" /><p class="note">Chargement des stats…</p></div>`;
+  if (!r) return html`<div class="page"><${PageHead} title="Statistiques" /><p class="note">Chargement des stats…</p></div>`;
   const t = r.totals;
   const sum = (k) => Object.values(t).reduce((n, b) => n + (b[k] || 0), 0);
   const peak = Math.max(0, ...Object.values(t).map((b) => b.peak || 0));
@@ -99,7 +99,7 @@ export function Stats({ s }) {
     ['Messages', sum('chat')], ['Suivis', sum('follow')], ['Abonnements', sum('sub') + sum('resub') + sum('subsGifted') + sum('member')], ['Pièces TikTok', sum('coins')], ['Bits', sum('bitsTotal')], ['Pic de spectateurs', peak],
   ];
   return html`<div class="page">
-    <${PageHead} title="Stats">
+    <${PageHead} title="Statistiques">
       <${Btn} onClick=${async () => { const r2 = await act('recapNow'); if (r2) setState({ liveRecap: r2 }); }}>Récap du live en cours<//>
       <${Lamp} on=${s.recapCfg?.open !== false} label="Ouvrir le récap à la fin du live" onChange=${async (open) => { const x = await act('updateRecap', { open }); if (x) setState({ recapCfg: x }); }} />
       <${Lamp} on=${Boolean(s.recapCfg?.thanks)} label="Remercier les meilleurs soutiens dans le chat" onChange=${async (thanks) => { const x = await act('updateRecap', { thanks }); if (x) setState({ recapCfg: x }); }} />

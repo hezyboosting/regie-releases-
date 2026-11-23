@@ -6,7 +6,7 @@ import { el, media, playSound, setVars, PLATFORM, isPreview, avatar, tag, fmt, G
 const KIND = {
   follow: 'Nouveau suivi', sub: 'Abonnement', resub: 'Réabonnement', giftsub: 'Abonnements offerts', gift: 'Cadeau', bits: 'Bits', raid: 'Raid',
   share: 'Partage', like: 'Likes', superchat: 'Super Chat', supersticker: 'Super Sticker', member: 'Nouveau membre', redeem: 'Récompense',
-  join: 'Arrivée', superfan: 'Super Fan', milestone: 'Fidélité', hypetrain: 'Hype Train',
+  join: 'Arrivée', superfan: 'Super Fan', milestone: 'Fidélité', hypetrain: 'Hype Train', vip: 'Nouveau VIP', goal: 'Objectif',
 };
 
 export function mount(root) {
@@ -57,8 +57,25 @@ export function mount(root) {
     return '';
   }
 
-  const show = (a) => {
+  // Disposition libre : le pseudo et le reste du texte deviennent deux éléments qu'on place séparément.
+  function freeTitle(body, a) {
+    const user = a.user || '';
+    const i = user ? String(a.title).indexOf(user) : -1;
+    if (s.layout?.separateName === false || i < 0) {
+      const t = el('div', 'al-msg');
+      if (i < 0) t.textContent = a.title;
+      else t.append(document.createTextNode(a.title.slice(0, i)), el('b', 'al-nm', user), document.createTextNode(a.title.slice(i + user.length)));
+      body.append(t);
+      return;
+    }
+    const rest = `${a.title.slice(0, i)} ${a.title.slice(i + user.length)}`.replace(/\s+/g, ' ').replace(/^[\s,:!·-]+/, '').trim();
+    body.append(el('div', 'al-name', user));
+    if (rest) body.append(el('div', 'al-msg', rest));
+  }
+
+  const show = (a, keep = false) => {
     clear();
+    const free = s.layout?.mode === 'libre';
     const theme = ['verre', 'carte', 'minimal'].includes(a.theme) ? a.theme : (s.theme || 'verre');
     const box = el('div', `al ${theme}`);
     box.dataset.kind = a.type || '';
@@ -69,13 +86,14 @@ export function mount(root) {
     const vis = visual(a);
     if (vis) box.append(vis);
     const body = el('div', 'al-body');
-    if (theme !== 'minimal' && KIND[a.type]) body.append(el('span', 'al-kind', KIND[a.type]));
-    body.append(titleNode(a.title, a.user));
+    const full = free || theme !== 'minimal';
+    if (full && KIND[a.type]) body.append(el('span', 'al-kind', KIND[a.type]));
+    if (free) freeTitle(body, a); else body.append(titleNode(a.title, a.user));
     const c = chip(a);
-    if (c && theme !== 'minimal') body.append(el('span', 'al-chip', c));
+    if (c && full) body.append(el('span', 'al-chip', c));
     if (a.text) body.append(el('div', 'al-text', a.text));
     box.append(body);
-    if (theme !== 'minimal') box.append(el('i', 'al-time'));
+    if (full) box.append(el('i', 'al-time'));
     if (theme !== 'minimal' && (a.type === 'gift' || a.type === 'raid' || a.type === 'giftsub' || a.value >= 100)) {
       const sp = el('div', 'al-sparks');
       for (let i = 0; i < 14; i += 1) { const d = el('i'); d.style.setProperty('--a', `${(i / 14) * 360}deg`); d.style.setProperty('--d', `${60 + Math.random() * 70}px`); sp.append(d); }
@@ -83,12 +101,49 @@ export function mount(root) {
     }
     root.append(box);
     current = box;
+    if (keep) { box.classList.add('held'); return; }
     playSound(a.sound, a.volume, s.volume);
     outTimer = setTimeout(() => {
       box.classList.add('out');
-      setTimeout(() => box.remove(), 600);
+      setTimeout(() => { box.remove(); if (holding && current === box) hold(holding); }, 600);
     }, (dur - 0.5) * 1000);
   };
+
+  // Éditeur (onglet Disposition) : une alerte du type choisi reste à l'écran pour qu'on la règle.
+  let holding = null;
+  function sample(kind) {
+    const g = catalog[Math.floor(catalog.length * 0.7)] || null;
+    const base = { platform: 'tiktok', duration: 9999, sound: 'none' };
+    const S = {
+      follow: { user: 'Lena', title: 'Lena suit la chaîne' },
+      gift: { user: 'Marius', title: `Marius envoie 5 × ${g ? g.name : 'Rose'}`, gift: { name: g?.name || 'Rose', image: g?.image || '' }, amount: 5, value: (g?.cost || 1) * 5 },
+      sub: { platform: 'twitch', user: 'Nolan', title: 'Nolan s\'abonne' },
+      resub: { platform: 'twitch', user: 'Kenza', title: 'Kenza se réabonne', months: 14, text: 'Toujours là depuis le début !' },
+      giftsub: { platform: 'twitch', user: 'Sofia', title: 'Sofia offre 5 abonnements', amount: 5 },
+      share: { user: 'Inès', title: 'Inès partage le live' },
+      like: { user: '', title: '10 000 likes sur le live' },
+      join: { user: 'Yanis', title: 'Yanis rejoint le live' },
+      superfan: { user: 'Lena', title: 'Lena devient Super Fan' },
+      bits: { platform: 'twitch', user: 'Marius', title: 'Marius envoie 500 bits', amount: 500, text: 'Allez on y croit !' },
+      raid: { platform: 'twitch', user: 'Kenza', title: 'Kenza arrive avec 42 personnes', amount: 42 },
+      superchat: { platform: 'youtube', user: 'Nolan', title: 'Nolan envoie 5,00 €', money: '5,00 €', text: 'Merci pour le live !' },
+      supersticker: { platform: 'youtube', user: 'Sofia', title: 'Sofia envoie un sticker à 2,00 €', money: '2,00 €' },
+      member: { platform: 'youtube', user: 'Inès', title: 'Inès devient membre' },
+      milestone: { platform: 'youtube', user: 'Yanis', title: 'Yanis est membre depuis 6 mois', months: 6 },
+      redeem: { platform: 'twitch', user: 'Lena', title: 'Lena utilise Hydrate-toi', text: 'Bois un verre d\'eau' },
+      vip: { platform: 'twitch', user: 'Marius', title: 'Marius devient VIP' },
+      hypetrain: { platform: 'twitch', user: '', title: 'Le Hype Train démarre' },
+      goal: { user: '', title: 'Objectif atteint : 100 abonnés' },
+    };
+    return { ...base, type: kind === 'all' ? 'resub' : kind, ...(S[kind] || S.resub) };
+  }
+  function hold(kind) {
+    holding = kind;
+    clearInterval(demoTimer);
+    demoTimer = null;
+    if (!kind) { clear(); demo(); return; }
+    show(sample(kind), true);
+  }
 
   const clear = () => { clearTimeout(outTimer); current?.remove(); current = null; };
 
@@ -114,9 +169,11 @@ export function mount(root) {
       if (data?.catalog) catalog = data.catalog.filter((x) => x.image);
       root.className = `type-alerts ${s.position}`;
       setVars(root, { accent: s.accent, bg: s.bg, text: s.text });
-      if (isPreview && (!current || lastTheme !== s.theme || !demoTimer)) demo();
+      if (isPreview && holding) show(sample(holding), true);
+      else if (isPreview && (!current || lastTheme !== s.theme || !demoTimer)) demo();
       lastTheme = s.theme;
     },
+    hold,
     on(msg) {
       if (msg.t === 'alert') { clearInterval(demoTimer); show(msg.alert); }
       if (msg.t === 'alertSkip') clear();

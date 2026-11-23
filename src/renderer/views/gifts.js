@@ -92,7 +92,7 @@ function GiftActions({ s }) {
 
 // Pages du menu Cadeaux.
 export function GiftActionsPage({ s }) {
-  return html`<div class="page"><${PageHead} title="Actions par cadeau" /><${GiftActions} s=${s} /></div>`;
+  return html`<div class="page"><${PageHead} title="Actions des cadeaux" /><${GiftActions} s=${s} /></div>`;
 }
 export function GiftLivePage({ s }) {
   return html`<div class="page"><${PageHead} title="Cadeaux du live" /><${Tracker} s=${s} /></div>`;

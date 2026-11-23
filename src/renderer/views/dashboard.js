@@ -46,6 +46,24 @@ const TESTS = [
   ['gift', 'Cadeau', 'tiktok'], ['follow', 'Suivi', 'tiktok'], ['share', 'Partage', 'tiktok'], ['superfan', 'Super Fan', 'tiktok'], ['superchat', 'Super Chat', 'youtube'], ['member', 'Membre', 'youtube'],
 ];
 
+// Ce qu'on vient faire le plus souvent, en un clic.
+const SHORTCUTS = [
+  ['overlays', 'overlays', 'Mettre mes overlays à l\'écran', 'Copier un lien dans OBS ou TikTok LIVE Studio'],
+  ['editor', 'overlays', 'Changer le look d\'un overlay', 'Couleurs, forme, disposition, décor'],
+  ['alerts', 'alerts', 'Régler mes alertes', 'Suivis, cadeaux, partages, pour chaque appli'],
+  ['spark', 'gifts', 'Faire réagir les cadeaux', 'Un son, une touche, une action par cadeau'],
+  ['dice', 'interactive', 'Lancer un jeu pour le chat', 'Roue, course aux likes, Plinko…'],
+  ['commands', 'dock', 'Lire et répondre au chat', 'Tous les chats au même endroit'],
+];
+function Shortcuts() {
+  return html`<section class="shortcuts" aria-label="Raccourcis">
+    <h3>Que veux-tu faire ?</h3>
+    <div class="sc-grid">${SHORTCUTS.map(([icon, view, label, hint]) => html`<button type="button" key=${label} class="sc-tile" onClick=${() => setState({ view, overlayId: null })}>
+      <span class="sc-ico">${ICONS[icon]}</span><span class="sc-txt"><b>${label}</b><small>${hint}</small></span>
+    </button>`)}</div>
+  </section>`;
+}
+
 export function Dashboard({ s }) {
   const limit = s.features.channelsPerPlatform;
   const goal = s.goals[0];
@@ -67,6 +85,8 @@ export function Dashboard({ s }) {
       </div>
       <${Spark} feed=${s.feed} />
     </section>
+
+    <${Shortcuts} />
 
     <${ReadyCheck} s=${s} />
 

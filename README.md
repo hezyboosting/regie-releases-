@@ -161,13 +161,17 @@ Chaque overlay (sauf l'éditeur libre et les scènes) a un réglage `decor` : de
 
 `SKIN` dans `overlay-schema.js` donne le sélecteur des cartes de chaque overlay ; les réglages `sk*` (silhouette, fond, motif, bordure) deviennent une règle CSS générée par `skinCss()` dans `overlays/boot.js`, placée avant le CSS personnalisé du streamer. `canvas` (et `canvasW`, `canvasH`) change la taille de la source ; `overlaySize()` sert au lien OBS, aux scènes et à l'aperçu.
 
+## Disposition libre
+
+Les overlays qui déclarent `parts` dans `overlay-schema.js` (alertes et derniers événements) ont un onglet Disposition. En mode `libre`, chaque élément de la carte (image, étiquette, pseudo, texte, détail, message, barre de temps) est placé en absolu : position, taille, police, graisse, couleur, alignement, majuscules, ombre, rotation, ou masqué. `layout.all` sert à tous les types ; `layout.kinds.follow` (ou `gift`, `share`…) remplace cette disposition pour un seul type. `cleanLayout()` complète chaque élément à partir de la disposition de départ, `layoutCss()` dans `overlays/style-gen.js` en fait la règle CSS placée après celle de la forme. Dans l'éditeur, l'aperçu garde une alerte du type choisi à l'écran (`hold`), renvoie la position de chaque élément (`rects`) et zoome sur la carte ; on attrape les éléments un par un pour les déplacer ou tirer leurs poignées.
+
 ## Discord et téléphone
 
 `src/main/discord.js` poste par un webhook (gardé dans le coffre chiffré) l'annonce du début de live, au plus une fois par demi-heure, et le récap de fin. La télécommande et le chat s'ouvrent sur un téléphone du même Wi-Fi par QR code (`api.phoneLinks`, paquet `qrcode`) ; `api.setLanLive` ouvre le serveur au réseau local sans redémarrer Régie.
 
 ## Menu
 
-La barre latérale range les pages en sections repliables : Démarrer, En direct (chat unifié, outils du live, télécommande, scènes, clips, stats), Overlays, Alertes et sons, Cadeaux, Spectateurs (boutique de points, classements, paris), Jeux avec le chat (roue, course, Plinko, le chat joue, mini-jeux, duels), Mon jeu (mes jeux, Suivi = Rang) et Automatisation (commandes, automatisations, Discord, assistant, packs). Chaque page porte le nom de son entrée de menu. La section de la page ouverte reste dépliée, les autres se souviennent de leur état (`localStorage.navOpen`).
+La barre latérale range les pages par moment d'usage : Démarrer (tableau de bord, connexions), Pendant le live (chat, outils, télécommande, scènes, clips), Overlays (mes overlays, créer de zéro, designs prêts), Alertes & actions (alertes, actions des cadeaux, commandes du chat, automatisations, sons, voix du chat), Jeux avec le chat, Défis et points (objectifs, boutique de points, paris, classements), Mon jeu, Bilan (statistiques, cadeaux) et Intégrations (Spotify, Discord, assistant, packs). Chaque section a une ligne d'aide (`hint`), chaque page une phrase qui dit à quoi elle sert (`src/renderer/nav-info.js`, affichée par `PageHead`), et le tableau de bord ouvre sur six raccourcis « Que veux-tu faire ? ». La section de la page ouverte reste dépliée, les autres se souviennent de leur état (`localStorage.navOpen`).
 
 Les overlays qui ont leur propre animation déclarent `fxSkip` dans `overlay-schema.js` : ces effets communs n'apparaissent pas dans leur éditeur et `fxLocked` les neutralise même si un ancien réglage existe. L'overlay Suivi = Rang lie le défilement à la durée du résultat (`spinCustom` pour les séparer) et annule une révélation en cours dès qu'on la relance (jeton par révélation).
 

@@ -225,7 +225,7 @@ export function Builder({ s }) {
     if (o) { await reload(); setState({ customId: o.id }); }
   };
   return html`<div class="page" style=${{ maxWidth: 'none' }}>
-    <${PageHead} title="Éditeur">
+    <${PageHead} title="Créer un overlay de zéro">
       <span class="count">${limit === -1 ? `${list.length} overlays` : `${list.length} sur ${limit} emplacements`}</span>
       ${list.length > 0 && html`<${Select} label="Overlay à modifier" value=${current?.id} onChange=${(v) => setState({ customId: v })} options=${list.map((o) => ({ value: o.id, label: o.name }))} />`}
       ${current && html`<${Btn} onClick=${() => act('exportOverlay', current.id)}>Exporter<//>`}

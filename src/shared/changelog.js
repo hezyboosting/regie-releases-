@@ -1,6 +1,16 @@
 // Nouveautés montrées dans « Quoi de neuf » après une mise à jour. La plus récente en premier.
 const CHANGELOG = [
   {
+    version: '2.20.0',
+    title: 'Place chaque texte où tu veux sur tes cartes',
+    items: [
+      'Nouvel onglet Disposition sur les alertes et les derniers événements : passe en Libre et place toi-même chaque élément de la carte (pseudo, texte, image, montant, message, barre de temps) à la souris dans l\'aperçu.',
+      'Chaque élément se règle à part : position, taille, police, graisse, couleur, alignement, majuscules, ombre, rotation, ou masqué.',
+      'Une disposition commune, et une disposition à part pour un type précis (suivi, cadeau, partage…) si tu veux. L\'aperçu zoome sur la carte et garde l\'alerte du type choisi à l\'écran.',
+      'Menu réorganisé par moment : Démarrer, Pendant le live, Overlays, Alertes & actions, Jeux avec le chat, Défis et points, Mon jeu, Bilan, Intégrations. Chaque page dit en une phrase à quoi elle sert, et le tableau de bord propose des raccourcis.',
+    ],
+  },
+  {
     version: '2.19.0',
     title: 'Change la forme de tes overlays et ajoute ton décor',
     items: [

@@ -3463,3 +3463,144 @@ Onglet Décor sur chaque overlay : ajoute des formes (carré, cercle, étoile, c
 Forme des cartes dans l'onglet Style : silhouette (carré, pilule, coins coupés, penché, flèche, hexagone, onglet), fond uni, dégradé ou verre, motif et bordure, par-dessus le style choisi.	Card shape in the Style tab: outline (square, pill, cut corners, slanted, arrow, hexagon, tab), solid, gradient or glass background, pattern and border, on top of the chosen style.
 Format de l'overlay dans l'onglet Position : horizontal, vertical, carré ou sur mesure.	Overlay format in the Position tab: landscape, portrait, square or custom.
 Les textes du décor peuvent afficher les valeurs du live (spectateurs, dernier suivi…), et l'éditeur d'overlays gagne les mêmes formes.	Decor text can show live values (viewers, latest follower…), and the overlay editor gets the same shapes.
+Place chaque texte où tu veux sur tes cartes	Put every text wherever you want on your cards
+Nouvel onglet Disposition sur les alertes et les derniers événements : passe en Libre et place toi-même chaque élément de la carte (pseudo, texte, image, montant, message, barre de temps) à la souris dans l'aperçu.	New Layout tab on alerts and latest events: switch to Free and place every element of the card yourself (username, text, image, amount, message, time bar) with the mouse in the preview.
+Chaque élément se règle à part : position, taille, police, graisse, couleur, alignement, majuscules, ombre, rotation, ou masqué.	Each element has its own settings: position, size, font, weight, color, alignment, uppercase, shadow, rotation, or hidden.
+Une disposition commune, et une disposition à part pour un type précis (suivi, cadeau, partage…) si tu veux. L'aperçu zoome sur la carte et garde l'alerte du type choisi à l'écran.	One shared layout, plus a separate layout for a given type (follow, gift, share…) if you want. The preview zooms on the card and keeps an alert of the chosen type on screen.
+Menu réorganisé par moment : Démarrer, Pendant le live, Overlays, Alertes & actions, Jeux avec le chat, Défis et points, Mon jeu, Bilan, Intégrations. Chaque page dit en une phrase à quoi elle sert, et le tableau de bord propose des raccourcis.	Menu reorganized by moment: Get started, During the live, Overlays, Alerts & actions, Games with chat, Challenges & points, My game, Recap, Integrations. Each page says in one sentence what it's for, and the dashboard offers shortcuts.
+Pendant le live	During the live
+Pendant que tu streames	While you stream
+Ce qui s'affiche à l'écran	What shows on screen
+Créer de zéro	Create from scratch
+Designs prêts	Ready-made designs
+Alertes & actions	Alerts & actions
+Quand le public réagit	When your audience reacts
+Actions des cadeaux	Gift actions
+Commandes du chat	Chat commands
+Voix du chat	Chat voice
+Faire jouer le chat	Let chat play
+Défis et points	Challenges & points
+Objectifs, paris, classements	Goals, bets, leaderboards
+Ton jeu vidéo à l'écran	Your video game on screen
+Bilan	Recap
+Chiffres et cadeaux	Numbers and gifts
+Intégrations	Integrations
+Musique, Discord, IA	Music, Discord, AI
+Statistiques	Statistics
+Créer un overlay de zéro	Create an overlay from scratch
+Que veux-tu faire ?	What do you want to do?
+Mettre mes overlays à l'écran	Put my overlays on screen
+Copier un lien dans OBS ou TikTok LIVE Studio	Copy a link into OBS or TikTok LIVE Studio
+Changer le look d'un overlay	Change an overlay's look
+Couleurs, forme, disposition, décor	Colors, shape, layout, decor
+Régler mes alertes	Set up my alerts
+Suivis, cadeaux, partages, pour chaque appli	Follows, gifts, shares, for each app
+Faire réagir les cadeaux	Make gifts do something
+Un son, une touche, une action par cadeau	A sound, a key, an action per gift
+Lancer un jeu pour le chat	Start a game for chat
+Roue, course aux likes, Plinko…	Wheel, like race, Plinko…
+Lire et répondre au chat	Read and reply to chat
+Tous les chats au même endroit	All chats in one place
+Ce qui est prêt pour ton live, tes chaînes et les derniers événements.	What's ready for your live, your channels and the latest events.
+Ajoute tes chaînes TikTok, Twitch, YouTube et Kick, et connecte ton compte pour lire et écrire le chat.	Add your TikTok, Twitch, YouTube and Kick channels, and connect your account to read and write in chat.
+Tous les chats au même endroit : lis, réponds sur toutes les chaînes à la fois, traduis.	All chats in one place: read, reply on every channel at once, translate.
+Minuteurs, compteurs, sondages, file d'attente et tirage au sort pendant le live.	Timers, counters, polls, queue and giveaways during the live.
+Des boutons pour tout lancer d'un clic, aussi depuis ton téléphone.	Buttons to trigger anything in one click, from your phone too.
+Change de scène OBS et lance les transitions.	Switch OBS scenes and run transitions.
+Garde les meilleurs moments du live.	Keep the best moments of the live.
+Tes overlays : personnalise-les (couleurs, forme, disposition, décor), teste-les, copie leur lien dans OBS ou TikTok LIVE Studio.	Your overlays: customize them (colors, shape, layout, decor), test them, copy their link into OBS or TikTok LIVE Studio.
+Crée un overlay de zéro : textes, formes, images et barres placés à la souris.	Build an overlay from scratch: text, shapes, images and bars placed with the mouse.
+Des designs prêts à installer en un clic.	Ready-made designs to install in one click.
+Ce qui s'affiche quand on te suit, t'offre un cadeau, s'abonne… et pour quelles plateformes.	What shows when someone follows you, sends a gift, subscribes… and for which platforms.
+Fais réagir ton live à chaque cadeau : son, touche, action dans le jeu.	Make your live react to every gift: sound, key, in-game action.
+Les commandes que le chat peut taper (!discord, !points…) et les réponses du bot.	The commands chat can type (!discord, !points…) and the bot's replies.
+Si ça arrive, alors fais ça : des règles automatiques pour ton live.	If this happens, then do that: automatic rules for your live.
+Tes sons et leur volume, pour les alertes et les actions.	Your sounds and their volume, for alerts and actions.
+Le chat lu à voix haute, avec la voix de ton choix.	Chat read aloud, in the voice of your choice.
+Les spectateurs font tourner la roue avec des cadeaux ou des points.	Viewers spin the wheel with gifts or points.
+Les spectateurs qui likent le plus font la course jusqu'à l'arrivée.	The viewers who like the most race to the finish line.
+Chaque cadeau tombe dans le Plinko et gagne des points ou une action.	Every gift drops into the Plinko and wins points or an action.
+Le chat contrôle ton jeu avec des commandes.	Chat controls your game with commands.
+Quiz, devinettes et petits jeux pour le chat.	Quizzes, riddles and small games for chat.
+Deux équipes s'affrontent avec leurs cadeaux et leurs likes.	Two teams battle with their gifts and likes.
+Des barres d'objectif : abonnés, pièces, likes…	Goal bars: subscribers, coins, likes…
+Le chat parie ses points sur l'issue de ta partie.	Chat bets its points on how your match ends.
+Les spectateurs gagnent des points et les échangent contre des récompenses.	Viewers earn points and trade them for rewards.
+Les classements des spectateurs : meilleurs donateurs, plus actifs…	Viewer leaderboards: top gifters, most active…
+Tes jeux, leurs rangs et les infos affichées à l'écran.	Your games, their ranks and the info shown on screen.
+Chaque nouveau suivi tire un rang de ton jeu au hasard, avec une ouverture de caisse.	Every new follower draws a random rank from your game, with a case opening.
+Les chiffres de tes lives, jour par jour.	Your live numbers, day by day.
+Les cadeaux reçus pendant ce live et tes meilleurs donateurs.	Gifts received during this live and your top gifters.
+Tous les cadeaux TikTok avec leur image et leur prix en pièces.	Every TikTok gift with its image and coin price.
+La musique en cours à l'écran et les demandes du chat.	The current song on screen and chat requests.
+Annonce ton live sur ton serveur Discord automatiquement.	Announce your live on your Discord server automatically.
+Demande à l'IA de régler Régie pour toi.	Ask the AI to set up Régie for you.
+Des réglages tout prêts (jeux, alertes, actions) à installer en un clic.	Ready-made settings (games, alerts, actions) to install in one click.
+Licence, apparence, modules, clés, réseau et sauvegardes.	License, appearance, modules, keys, network and backups.
+Disposition pour	Layout for
+Toutes les alertes	All alerts
+Toutes les cartes	All cards
+Automatique (le style décide)	Automatic (the style decides)
+Libre (je place tout)	Free (I place everything)
+Largeur de la carte	Card width
+Hauteur de la carte	Card height
+Pseudo séparé du texte	Username apart from the text
+Majuscules	Uppercase
+Ombre du texte	Text shadow
+Centre	Center
+Rotation	Rotation
+Couleur du style	Style color
+Clique un élément dans la liste ou dans l'aperçu pour le régler. Attrape-le pour le déplacer, tire ses poignées pour sa taille.	Click an element in the list or in the preview to adjust it. Grab it to move it, drag its handles to resize it.
+La personnaliser pour ce type	Customize it for this type
+Repartir de la disposition de départ	Go back to the starting layout
+Revenir à la disposition commune	Go back to the shared layout
+{0} a sa propre disposition.	{0} has its own layout.
+{0} utilise la disposition commune.	{0} uses the shared layout.
+Passe en Libre pour placer toi-même chaque élément de la carte ({0}). Tu les attrapes dans l'aperçu, un par un.	Switch to Free to place every element of the card yourself ({0}). You grab them in the preview, one by one.
+Voir tout l'overlay	See the whole overlay
+Zoom sur la carte	Zoom on the card
+Image (photo, cadeau, ton image)	Image (photo, gift, your image)
+Étiquette (Nouveau suivi…)	Label (New follower…)
+Pseudo	Username
+Texte de l'alerte	Alert text
+Détail (montant, cadeau, mois)	Detail (amount, gift, months)
+Message du spectateur	Viewer message
+Barre de temps	Time bar
+En-tête (icône et titre)	Header (icon and title)
+Pseudo et plateforme	Username and platform
+Détail (cadeau, likes…)	Detail (gift, likes…)
+Nouveau VIP	New VIP
+Nolan s'abonne	Nolan subscribes
+s'abonne	subscribes
+se réabonne	resubscribes
+Toujours là depuis le début !	Here since day one!
+Sofia offre 5 abonnements	Sofia gifts 5 subs
+offre 5 abonnements	gifts 5 subs
+Inès partage le live	Inès shares the live
+partage le live	shares the live
+10 000 likes sur le live	10,000 likes on the live
+Yanis rejoint le live	Yanis joins the live
+rejoint le live	joins the live
+Lena devient Super Fan	Lena becomes a Super Fan
+devient Super Fan	becomes a Super Fan
+Marius envoie 500 bits	Marius sends 500 bits
+envoie 500 bits	sends 500 bits
+Allez on y croit !	Come on, we believe!
+Kenza arrive avec 42 personnes	Kenza arrives with 42 people
+arrive avec 42 personnes	arrives with 42 people
+Nolan envoie 5,00 €	Nolan sends €5.00
+envoie 5,00 €	sends €5.00
+Merci pour le live !	Thanks for the stream!
+Sofia envoie un sticker à 2,00 €	Sofia sends a €2.00 sticker
+envoie un sticker à 2,00 €	sends a €2.00 sticker
+Inès devient membre	Inès becomes a member
+devient membre	becomes a member
+Yanis est membre depuis 6 mois	Yanis has been a member for 6 months
+est membre depuis 6 mois	has been a member for 6 months
+Lena utilise Hydrate-toi	Lena redeems Hydrate
+utilise Hydrate-toi	redeems Hydrate
+Bois un verre d'eau	Drink a glass of water
+Marius devient VIP	Marius becomes VIP
+devient VIP	becomes VIP
+Le Hype Train démarre	The Hype Train starts
+Objectif atteint : 100 abonnés	Goal reached: 100 followers

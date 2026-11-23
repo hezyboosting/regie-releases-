@@ -2,6 +2,7 @@
 import { html, useState, useEffect, useRef, useStore, PLATFORM, setState, preactRender } from './store.js';
 import { crest } from '../overlays/crest.js';
 import { brandSvg } from '../overlays/brands.js';
+import { PAGE_INFO } from './nav-info.js';
 
 const I = (d) => html`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d=${d} /></svg>`;
 export const ICONS = {
@@ -232,6 +233,8 @@ export function Upsell({ children }) {
   return html`<div class="upsell"><span>${children}</span><${Btn} kind="amber" onClick=${() => go('settings', { settingsTab: 'licence' })}>Activer une clé<//></div>`;
 }
 
-export function PageHead({ title, children }) {
-  return html`<header class="page-head"><h2>${title}</h2><div class="page-acts">${children}</div></header>`;
+export function PageHead({ title, children, info }) {
+  const s = useStore();
+  const line = info === false ? '' : (info || PAGE_INFO[s.view] || '');
+  return html`<header class="page-head"><div class="page-title"><h2>${title}</h2>${line && html`<p class="page-info">${line}</p>`}</div><div class="page-acts">${children}</div></header>`;
 }

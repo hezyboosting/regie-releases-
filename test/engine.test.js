@@ -724,3 +724,28 @@ test('Décor et forme des cartes : nettoyés, envoyés à l\'overlay avec les va
   assert.ok(init.data.vars, 'le décor qui affiche {viewers} reçoit les valeurs du live');
   engine.stop();
 });
+
+test('Disposition libre : chaque élément de la carte d\'alerte à sa place, et par type d\'alerte', async () => {
+  const { engine } = rig();
+  const { cleanLayout, PARTS } = require('../src/shared/overlay-schema');
+  const path = require('path');
+  const { pathToFileURL } = require('url');
+  const { layoutCss, skinCss } = await import(pathToFileURL(path.join(__dirname, '../src/overlays/style-gen.js')).href);
+  const raw = { mode: 'libre', all: { parts: { visuel: { show: false }, pseudo: { x: 30, y: 10, size: 48, color: 'red' } } }, kinds: { follow: { w: 400, parts: { visuel: { show: true, x: 5 } } }, nope: { w: 1 } } };
+  const L = cleanLayout('alerts', raw);
+  assert.equal(L.all.w, PARTS.alerts.size[0], 'la taille de départ complète ce qui manque');
+  assert.equal(L.all.parts.pseudo.color, '', 'une couleur invalide est ignorée');
+  assert.deepEqual(Object.keys(L.kinds), ['follow']);
+  assert.equal(L.kinds.follow.parts.pseudo.x, 30, 'un type reprend la disposition commune puis la change');
+  const o = engine.addOverlay('alerts');
+  o.settings.layout = raw;
+  const init = engine.overlayInit(o);
+  assert.equal(init.overlay.parts.card, '.al');
+  const css = layoutCss(init.overlay.parts, init.overlay.settings.layout);
+  assert.match(css, /#root \.al \.al-vis \{ display: none !important; \}/);
+  assert.match(css, /#root \.al\[data-kind="follow"\] \.al-vis \{[^}]*display: grid !important/, 'le suivi remontre l\'image cachée ailleurs');
+  assert.match(css, /#root \.al \.al-name \{[^}]*left: 30px !important; top: 10px !important[^}]*font-size: 48px/);
+  assert.equal(layoutCss(init.overlay.parts, { ...init.overlay.settings.layout, mode: 'auto' }), '');
+  assert.match(skinCss('.msg', { skShape: 'pilule', skFill: 'uni', skColor1: '#112233', skAlpha: 50 }), /#root \.msg \{ border-radius: 999px !important; background: rgba\(17,34,51,0.5\) !important/);
+  engine.stop();
+});

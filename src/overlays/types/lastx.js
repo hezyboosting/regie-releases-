@@ -34,6 +34,7 @@ export function mount(root) {
 
   function card(k, x, fresh) {
     const c = el('div', `lx-card${fresh ? ' new' : ''}${x ? '' : ' empty'}`);
+    c.dataset.kind = k.id; // disposition libre : une mise en page par carte (suivi, cadeau…)
     c.dataset.kind = k.id;
     const head = el('div', 'lx-head');
     head.append(el('span', 'lx-ico', k.icon), el('span', 'lx-label', k.label));

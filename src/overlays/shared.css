@@ -1198,3 +1198,11 @@ img.ej-i { height: auto; object-fit: contain; }
 .cm[data-theme="ticket"] .cm-row.hit { box-shadow: none; filter: brightness(1.3) saturate(1.2); }
 .cm[data-theme="minimal"] .cm-row.hit { box-shadow: none; }
 .cm[data-theme="minimal"] .cm-row.hit .cm-txt, .cm[data-theme="minimal"] .cm-row.hit .cm-price { color: var(--cm-row-accent, var(--cm-accent-2)); }
+
+/* Alertes en disposition libre : pseudo inline (quand il n'est pas séparé), texte et étiquettes */
+.al-nm { color: var(--accent); font-weight: 900; }
+[data-layout="libre"] .al-msg { color: var(--text); }
+[data-layout="libre"] .al-name { display: block; overflow: hidden; text-overflow: ellipsis; }
+[data-layout="libre"] .al-chip { width: fit-content; }
+/* Alerte gardée à l'écran dans l'éditeur : pas d'entrée animée, pour que les cadres tombent pile dessus */
+.al.held, .al.held::after { animation: none !important; }

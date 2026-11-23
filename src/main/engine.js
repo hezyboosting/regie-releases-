@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { uid, EVENT_TYPES, defaultRules, makeOverlay } = require('../shared/defaults');
 const { rankImage } = require('../shared/rank-files');
 const { rankLook } = require('../shared/games');
-const { OVERLAY_TYPES, overlayDefaults, fxLocked, passesFilter, hasFilter, cleanMenuRows, cleanPick, cleanDecor, decorNeedsVars, overlaySize } = require('../shared/overlay-schema');
+const { OVERLAY_TYPES, overlayDefaults, fxLocked, passesFilter, hasFilter, cleanMenuRows, cleanPick, cleanDecor, decorNeedsVars, overlaySize, cleanLayout } = require('../shared/overlay-schema');
 const { withinLimit } = require('../shared/features');
 const { TikTokConnector } = require('./connectors/tiktok');
 const { TwitchConnector } = require('./connectors/twitch');
@@ -1431,6 +1431,7 @@ class Engine {
     for (const field of OVERLAY_TYPES[o.type].fields) if (field.type === 'platforms' || field.type === 'events') out[field.key] = cleanPick(out[field.key], field.options);
     if (o.type === 'coinmenu') out.rows = cleanMenuRows(out.rows);
     if ('decor' in out) out.decor = cleanDecor(out.decor);
+    if (OVERLAY_TYPES[o.type].parts) out.layout = cleanLayout(o.type, out.layout);
     return out;
   }
 
@@ -1566,10 +1567,16 @@ class Engine {
     if (!gift.cost && hit.cost) gift.cost = hit.cost;
   }
 
+  // Ce que la page de l'overlay doit savoir pour la disposition libre (sélecteurs des éléments).
+  partsDef(type) {
+    const d = OVERLAY_TYPES[type]?.parts;
+    return d ? { card: d.card, kinds: d.kinds || [], flatten: d.flatten, items: d.items.map(({ key, sel, kind, fill, fit }) => ({ key, sel, kind, fill: fill || '', fit: Boolean(fit) })) } : null;
+  }
+
   overlayInit(o) {
     const data = this.overlayData(o) || {};
     if (decorNeedsVars(o.settings) && !data.vars) data.vars = this.liveVars();
-    return { t: 'init', lang: this.s.settings.uiLang === 'en' ? 'en' : 'fr', overlay: { id: o.id, type: o.type, name: o.name, enabled: o.enabled !== false, skin: OVERLAY_TYPES[o.type]?.skin || '', settings: this.effectiveSettings(o) }, watermark: !this.allowed('removeWatermark'), data };
+    return { t: 'init', lang: this.s.settings.uiLang === 'en' ? 'en' : 'fr', overlay: { id: o.id, type: o.type, name: o.name, enabled: o.enabled !== false, skin: OVERLAY_TYPES[o.type]?.skin || '', parts: this.partsDef(o.type), settings: this.effectiveSettings(o) }, watermark: !this.allowed('removeWatermark'), data };
   }
 
   pushOverlayConfig(o) {

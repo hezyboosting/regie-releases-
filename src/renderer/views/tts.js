@@ -16,7 +16,7 @@ export function TtsView({ s }) {
   const voices = (s.voices || []).map((v) => ({ value: v.id, label: `${v.name} (${v.lang})`, disabled: allowed && !ok.has(v.id) }));
   const frFirst = [...voices].sort((a, b) => (b.label.includes('fr') ? 1 : 0) - (a.label.includes('fr') ? 1 : 0));
   return html`<div class="page">
-    <${PageHead} title="Synthèse vocale">
+    <${PageHead} title="Voix du chat">
       <${Lamp} on=${t.enabled} onChange=${(enabled) => up({ enabled })} label="Synthèse vocale active" />
       <${Btn} onClick=${() => act('ttsSkip')}>Passer<//>
       <${Btn} onClick=${() => act('ttsClear')}>Vider la file<//>

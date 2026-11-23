@@ -101,7 +101,7 @@ export function Commands({ s }) {
   const f = s.features;
   const change = async (c) => { const r = await act('saveCommand', c); if (r) setState({ commands: r }); };
   return html`<div class="page">
-    <${PageHead} title="Commandes">
+    <${PageHead} title="Commandes du chat">
       <span class="count">${s.commands.length}${f.commands !== -1 ? ` sur ${f.commands}` : ''}</span>
       <${Btn} kind="primary" icon=${ICONS.plus} onClick=${() => setEdit({ ...NEW_CMD })}>Nouvelle commande<//>
     <//>

@@ -548,6 +548,81 @@ const COMMON = [
 const FX_NONE = { fxIntro: 'none', fxIdle: 'none', fxItems: false, fxSpeed: 100, fxConfetti: false };
 for (const def of Object.values(OVERLAY_TYPES)) if (!def.noFx) def.fields.push(...COMMON.filter((f) => !(def.fxSkip || []).includes(f.key)));
 for (const [type, def] of Object.entries(OVERLAY_TYPES)) addFilters(type, def);
+// ---------- Disposition libre : chaque élément d'une carte se place où on veut ----------
+// card : la carte ; flatten : enveloppes qui s'effacent en mode libre ; items : les éléments déplaçables.
+// kinds : une disposition différente par type d'événement (suivi, cadeau…), lue sur data-kind de la carte.
+const LAYOUT_KINDS_ALERTS = ['follow', 'gift', 'sub', 'resub', 'giftsub', 'share', 'like', 'join', 'superfan', 'bits', 'raid', 'superchat', 'supersticker', 'member', 'milestone', 'redeem', 'vip', 'hypetrain', 'goal'];
+const PARTS = {
+  alerts: {
+    card: '.al', kinds: LAYOUT_KINDS_ALERTS, flatten: ['.al-body'], size: [560, 170],
+    items: [
+      { key: 'visuel', sel: '.al-vis', label: 'Image (photo, cadeau, ton image)', kind: 'box', fill: '.al-av, .al-gift, .al-media' },
+      { key: 'type', sel: '.al-kind', label: 'Étiquette (Nouveau suivi…)', kind: 'text' },
+      { key: 'pseudo', sel: '.al-name', label: 'Pseudo', kind: 'text' },
+      { key: 'texte', sel: '.al-msg', label: 'Texte de l\'alerte', kind: 'text' },
+      { key: 'detail', sel: '.al-chip', label: 'Détail (montant, cadeau, mois)', kind: 'text', fit: true },
+      { key: 'message', sel: '.al-text', label: 'Message du spectateur', kind: 'text' },
+      { key: 'barre', sel: '.al-time', label: 'Barre de temps', kind: 'box' },
+    ],
+    start: {
+      visuel: { x: 18, y: 21, w: 128, h: 128 }, type: { x: 166, y: 18, w: 370, size: 13, weight: 800, upper: true },
+      pseudo: { x: 166, y: 36, w: 370, size: 36, weight: 800 }, texte: { x: 166, y: 81, w: 370, size: 22, weight: 600 },
+      detail: { x: 166, y: 113, w: 370, size: 15, weight: 700 }, message: { x: 166, y: 137, w: 370, size: 14, weight: 500 },
+      barre: { x: 20, y: 162, w: 520, h: 4 },
+    },
+  },
+  lastx: {
+    card: '.lx-card', kinds: ['follow', 'gift', 'like', 'share', 'sub'], flatten: ['.lx-body', '.lx-txt'], size: [440, 124],
+    items: [
+      { key: 'entete', sel: '.lx-head', label: 'En-tête (icône et titre)', kind: 'text' },
+      { key: 'photo', sel: '.lx-av', label: 'Photo', kind: 'box' },
+      { key: 'pseudo', sel: '.lx-who', label: 'Pseudo et plateforme', kind: 'text' },
+      { key: 'detail', sel: '.lx-detail', label: 'Détail (cadeau, likes…)', kind: 'text' },
+    ],
+    start: {
+      entete: { x: 18, y: 12, w: 400, size: 13, weight: 800, upper: true }, photo: { x: 18, y: 40, w: 66, h: 66 },
+      pseudo: { x: 98, y: 44, w: 320, size: 24, weight: 800 }, detail: { x: 98, y: 79, w: 320, size: 15, weight: 600 },
+    },
+  },
+};
+const LAYOUT_KINDS = LAYOUT_KINDS_ALERTS;
+const FONT_KEYS = ['', 'onest', 'geist', 'syne', 'archivo', 'system', 'serif', 'rounded', 'impact'];
+// Disposition de départ du mode libre (aussi utilisée pour « Repartir de zéro »).
+function startLayout(type) {
+  const d = PARTS[type];
+  if (!d) return null;
+  return { w: d.size[0], h: d.size[1], parts: JSON.parse(JSON.stringify(d.start)) };
+}
+function cleanOneLayout(def, L, fallback) {
+  const base = L && typeof L === 'object' ? L : fallback;
+  if (!base) return null;
+  const parts = {};
+  for (const it of def.items) {
+    const p = { ...(fallback?.parts?.[it.key] || {}), ...(base.parts?.[it.key] || {}) };
+    parts[it.key] = {
+      x: num(p.x, -2000, 4000), y: num(p.y, -2000, 4000), w: num(p.w, 4, 4000, 200), h: num(p.h, 2, 4000, 40),
+      size: num(p.size, 6, 200, 20), weight: num(p.weight, 100, 900, 600), color: p.color ? hexOr(p.color, '') : '', font: FONT_KEYS.includes(p.font) ? p.font : '',
+      align: ['left', 'center', 'right'].includes(p.align) ? p.align : 'left', rot: num(p.rot, -180, 180), show: p.show !== false, upper: Boolean(p.upper), shadow: Boolean(p.shadow),
+    };
+  }
+  return { w: num(base.w, 80, 3000, def.size[0]), h: num(base.h, 40, 3000, def.size[1]), parts };
+}
+function cleanLayout(type, layout) {
+  const def = PARTS[type];
+  if (!def) return undefined;
+  const l = layout && typeof layout === 'object' ? layout : {};
+  const start = startLayout(type);
+  const all = cleanOneLayout(def, l.all, start);
+  const kinds = {};
+  for (const k of def.kinds || []) if (l.kinds?.[k]) kinds[k] = cleanOneLayout(def, l.kinds[k], all);
+  return { mode: l.mode === 'libre' ? 'libre' : 'auto', separateName: l.separateName !== false, all, kinds };
+}
+for (const [type, def] of Object.entries(PARTS)) {
+  if (!OVERLAY_TYPES[type]) continue;
+  OVERLAY_TYPES[type].parts = def;
+  OVERLAY_TYPES[type].fields.push({ key: 'layout', label: 'Disposition', type: 'layout', default: { mode: 'auto' }, tab: 'layout' });
+}
+
 // ---------- Forme des cartes : changer la silhouette de l'overlay, pas seulement ses couleurs ----------
 // Sélecteur des « cartes » de chaque overlay (bulle de chat, ligne, panneau…), habillées par overlays/boot.js.
 const SKIN = {
@@ -694,4 +769,4 @@ function overlayDefaults(type) {
   return out;
 }
 
-module.exports = { OVERLAY_TYPES, SKIN, overlaySize, MENU_ROWS, cleanMenuRows, cleanPick, cleanDecor, decorNeedsVars, OVERLAY_EVENTS, EVENT_LABELS, PLATFORM_OPTIONS, passesFilter, hasFilter, fxLocked, overlayDefaults, COLORWAYS, FINISH_GROUPS, finishFrom, PAD_ZONES, PAD_ZONE_NAMES };
+module.exports = { OVERLAY_TYPES, PARTS, LAYOUT_KINDS, startLayout, cleanLayout, SKIN, overlaySize, MENU_ROWS, cleanMenuRows, cleanPick, cleanDecor, decorNeedsVars, OVERLAY_EVENTS, EVENT_LABELS, PLATFORM_OPTIONS, passesFilter, hasFilter, fxLocked, overlayDefaults, COLORWAYS, FINISH_GROUPS, finishFrom, PAD_ZONES, PAD_ZONE_NAMES };
