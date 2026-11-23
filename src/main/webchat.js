@@ -35,6 +35,7 @@ const IDLE_MS = 15 * 60 * 1000;
 const GAP_MS = 1300;
 const TICK_MS = 30 * 1000;
 const NO_SOCKET_MS = 75 * 1000; // en live, la page ouvre sa connexion au chat en quelques secondes
+const MAX_WAIT_MS = 10 * 60 * 1000; // rechargements espacés quand la page n'arrive pas à se connecter
 const SILENT_MS = 10 * 60 * 1000; // connexion ouverte mais muette depuis 10 min : on la relance quand même
 const AFTER_LIVE_MS = 4 * 60 * 1000;
 const WORKERS = ['worker', 'shared_worker', 'service_worker'];
@@ -187,14 +188,17 @@ class WebChat {
     if (!SITES[site]?.socket) throw new Error('Lecture indisponible pour ce site.');
     const key = `${site}:${clean(user)}`;
     this.unwatch(key);
-    const w = { key, site, user: clean(user), onData, isLive, onChange, state: 'starting', frames: 0, last: 0, liveSeen: 0, busy: false, errors: 0 };
+    const w = { key, site, user: clean(user), onData, isLive, onChange, state: 'starting', frames: 0, last: 0, liveSeen: 0, busy: false, errors: 0, reloads: 0, url: '' };
     this.watchers.set(key, w);
     w.timer = setInterval(() => this.watchTick(w), TICK_MS);
     setTimeout(() => this.watchTick(w), 50);
     return {
       stop: () => this.unwatch(key),
       poke: () => this.watchTick(w),
-      info: () => ({ state: w.state, frames: w.frames, last: w.last }),
+      info: () => {
+        const p = this.pages.get(key);
+        return { state: w.state, frames: w.frames, last: w.last, page: Boolean(p && !p.win.isDestroyed()), sockets: p?.sockets?.size || 0, url: w.url, reloads: w.reloads };
+      },
     };
   }
 
@@ -245,8 +249,12 @@ class WebChat {
       // Un live calme peut rester muet longtemps : tant que la connexion au chat est ouverte, on attend.
       const quiet = now - Math.max(w.last, p.loadedAt);
       const open = p.sockets?.size > 0;
-      if ((!open && quiet > NO_SOCKET_MS) || quiet > SILENT_MS) {
-        this.log(`[lecture ${w.site}:${w.user}] ${open ? 'connexion muette' : 'pas de connexion au chat'} depuis ${Math.round(quiet / 1000)} s, rechargement de la page`);
+      if (open || (w.last && w.last > p.loadedAt)) w.reloads = 0;
+      // Page sans connexion au chat (live fini, page d'erreur…) : rechargements de plus en plus espacés.
+      const wait = Math.min(MAX_WAIT_MS, NO_SOCKET_MS * 2 ** Math.min(w.reloads, 4));
+      if ((!open && quiet > wait) || quiet > SILENT_MS) {
+        w.reloads += 1;
+        this.log(`[lecture ${w.site}:${w.user}] ${open ? 'connexion muette' : 'pas de connexion au chat'} depuis ${Math.round(quiet / 1000)} s (page : ${w.url || '?'}), rechargement n° ${w.reloads}`);
         this.reload(p);
         this.setWatchState(w, 'nodata');
         return;
@@ -291,10 +299,14 @@ class WebChat {
       if (w.state !== 'ok') this.setWatchState(w, 'ok');
       try { w.onData(kind, buf); } catch (e) { this.log(`[lecture ${p.key}] ${e.message}`); }
     };
+    const host = (u) => { try { return new URL(u).host; } catch { return '?'; } };
     p.onMessage = (_e, method, params = {}, sid) => {
       switch (method) {
         case 'Network.webSocketCreated':
-          if (cfg.socket.test(params.url || '')) sockets.add(id(sid, params.requestId));
+          if (cfg.socket.test(params.url || '')) {
+            sockets.add(id(sid, params.requestId));
+            this.log(`[lecture ${p.key}] connexion au chat ouverte (${host(params.url)}${sid ? ', worker' : ''})`);
+          }
           break;
         case 'Network.webSocketFrameReceived':
           if (sockets.has(id(sid, params.requestId)) && params.response?.opcode === 2) deliver('ws', Buffer.from(params.response.payloadData || '', 'base64'));
@@ -319,6 +331,9 @@ class WebChat {
       }
     };
     p.onDetach = () => { p.tapped = false; };
+    // Adresse finale de la page (redirection vers la connexion, live terminé…) : utile au diagnostic.
+    p.onNav = (_e, url) => { const w = this.watchers.get(p.key); if (w) w.url = String(url || '').replace(/\?.*$/, ''); };
+    wc.on('did-navigate', p.onNav);
     dbg.on('message', p.onMessage);
     dbg.on('detach', p.onDetach);
     enable();
@@ -332,6 +347,7 @@ class WebChat {
     const dbg = p.win.webContents.debugger;
     dbg.removeListener('message', p.onMessage);
     dbg.removeListener('detach', p.onDetach);
+    p.win.webContents.removeListener('did-navigate', p.onNav);
     try { dbg.detach(); } catch { /* déjà détaché */ }
     p.tapped = false;
   }

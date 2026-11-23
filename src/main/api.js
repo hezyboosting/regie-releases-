@@ -451,6 +451,17 @@ function createApi(ctx) {
       if (type === 'likefountain') for (let i = 0; i < 5; i += 1) engine.simulate('like', 'tiktok', { fields: { amount: 15 } });
       if (type === 'lastx') { engine.simulate('follow', 'tiktok'); engine.simulate('gift', 'tiktok'); }
       if (type === 'rankcard') engine.simulate('follow', 'twitch');
+      // Menu des pièces : un cadeau au prix d'une des lignes, pour voir la ligne s'allumer.
+      if (type === 'coinmenu') {
+        for (const o of s().overlays.filter((x) => x.type === 'coinmenu')) {
+          const rows = engine.effectiveSettings(o).rows;
+          if (!rows.length) continue;
+          const r = rows[Math.floor(Math.random() * rows.length)];
+          const g = engine.menuGifts([r])[r.id];
+          const ev = { id: uid('t'), ts: Date.now(), type: 'gift', platform: 'tiktok', test: true, user: { id: 'demo-lena', name: 'lena', display: 'Léna', avatar: '' }, gift: { id: g?.id || r.gift || '', name: g?.name || 'Cadeau', image: g?.image || '', cost: r.coins }, amount: 1, value: r.coins };
+          server.broadcast({ t: 'ev', ev }, 'coinmenu', (c) => c.overlayId === o.id);
+        }
+      }
       if (type === 'chatplays') {
         const v = engine.play.playsView();
         const c = v.commands;

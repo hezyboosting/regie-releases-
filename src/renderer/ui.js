@@ -206,10 +206,10 @@ export function Color({ value, onChange, disabled }) {
   </span>`;
 }
 
-export function Platforms({ value = [], onChange }) {
+export function Platforms({ value = [], onChange, compact }) {
   const toggle = (p) => onChange(value.includes(p) ? value.filter((x) => x !== p) : [...value, p]);
-  return html`<span class="pf-pick">
-    ${Object.entries(PLATFORM).map(([k, p]) => html`<button type="button" class="pf-key ${value.includes(k) ? 'on' : ''}" aria-pressed=${value.includes(k)} onClick=${() => toggle(k)} style=${{ '--p': p.color }}><span class="pf-icon" aria-hidden="true" dangerouslySetInnerHTML=${{ __html: brandSvg(k, 16) }}></span>${p.label}</button>`)}
+  return html`<span class="pf-pick ${compact ? 'compact' : ''}">
+    ${Object.entries(PLATFORM).map(([k, p]) => html`<button type="button" class="pf-key ${value.includes(k) ? 'on' : ''}" aria-pressed=${value.includes(k)} title=${p.label} aria-label=${p.label} onClick=${() => toggle(k)} style=${{ '--p': p.color }}><span class="pf-icon" aria-hidden="true" dangerouslySetInnerHTML=${{ __html: brandSvg(k, 16) }}></span>${compact ? '' : p.label}</button>`)}
   </span>`;
 }
 

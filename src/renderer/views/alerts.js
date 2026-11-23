@@ -22,6 +22,7 @@ function Rule({ r, s, def }) {
       <${Lamp} on=${r.enabled} onChange=${(v) => up({ enabled: v })} label=${def?.label || r.type} />
       <p class="rule-msg">${r.message}</p>
       ${!r.base && html`<span class="tagline">dès ${r.minAmount}</span>`}
+      <${Platforms} compact value=${r.platforms || []} onChange=${(v) => up({ platforms: v })} />
       <${Btn} onClick=${test}>Tester<//>
       <${Btn} onClick=${() => setOpen(!open)} title="Régler cette alerte">${open ? 'Fermer' : 'Régler'}<//>
     </div>
@@ -71,6 +72,7 @@ export function Alerts({ s }) {
     <div class="row tight">
       <${Field} label="Pause entre deux alertes (secondes)"><${Num} value=${s.alerts.gap} min="0" max="30" onSave=${async (v) => { const a = await act('setAlertGap', v); if (a) setState({ alerts: a }); }} /><//>
     </div>
+    <p class="note">Plusieurs overlays d'alertes ? Chacun peut ne montrer que certaines alertes et certaines plateformes : Apparence et lien, onglet Contenu.</p>
     <${Upsell}>FREE : une alerte par événement. PRO ajoute des paliers par montant et par cadeau, avec tes images, vidéos et sons.<//>
   </div>`;
 }

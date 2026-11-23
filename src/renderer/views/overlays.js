@@ -1,8 +1,9 @@
 import { RankConfig } from './ranks.js';
 // Galerie d'overlays : chaque carte montre l'overlay en vrai, avec activer, personnaliser, tester et copier.
 // Le formulaire de réglages est généré depuis src/shared/overlay-schema.js.
-import { html, useState, useEffect, useRef, act, reload, setState, copy, toast } from '../store.js';
-import { ICONS, Btn, Bay, Lamp, Field, Select, Fader, Color, Segments, Lazy, Pro, PageHead, Upsell } from '../ui.js';
+import { html, useState, useEffect, useRef, act, reload, setState, copy, toast, PLATFORM } from '../store.js';
+import { brandSvg } from '../../overlays/brands.js';
+import { ICONS, Btn, Bay, Lamp, Field, Select, Fader, Color, Segments, Lazy, Num, Pro, PageHead, Upsell } from '../ui.js';
 import { PadStudio, LiveBadge, STUDIO_KEYS } from './padstudio.js';
 import { SceneEditor } from './scene.js';
 
@@ -98,8 +99,87 @@ function PackField({ s, overlay, value, set, locked }) {
   </div>`;
 }
 
+// Menu des pièces : lignes « prix : action » modifiables, avec des modèles pour démarrer.
+const MENU_PRESETS = [
+  { id: 'gaming', label: 'Défis gaming', rows: [[1, 'Je dis ton pseudo', '👋'], [10, 'Je joue sans viser', '🙈'], [30, 'Son au choix', '🎵'], [99, 'Partie contre toi', '🎮'], [199, 'Tu choisis mon arme', '🎯'], [299, 'Je change de perso', '🧢'], [500, 'Tournoi avec le chat', '🏆'], [1000, 'Je fais ton défi', '🔥']] },
+  { id: 'irl', label: 'Discussion et IRL', rows: [[1, 'Merci en direct', '💖'], [5, 'Question au choix', '❓'], [30, 'Je raconte une anecdote', '📖'], [99, 'Je danse 15 secondes', '💃'], [299, 'Je lis ton message à voix haute', '📣'], [500, 'Défi de ton choix', '🔥'], [1000, '30 minutes de live en plus', '⏰']] },
+  { id: 'musique', label: 'Musique', rows: [[1, 'Je dis ton pseudo', '🎤'], [10, 'Bruitage au choix', '🥁'], [30, 'Tu choisis le prochain son', '🎵'], [99, 'Je chante un refrain', '🎶'], [299, 'Dédicace', '💌'], [1000, 'Chanson entière', '🎙️']] },
+];
+const rowId = () => `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+function MenuRows({ value, set, s }) {
+  const rows = Array.isArray(value) ? value : [];
+  const [undo, setUndo] = useState(null);
+  const gifts = [...(s.gifts || [])].filter((g) => Number(g.cost) > 0).sort((a, b) => a.cost - b.cost || String(a.name).localeCompare(String(b.name)));
+  const save = (next) => { setUndo(null); set(next); };
+  const put = (i, patch) => save(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const move = (i, d) => { const j = i + d; if (j < 0 || j >= rows.length) return; const next = [...rows]; [next[i], next[j]] = [next[j], next[i]]; save(next); };
+  const add = () => { const last = rows[rows.length - 1]; save([...rows, { id: rowId(), coins: last ? Math.max(1, last.coins * 2) : 1, text: 'Nouvelle action', emoji: '⭐', gift: '' }]); };
+  const preset = (id) => {
+    const p = MENU_PRESETS.find((x) => x.id === id);
+    if (!p) return;
+    setUndo(rows);
+    set(p.rows.map(([coins, text, emoji]) => ({ id: rowId(), coins, text, emoji, gift: '' })));
+  };
+  // Même choix que le moteur : le premier cadeau du catalogue TikTok à ce prix (la Rose pour 1 pièce).
+  const giftLabel = (r) => {
+    const auto = (s.gifts || []).find((g) => Number(g.cost) === Number(r.coins));
+    return auto ? `Auto : ${auto.name}` : 'Auto : cadeau à ce prix';
+  };
+  return html`<div class="field wide"><span class="f-label">Lignes du menu</span>
+    <div class="mr-list">
+      <div class="mr-head" aria-hidden="true"><span>Pièces</span><span>Emoji</span><span>Action</span><span>Cadeau (image et détection)</span><span></span></div>
+      ${rows.map((r, i) => html`<div class="mr-row" key=${r.id}>
+        <span class="mr-coins"><${Num} value=${r.coins} min="0" max="10000000" aria-label="Prix en pièces" title="Prix en pièces" onSave=${(v) => put(i, { coins: Math.max(0, Math.round(v) || 0) })} /></span>
+        <span class="mr-emoji"><${Lazy} value=${r.emoji || ''} maxLength="12" aria-label="Emoji" placeholder="🎵" onSave=${(v) => put(i, { emoji: v })} /></span>
+        <span class="mr-text"><${Lazy} value=${r.text || ''} maxLength="90" aria-label="Action" placeholder="Ce que tu fais" onSave=${(v) => put(i, { text: v })} /></span>
+        <span class="mr-gift"><${Select} value=${r.gift || ''} label="Cadeau" onChange=${(v) => { const g = gifts.find((x) => String(x.id) === String(v)); put(i, g ? { gift: String(g.id), coins: Number(g.cost) } : { gift: '' }); }}
+          options=${[{ value: '', label: giftLabel(r) }, ...gifts.map((g) => ({ value: String(g.id), label: `${g.name} · ${g.cost}` }))]} /></span>
+        <span class="mr-tools">
+          <button type="button" class="icon-btn" title="Monter" aria-label="Monter" disabled=${i === 0} onClick=${() => move(i, -1)}>↑</button>
+          <button type="button" class="icon-btn" title="Descendre" aria-label="Descendre" disabled=${i === rows.length - 1} onClick=${() => move(i, 1)}>↓</button>
+          <button type="button" class="icon-btn danger" title="Supprimer" aria-label="Supprimer la ligne" onClick=${() => save(rows.filter((_, j) => j !== i))}>✕</button>
+        </span>
+      </div>`)}
+      ${!rows.length && html`<p class="note">Aucune ligne : ajoute-en une ou pars d'un modèle.</p>`}
+    </div>
+    <div class="row tight mr-actions">
+      <${Btn} disabled=${rows.length >= 40} onClick=${add}>Ajouter une ligne<//>
+      <span class="mr-preset"><${Select} value="" label="Modèle" onChange=${preset} options=${[{ value: '', label: 'Partir d\'un modèle…' }, ...MENU_PRESETS.map((p) => ({ value: p.id, label: p.label }))]} /></span>
+      ${undo && html`<button type="button" class="linkish" onClick=${() => { set(undo); setUndo(null); }}>Annuler le modèle</button>`}
+    </div>
+    <p class="note">Choisis un cadeau pour afficher son image et n'allumer la ligne que pour lui. Sinon, Régie prend un cadeau TikTok du même prix.</p>
+  </div>`;
+}
+
+// Choix multiple en pastilles (événements, plateformes). Rien de choisi = tout : toutes les pastilles
+// sont allumées ; on éteint ce qu'on ne veut pas voir. Il en reste toujours au moins une.
+function PickMany({ f, value, set }) {
+  const all = f.options.map((o) => o.value);
+  const cur = Array.isArray(value) && value.length ? value.filter((v) => all.includes(v)) : all;
+  const toggle = (v) => {
+    const next = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
+    if (!next.length) { toast('Garde au moins un choix'); return; }
+    set(next.length === all.length ? [] : all.filter((x) => next.includes(x)));
+  };
+  const isPf = f.type === 'platforms';
+  return html`<div class="field wide"><span class="f-label">${f.label}${cur.length < all.length ? html` <small class="pick-count">${`${cur.length} sur ${all.length}`}</small>` : ''}</span>
+    <div class="pick-many ${isPf ? 'pf-pick' : ''}" role="group" aria-label=${f.label}>
+      ${f.options.map((o) => {
+        const on = cur.includes(o.value);
+        return isPf
+          ? html`<button type="button" key=${o.value} class="pf-key ${on ? 'on' : ''}" aria-pressed=${on} style=${{ '--p': PLATFORM[o.value]?.color || '#8FD3FF' }} onClick=${() => toggle(o.value)}><span class="pf-icon" aria-hidden="true" dangerouslySetInnerHTML=${{ __html: brandSvg(o.value, 16) }}></span>${o.label}</button>`
+          : html`<button type="button" key=${o.value} class="pick-chip ${on ? 'on' : ''}" aria-pressed=${on} onClick=${() => toggle(o.value)}>${o.label}</button>`;
+      })}
+      ${cur.length < all.length && html`<button type="button" class="linkish" onClick=${() => set([])}>Tout</button>`}
+    </div>
+  </div>`;
+}
+
 function FieldInput({ f, value, set, s, overlay }) {
   const locked = f.feature && !s.features[f.feature];
+  if (f.type === 'platforms' || f.type === 'events') return html`<${PickMany} f=${f} value=${value} set=${set} />`;
+  if (f.type === 'menurows') return html`<${MenuRows} value=${value} set=${set} s=${s} />`;
   if (f.type === 'padpack') return html`<${PackField} s=${s} overlay=${overlay} value=${value} set=${set} locked=${locked} />`;
   // Suivi = Rang : jeu, rangs qui sortent, chances et révélation, réglés depuis l'overlay lui-même.
   if (f.type === 'rankconfig') return html`<div class="field wide rank-inline"><${RankConfig} s=${s} compact /></div>`;

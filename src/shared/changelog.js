@@ -1,6 +1,16 @@
 // Nouveautés montrées dans « Quoi de neuf » après une mise à jour. La plus récente en premier.
 const CHANGELOG = [
   {
+    version: '2.18.0',
+    title: 'Menu des pièces et filtres pour chaque overlay',
+    items: [
+      'Nouvel overlay Menu des pièces : ta liste « prix : action » (défis, sons, 1v1…) en 6 styles (pastille, ticket, verre, néon, arcade, texte seul), avec tes couleurs, ta police, une ou deux colonnes ou quelques lignes qui défilent. Le cadeau envoyé allume sa ligne avec le pseudo.',
+      'Chaque overlay choisit ce qu\'il montre : quels événements (suivis, likes, partages, cadeaux…) et quelles plateformes (TikTok, Twitch, YouTube, Kick), dans l\'onglet Contenu.',
+      'Plusieurs overlays d\'alertes : chacun a sa propre file, un overlay « cadeaux TikTok » n\'attend plus la fin d\'une alerte Twitch. Dans Alertes, les plateformes de chaque alerte se règlent d\'un clic.',
+      'TikTok : la lecture avec ton compte démarre même quand TikTok ne dit pas si tu es en live, et Connexions affiche un diagnostic (page, connexion au chat, paquets, messages) pour voir où ça coince.',
+    ],
+  },
+  {
     version: '2.17.0',
     title: 'Tous les messages du chat arrivent',
     items: [

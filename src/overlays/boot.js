@@ -139,8 +139,27 @@ function bigMoment(msg) {
   return msg.t === 'rank';
 }
 
+// Filtres de l'overlay (Contenu › Événements affichés, Plateformes) : vide = tout.
+let filters = { onlyPlatforms: [], onlyEvents: [] };
+function passes(platform, type) {
+  const pf = filters.onlyPlatforms || [];
+  const ev = filters.onlyEvents || [];
+  if (pf.length && platform && !pf.includes(platform)) return false;
+  if (ev.length && type && type !== 'custom' && !ev.includes(type === 'giftstreak' ? 'gift' : type)) return false;
+  return true;
+}
+function filtered(msg) {
+  if (msg.t === 'ev' || msg.t === 'giftstreak') return !passes(msg.ev?.platform, msg.ev?.type);
+  if (msg.t === 'alert') return !passes(msg.alert?.platform, msg.alert?.type);
+  if (msg.t === 'welcome') return !passes(msg.who?.platform, null);
+  return false;
+}
+window.regiePasses = passes;
+
 async function onMessage(msg) {
   if (msg.t === 'init') {
+    const st = msg.overlay.settings || {};
+    filters = { onlyPlatforms: Array.isArray(st.onlyPlatforms) ? st.onlyPlatforms : [], onlyEvents: Array.isArray(st.onlyEvents) ? st.onlyEvents : [] };
     if (type !== msg.overlay.type) {
       type = msg.overlay.type;
       const loaded = await import(`./types/${type}.js`);
@@ -150,6 +169,7 @@ async function onMessage(msg) {
     applyCommon(msg);
     mod.update?.(msg.overlay.settings, msg.data);
   } else {
+    if (filtered(msg)) return;
     mod?.on?.(msg);
     if (msg.t === 'sound') playSound(msg.sound, msg.volume);
     if (bigMoment(msg) && Date.now() - lastBurst > 2500) { lastBurst = Date.now(); confetti(); }

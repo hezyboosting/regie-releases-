@@ -799,4 +799,29 @@ textarea.in { font: inherit; font-size: 13.5px; resize: vertical; }
 .cx-miss summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--mute); } .cx-miss[open] summary { margin-bottom: 8px; color: var(--text); }
 .cx-reader { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; }
 .cx-reader-st { font-size: 12.5px; color: var(--faint); } .cx-reader-st.ok { color: #3ddc97; } .cx-reader-st.nodata, .cx-reader-st.error, .cx-reader-st.login { color: #f0b429; }
+.cx-diag { flex-basis: 100%; margin: 0; display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11.5px; color: var(--faint); } .cx-diag span + span::before { content: '·'; margin-right: 10px; opacity: .6; } .cx-diag-warn { flex-basis: 100%; color: #f0b429; font-weight: 600; } .cx-diag span + .cx-diag-warn::before { content: none; }
+.cx-diag-url { font-family: var(--mono, ui-monospace, monospace); }
 .cx-miss .steps-mini { list-style: decimal; } .cx-miss .steps-mini li { line-height: 1.45; } .cx-miss .row { margin-top: 6px; }
+
+/* Filtres d'overlay : événements et plateformes affichés */
+.pick-many { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.pick-chip { height: 30px; padding: 0 12px; border-radius: 999px; background: rgba(var(--w),.06); color: var(--mute); font-size: 13px; font-weight: 500; border: 1px solid rgba(var(--w),.08); }
+.pick-chip.on { background: rgba(143,211,255,.24); color: var(--text); border-color: rgba(143,211,255,.75); font-weight: 600; } .pick-chip:not(.on) { opacity: .72; }
+.pick-chip:hover { border-color: rgba(var(--w),.25); }
+.pick-count { font-weight: 500; color: var(--faint); margin-left: 6px; }
+
+.pf-pick.compact { gap: 3px; flex-wrap: nowrap; } .pf-pick.compact .pf-key { width: 30px; padding: 0; display: inline-grid; place-items: center; }
+.pf-pick.compact .pf-key:not(.on) .pf-icon { opacity: .45; filter: grayscale(1); }
+
+/* Menu des pièces : éditeur des lignes (une petite carte par ligne, tient dans le panneau de réglages) */
+.mr-list { display: flex; flex-direction: column; gap: 6px; }
+.mr-head { display: none; }
+.mr-row { display: grid; grid-template-columns: 96px 58px minmax(0, 1fr) auto; grid-template-areas: "coins emoji text text" "gift gift gift tools"; gap: 6px; padding: 7px; border-radius: 12px; background: rgba(var(--w),.04); box-shadow: inset 0 0 0 1px rgba(var(--w),.06); }
+.mr-coins { grid-area: coins; position: relative; } .mr-emoji { grid-area: emoji; } .mr-text { grid-area: text; } .mr-gift { grid-area: gift; min-width: 0; } .mr-tools { grid-area: tools; justify-self: end; display: inline-flex; gap: 2px; align-items: center; }
+.mr-row .in { width: 100%; min-width: 0; box-sizing: border-box; }
+.mr-coins .in { font-variant-numeric: tabular-nums; font-weight: 600; }
+.mr-emoji .in { text-align: center; }
+.icon-btn.danger:hover { color: var(--bad); }
+.icon-btn:disabled { opacity: .35; pointer-events: none; }
+.mr-actions { margin-top: 8px; align-items: center; flex-wrap: wrap; }
+.mr-preset { min-width: 200px; }

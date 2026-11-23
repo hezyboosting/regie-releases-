@@ -69,6 +69,21 @@ const READER = {
   error: () => 'Lecture avec ton compte impossible pour l\'instant, nouvel essai automatique.',
 };
 
+// Ce que voit la lecture avec ton compte, pour savoir où ça coince (à copier dans un signalement).
+function ReaderDiag({ r }) {
+  const ago = r.lastAt ? Math.max(0, Math.round((Date.now() - r.lastAt) / 1000)) : null;
+  return html`<p class="cx-diag">
+    <span>${r.page ? 'Page du live ouverte' : 'Page du live fermée'}</span>
+    <span>${r.sockets ? 'connexion au chat : oui' : 'connexion au chat : non'}</span>
+    <span>${`${r.frames || 0} paquets reçus`}</span>
+    <span>${`${r.count || 0} messages lus`}</span>
+    ${ago !== null && html`<span>${`dernier paquet il y a ${ago} s`}</span>`}
+    ${r.errors > 0 && html`<span>${`${r.errors} paquets illisibles`}</span>`}
+    ${r.url && html`<span class="cx-diag-url">${r.url}</span>`}
+    ${/\/login|passport|captcha|verify/i.test(r.url || '') && html`<b class="cx-diag-warn">TikTok demande de te reconnecter : Déconnecter, puis reconnecte ton compte TikTok.</b>`}
+  </p>`;
+}
+
 function TikTokMissing({ s }) {
   const chans = s.channels.filter((c) => c.platform === 'tiktok');
   const logged = Boolean(s.webChat?.tiktok);
@@ -82,13 +97,15 @@ function TikTokMissing({ s }) {
     ${chans.map((c) => {
       const r = c.reader || { state: logged ? 'waiting' : 'login', extra: 0 };
       const st = c.fullChat ? r.state : 'off';
+      const diag = c.fullChat && logged && st !== 'off' && st !== 'login';
       return html`<div class="cx-reader" key=${c.id}>
         <${Lamp} on=${c.fullChat} label=${`Lire le chat avec mon compte (${c.label})`} onChange=${(v) => set(c.id, v)} />
         <span class="cx-reader-st ${st}">${(READER[st] || READER.waiting)(r)}</span>
-        ${c.fullChat && logged && (st === 'nodata' || st === 'error') && html`<button type="button" class="linkish" onClick=${() => act('webChatShow', c.id)}>Voir la fenêtre</button>`}
+        ${diag && html`<button type="button" class="linkish" title="Montre la page de ton live telle que Régie la lit" onClick=${() => act('webChatShow', c.id)}>Voir la fenêtre</button>`}
+        ${diag && html`<${ReaderDiag} r=${r} />`}
       </div>`;
     })}
-    <p class="note">Un message que TikTok cache à tous les spectateurs (mot bloqué, compte restreint par TikTok) ne peut être lu par aucun outil.</p>
+    <p class="note">Pour vérifier : le message manquant apparaît-il dans le chat de TikTok LIVE Studio, ou sur un 3e téléphone qui regarde ton live ? S'il n'y apparaît pas non plus, TikTok le cache à tout le monde (mot bloqué, compte restreint par TikTok) et aucun outil ne peut le lire.</p>
   </details>`;
 }
 

@@ -647,3 +647,58 @@ test('Un module en erreur ne fait jamais perdre un message du chat', () => {
   assert.ok(out[0].t.includes('dock') && out[0].t.includes('chat'));
   assert.equal(engine.mainFeed.at(-1).text, 'tu me vois ?');
 });
+
+test('Chaque overlay d\'alertes ne montre que ses événements et ses plateformes, avec sa propre file', () => {
+  const { engine, file, ev } = rig();
+  const sent = [];
+  engine.server.broadcast = (m, t, filter) => sent.push({ m, t, filter });
+  const main = file.data.overlays.find((o) => o.type === 'alerts');
+  const gifts = { id: 'oGifts', type: 'alerts', enabled: true, settings: { ...overlayDefaults('alerts'), onlyEvents: ['gift'], onlyPlatforms: ['tiktok'] } };
+  file.data.overlays.push(gifts);
+  Object.assign(file.data.alerts.rules.find((r) => r.type === 'gift'), { enabled: true });
+  engine.handle(ev('follow', { platform: 'twitch' }));
+  engine.handle(ev('gift', { platform: 'tiktok', amount: 1, value: 1, gift: { id: '1', name: 'Rose' } }));
+  const who = (m) => sent.filter((x) => x.m.t === 'alert' && x.m.alert.type === m).map((x) => [main.id, gifts.id].filter((id) => x.filter({ overlayId: id })));
+  // Le suivi Twitch va seulement à l'overlay sans filtre ; le cadeau part tout de suite sur l'overlay « cadeaux ».
+  assert.deepEqual(who('follow'), [[main.id]]);
+  assert.deepEqual(who('gift'), [[gifts.id]]);
+  assert.equal(engine.alertQueue.length, 1, 'le cadeau attend son tour sur l\'overlay sans filtre');
+  engine.skipAlert();
+  assert.deepEqual(who('gift'), [[gifts.id], [main.id]]);
+  engine.stop();
+});
+
+test('Menu des pièces : lignes nettoyées, image du cadeau du même prix ou du cadeau choisi', () => {
+  const { engine, file } = rig();
+  const { cleanMenuRows } = require('../src/shared/overlay-schema');
+  const rows = cleanMenuRows([{ id: 'a', coins: '30', text: 'Son au choix', emoji: '🎵' }, { coins: -5, text: 'x'.repeat(200), color: 'rouge' }, null]);
+  assert.deepEqual(rows.map((r) => [r.coins, r.text.length, r.color]), [[30, 12, ''], [0, 90, ''], [0, 0, '']]);
+  engine.gifts = [{ id: 1, name: 'Rose', cost: 1, image: 'https://x/rose.png' }, { id: 2, name: 'Donut', cost: 30, image: 'https://x/donut.png' }, { id: 3, name: 'Galaxie', cost: 1000, image: 'https://x/galaxy.png' }];
+  const o = engine.addOverlay('coinmenu');
+  o.settings.rows = [{ id: 'r1', coins: 1, text: 'Pseudo', emoji: '👋', gift: '' }, { id: 'r2', coins: 500, text: 'Défi', emoji: '🔥', gift: '3' }, { id: 'r3', coins: 7, text: 'Rien', emoji: '', gift: '' }];
+  o.settings.onlyPlatforms = ['tiktok', 'inconnue'];
+  const st = engine.effectiveSettings(o);
+  assert.deepEqual(st.onlyPlatforms, ['tiktok']);
+  const data = engine.overlayData(o);
+  assert.equal(data.gifts.r1.name, 'Rose');
+  assert.equal(data.gifts.r2.name, 'Galaxie', 'le cadeau choisi passe avant le prix');
+  assert.equal(data.gifts.r3, undefined);
+  // Deux menus n'ont jamais les mêmes lignes en mémoire.
+  const other = engine.addOverlay('coinmenu');
+  assert.notEqual(other.settings.rows, file.data.overlays.find((x) => x.type === 'coinmenu' && x !== other).settings.rows);
+  engine.stop();
+});
+
+test('Les filtres d\'overlay : un événement passe selon sa plateforme et son type', () => {
+  const { passesFilter, OVERLAY_TYPES } = require('../src/shared/overlay-schema');
+  assert.equal(passesFilter({}, 'twitch', 'follow'), true);
+  assert.equal(passesFilter({ onlyPlatforms: ['tiktok'] }, 'twitch', 'follow'), false);
+  assert.equal(passesFilter({ onlyEvents: ['gift'] }, 'tiktok', 'giftstreak'), true, 'un combo en cours compte comme un cadeau');
+  assert.equal(passesFilter({ onlyEvents: ['gift'] }, 'tiktok', 'custom'), true, 'les alertes d\'automatisation passent toujours');
+  assert.equal(passesFilter({ onlyEvents: ['follow', 'share'] }, 'tiktok', 'like'), false);
+  // Tous les overlays qui montrent des événements en direct proposent les filtres.
+  for (const t of ['alerts', 'chat', 'ticker', 'giftfeed', 'webcam', 'coinjar', 'emojify', 'firework', 'avatars', 'giftcannon', 'likefountain', 'welcome', 'coinmenu']) {
+    assert.ok(OVERLAY_TYPES[t].fields.some((f) => f.key === 'onlyPlatforms'), t);
+  }
+  assert.ok(OVERLAY_TYPES.alerts.fields.find((f) => f.key === 'onlyEvents').options.some((o) => o.value === 'share'));
+});

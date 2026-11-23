@@ -3332,3 +3332,77 @@ TikTok : les messages de certains comptes (récents, privés ou jugés peu fiabl
 Chaque message ne s'affiche qu'une fois, même s'il arrive par les deux chemins. Connexions montre combien de messages ton compte a récupérés, et le chat unifié prévient quand des messages TikTok peuvent manquer.	Each message shows only once, even when it arrives both ways. Connections shows how many messages your account recovered, and the unified chat warns you when TikTok messages may be missing.
 YouTube sans compte : Régie lit « Chat en direct » au lieu de « Chat principal », où YouTube cache des messages. Une horloge de PC décalée ne fait plus perdre de messages.	YouTube without an account: Régie reads "Live chat" instead of "Top chat", where YouTube hides messages. A PC clock that's off no longer loses messages.
 Un module en erreur (points, statistiques, bienvenue, jeux) ne peut plus faire disparaître un message. Twitch : les messages « /me » s'affichent proprement.	A failing module (points, stats, welcome, games) can no longer make a message disappear. Twitch: "/me" messages display cleanly.
+# 2.18.0 : menu des pièces, filtres d'overlay, diagnostic TikTok
+Menu des pièces	Coin menu
+Ta liste « prix en pièces : action » (défis, sons, 1v1…), dans le style que tu veux. Le cadeau envoyé s'allume à l'écran avec le pseudo.	Your "coin price: action" list (challenges, sounds, 1v1…), in the style you want. The gift that's sent lights up on screen with the sender's name.
+Lignes du menu	Menu rows
+Unité au singulier	Unit (singular)
+Unité au pluriel	Unit (plural)
+Écrire l'unité après le prix	Write the unit after the price
+Icône à gauche	Left icon
+Image du cadeau TikTok	TikTok gift image
+Afficher les emojis	Show emojis
+Ordre des lignes	Row order
+Comme dans la liste	As in the list
+Une colonne	One column
+Deux colonnes	Two columns
+Quelques lignes qui défilent	A few rows at a time
+Lignes visibles à la fois	Rows shown at once
+Changer de lignes toutes les	Switch rows every
+Allumer la ligne quand le cadeau arrive	Light up the row when the gift arrives
+Ligne allumée	Row lit up
+Cadeau du même prix	Gift with the same price
+Palier atteint par le prix du cadeau	Tier reached by the gift price
+Palier atteint par le total envoyé	Tier reached by the total sent
+Afficher qui a envoyé le cadeau	Show who sent the gift
+Durée de la mise en avant	Highlight duration
+Fond des lignes	Row background
+Couleur du prix	Price color
+Opacité du fond	Background opacity
+Arrondi des lignes	Row rounding
+Espace entre les lignes	Space between rows
+Prix en majuscules	Price in capitals
+Texte penché	Slanted text
+Arrivée des lignes	Rows entrance
+Une par une	One by one
+Reflet qui passe sur les lignes	Shine sweeping across rows
+Effet sur la ligne allumée	Effect on the lit row
+Secousse	Shake
+Éclair	Flash
+Alertes affichées	Alerts shown
+Événements affichés	Events shown
+Arrivées	Joins
+Réabonnements	Resubs
+Nouveaux VIP	New VIPs
+Membres	Members
+Paliers de membre	Member milestones
+Garde au moins un choix	Keep at least one choice
+Défis gaming	Gaming challenges
+Discussion et IRL	Just chatting and IRL
+Cadeau (image et détection)	Gift (image and detection)
+Auto : {0}	Auto: {0}
+Auto : cadeau à ce prix	Auto: gift at this price
+Prix en pièces	Price in coins
+Ce que tu fais	What you do
+Supprimer la ligne	Delete row
+Aucune ligne : ajoute-en une ou pars d'un modèle.	No rows: add one or start from a template.
+Ajouter une ligne	Add a row
+Partir d'un modèle…	Start from a template…
+Choisis un cadeau pour afficher son image et n'allumer la ligne que pour lui. Sinon, Régie prend un cadeau TikTok du même prix.	Pick a gift to show its image and light the row only for that gift. Otherwise Régie uses a TikTok gift with the same price.
+Plusieurs overlays d'alertes ? Chacun peut ne montrer que certaines alertes et certaines plateformes : Apparence et lien, onglet Contenu.	Several alert overlays? Each one can show only some alerts and some platforms: Appearance and link, Content tab.
+Page du live ouverte	Live page open
+Page du live fermée	Live page closed
+connexion au chat : oui	chat connection: yes
+connexion au chat : non	chat connection: no
+{0} paquets reçus	{0} packets received
+{0} messages lus	{0} messages read
+dernier paquet il y a {0} s	last packet {0} s ago
+{0} paquets illisibles	{0} unreadable packets
+Montre la page de ton live telle que Régie la lit	Shows your live page as Régie reads it
+Pour vérifier : le message manquant apparaît-il dans le chat de TikTok LIVE Studio, ou sur un 3e téléphone qui regarde ton live ? S'il n'y apparaît pas non plus, TikTok le cache à tout le monde (mot bloqué, compte restreint par TikTok) et aucun outil ne peut le lire.	To check: does the missing message show up in TikTok LIVE Studio's chat, or on a third phone watching your live? If it doesn't show up there either, TikTok hides it from everyone (blocked word, account restricted by TikTok) and no tool can read it.
+Menu des pièces et filtres pour chaque overlay	Coin menu and filters for every overlay
+Nouvel overlay Menu des pièces : ta liste « prix : action » (défis, sons, 1v1…) en 6 styles (pastille, ticket, verre, néon, arcade, texte seul), avec tes couleurs, ta police, une ou deux colonnes ou quelques lignes qui défilent. Le cadeau envoyé allume sa ligne avec le pseudo.	New Coin menu overlay: your "price: action" list (challenges, sounds, 1v1…) in 6 styles (pill, ticket, glass, neon, arcade, text only), with your colors and font, in one or two columns or a few rows at a time. The gift that's sent lights up its row with the sender's name.
+Chaque overlay choisit ce qu'il montre : quels événements (suivis, likes, partages, cadeaux…) et quelles plateformes (TikTok, Twitch, YouTube, Kick), dans l'onglet Contenu.	Every overlay chooses what it shows: which events (follows, likes, shares, gifts…) and which platforms (TikTok, Twitch, YouTube, Kick), in the Content tab.
+Plusieurs overlays d'alertes : chacun a sa propre file, un overlay « cadeaux TikTok » n'attend plus la fin d'une alerte Twitch. Dans Alertes, les plateformes de chaque alerte se règlent d'un clic.	Several alert overlays: each has its own queue, so a "TikTok gifts" overlay no longer waits for a Twitch alert to end. In Alerts, each alert's platforms are set in one click.
+TikTok : la lecture avec ton compte démarre même quand TikTok ne dit pas si tu es en live, et Connexions affiche un diagnostic (page, connexion au chat, paquets, messages) pour voir où ça coince.	TikTok: reading with your account starts even when TikTok won't say whether you're live, and Connections shows a diagnostic (page, chat connection, packets, messages) to see where it gets stuck.
+TikTok demande de te reconnecter : Déconnecter, puis reconnecte ton compte TikTok.	TikTok wants you to sign in again: Disconnect, then reconnect your TikTok account.

@@ -18,6 +18,18 @@ const FONTS = [
 const CSS = { key: 'customCss', label: 'CSS personnalisé', type: 'code', default: '', feature: 'customCss' };
 const FONT = S('font', 'Police', 'onest', FONTS);
 const SCALE = R('scale', 'Taille', 100, 40, 300, 5, ' %');
+// Menu des pièces : exemples de départ, que le streamer remplace par les siens.
+const MENU_ROWS = [
+  { id: 'r1', coins: 1, text: 'Je dis ton pseudo', emoji: '👋', gift: '' },
+  { id: 'r2', coins: 5, text: 'Cri de victoire', emoji: '📣', gift: '' },
+  { id: 'r3', coins: 10, text: 'Grimace en direct', emoji: '😜', gift: '' },
+  { id: 'r4', coins: 30, text: 'Son au choix', emoji: '🎵', gift: '' },
+  { id: 'r5', coins: 99, text: 'Partie contre toi', emoji: '🎮', gift: '' },
+  { id: 'r6', coins: 199, text: 'Tu choisis mon arme', emoji: '🎯', gift: '' },
+  { id: 'r7', coins: 299, text: 'Je change de skin', emoji: '🧢', gift: '' },
+  { id: 'r8', coins: 500, text: 'Défi de ton choix', emoji: '🔥', gift: '' },
+  { id: 'r9', coins: 1000, text: 'Je chante le refrain', emoji: '🎤', gift: '' },
+];
 
 const OVERLAY_TYPES = {
   alerts: {
@@ -155,6 +167,34 @@ SCALE, CSS,
       S('style', 'Présentation', 'podium', [{ value: 'podium', label: 'Podium pour le top 3' }, { value: 'liste', label: 'Liste' }]),
       TX('title', 'Titre', 'Meilleurs soutiens'), S('metric', 'Classer par', 'coins', [{ value: 'coins', label: 'Cadeaux' }, { value: 'likes', label: 'Likes' }, { value: 'points', label: 'Points' }, { value: 'messages', label: 'Messages' }, { value: 'shares', label: 'Partages' }, { value: 'subs', label: 'Abonnements' }, { value: 'follows', label: 'Suivis' }]),
       S('scope', 'Période', 'session', [{ value: 'session', label: 'Ce live' }, { value: 'today', label: 'Aujourd\'hui' }, { value: 'week', label: '7 jours' }, { value: 'month', label: '30 jours' }, { value: 'all', label: 'Depuis le début' }]), R('count', 'Places', 5, 3, 10), C('accent', 'Accent', '#F3D38A'), C('text', 'Texte', '#F2F5F9'), C('bg', 'Fond', '#10131A'), FONT, SCALE, CSS,
+    ],
+  },
+  coinmenu: {
+    name: 'Menu des pièces', size: [600, 760], group: 'Cadeaux et classements', fxSkip: ['fxItems', 'fxItemsAnim'],
+    blurb: 'Ta liste « prix en pièces : action » (défis, sons, 1v1…), dans le style que tu veux. Le cadeau envoyé s\'allume à l\'écran avec le pseudo.',
+    fields: [
+      { key: 'rows', label: 'Lignes du menu', type: 'menurows', default: MENU_ROWS },
+      TX('title', 'Titre', 'Menu des pièces'), T('showTitle', 'Afficher le titre', true),
+      TX('unitOne', 'Unité au singulier', 'pièce'), TX('unitMany', 'Unité au pluriel', 'pièces'), T('showUnit', 'Écrire l\'unité après le prix', true),
+      S('icon', 'Icône à gauche', 'coin', [{ value: 'coin', label: 'Pièce' }, { value: 'gift', label: 'Image du cadeau TikTok' }, { value: 'none', label: 'Aucune' }]),
+      T('emoji', 'Afficher les emojis', true),
+      S('sort', 'Ordre des lignes', 'asc', [{ value: 'asc', label: 'Prix croissant' }, { value: 'desc', label: 'Prix décroissant' }, { value: 'manual', label: 'Comme dans la liste' }]),
+      S('layout', 'Disposition', 'column', [{ value: 'column', label: 'Une colonne' }, { value: 'grid', label: 'Deux colonnes' }, { value: 'cycle', label: 'Quelques lignes qui défilent' }]),
+      R('visible', 'Lignes visibles à la fois', 4, 1, 12, 1, '', { when: { layout: 'cycle' } }), R('cycleSec', 'Changer de lignes toutes les', 6, 2, 30, 1, ' s', { when: { layout: 'cycle' } }),
+      T('react', 'Allumer la ligne quand le cadeau arrive', true),
+      S('match', 'Ligne allumée', 'exact', [{ value: 'exact', label: 'Cadeau du même prix' }, { value: 'floor', label: 'Palier atteint par le prix du cadeau' }, { value: 'total', label: 'Palier atteint par le total envoyé' }], { when: { react: true } }),
+      T('showWho', 'Afficher qui a envoyé le cadeau', true, { when: { react: true } }), R('reactSec', 'Durée de la mise en avant', 6, 2, 20, 1, ' s', { when: { react: true } }),
+      S('theme', 'Style', 'pastille', [
+        { value: 'pastille', label: 'Pastille' }, { value: 'ticket', label: 'Ticket' }, { value: 'verre', label: 'Verre' },
+        { value: 'neon', label: 'Néon' }, { value: 'arcade', label: 'Arcade' }, { value: 'minimal', label: 'Texte seul' },
+      ]),
+      C('accent', 'Couleur principale', '#7C5CFF'), C('rowBg', 'Fond des lignes', '#141022'), C('priceColor', 'Couleur du prix', '#FFD166'), C('text', 'Texte', '#FFFFFF'), C('coin', 'Pièce', '#FFC93C'),
+      R('bgAlpha', 'Opacité du fond', 88, 0, 100, 5, ' %', { tab: 'style' }), R('radius', 'Arrondi des lignes', 16, 0, 40, 1, ' px', { tab: 'style' }), R('gap', 'Espace entre les lignes', 10, 0, 40, 1, ' px', { tab: 'style' }),
+      R('fontSize', 'Taille du texte', 24, 12, 56, 1, ' px'), R('glow', 'Lueur', 40, 0, 100, 5, ' %', { tab: 'style' }), T('upper', 'Prix en majuscules', true, { tab: 'style' }), T('italic', 'Texte penché', false, { tab: 'style' }),
+      S('enter', 'Arrivée des lignes', 'cascade', [{ value: 'cascade', label: 'Une par une' }, { value: 'fade', label: 'Fondu' }, { value: 'none', label: 'Aucune' }], { tab: 'anim' }),
+      T('shine', 'Reflet qui passe sur les lignes', true, { tab: 'anim' }),
+      S('hit', 'Effet sur la ligne allumée', 'pulse', [{ value: 'pulse', label: 'Pulsation' }, { value: 'shake', label: 'Secousse' }, { value: 'flash', label: 'Éclair' }, { value: 'zoom', label: 'Zoom' }], { tab: 'anim' }),
+      { ...FONT, default: 'archivo' }, SCALE, CSS,
     ],
   },
   giftfeed: {
@@ -439,6 +479,44 @@ SCALE, CSS,
   },
 };
 
+// ---------- Filtres : quels événements et quelles plateformes chaque overlay montre ----------
+// Vide = tout. Appliqués par overlays/boot.js (et par le moteur pour les files d'alertes).
+const PLATFORM_OPTIONS = [{ value: 'tiktok', label: 'TikTok' }, { value: 'twitch', label: 'Twitch' }, { value: 'youtube', label: 'YouTube' }, { value: 'kick', label: 'Kick' }];
+const EVENT_LABELS = {
+  chat: 'Messages', follow: 'Suivis', like: 'Likes', share: 'Partages', gift: 'Cadeaux', join: 'Arrivées', superfan: 'Super Fans',
+  sub: 'Abonnements', resub: 'Réabonnements', giftsub: 'Abonnements offerts', bits: 'Bits', raid: 'Raids', redeem: 'Points de chaîne', vip: 'Nouveaux VIP', hypetrain: 'Hype Train',
+  superchat: 'Super Chats', supersticker: 'Super Stickers', member: 'Membres', milestone: 'Paliers de membre', goal: 'Objectifs atteints',
+};
+const SUPPORT = ['follow', 'sub', 'resub', 'giftsub', 'bits', 'raid', 'gift', 'superchat', 'supersticker', 'member'];
+const OVERLAY_EVENTS = {
+  alerts: ['follow', 'like', 'share', 'gift', 'join', 'superfan', 'sub', 'resub', 'giftsub', 'bits', 'raid', 'redeem', 'vip', 'hypetrain', 'superchat', 'supersticker', 'member', 'milestone', 'goal'],
+  chat: ['chat', ...SUPPORT, 'share', 'superfan'],
+  ticker: SUPPORT,
+  webcam: [...SUPPORT, 'share', 'superfan'],
+  coinjar: ['gift', 'bits', 'superchat', 'supersticker', 'follow', 'like', 'share'],
+  firework: ['gift', 'bits', 'superchat', 'supersticker', 'follow', 'sub', 'resub', 'giftsub', 'member'],
+  likefountain: ['like', 'follow', 'gift'],
+  emojify: ['chat', 'gift'],
+  // Un seul type d'événement (ou des réglages à eux) : seulement le choix des plateformes.
+  giftfeed: null, giftcannon: null, avatars: null, welcome: null, coinmenu: null,
+};
+// Un événement passe-t-il les filtres de cet overlay ? (les alertes d'automatisation passent toujours)
+function passesFilter(st = {}, platform, type) {
+  const pf = Array.isArray(st.onlyPlatforms) ? st.onlyPlatforms : [];
+  const ev = Array.isArray(st.onlyEvents) ? st.onlyEvents : [];
+  if (pf.length && platform && !pf.includes(platform)) return false;
+  if (ev.length && type && type !== 'custom' && !ev.includes(type === 'giftstreak' ? 'gift' : type)) return false;
+  return true;
+}
+const hasFilter = (st = {}) => Boolean(st.onlyPlatforms?.length || st.onlyEvents?.length);
+function addFilters(type, def) {
+  if (!(type in OVERLAY_EVENTS)) return;
+  const list = OVERLAY_EVENTS[type];
+  const out = [{ key: 'onlyPlatforms', label: 'Plateformes', type: 'platforms', default: [], options: PLATFORM_OPTIONS, tab: 'content' }];
+  if (list) out.unshift({ key: 'onlyEvents', label: type === 'alerts' ? 'Alertes affichées' : 'Événements affichés', type: 'events', default: [], options: list.map((v) => ({ value: v, label: EVENT_LABELS[v] || v })), tab: 'content' });
+  def.fields.unshift(...out);
+}
+
 // Style, animation et position, communs à tous les overlays (appliqués par overlays/boot.js).
 // tab : onglet de l'éditeur (content, style, anim, pos).
 const st = { group: 'fx', tab: 'style' };
@@ -469,6 +547,7 @@ const COMMON = [
 // fxSkip : effets communs retirés d'un overlay qui a déjà sa propre animation (sinon ils se gênent).
 const FX_NONE = { fxIntro: 'none', fxIdle: 'none', fxItems: false, fxSpeed: 100, fxConfetti: false };
 for (const def of Object.values(OVERLAY_TYPES)) if (!def.noFx) def.fields.push(...COMMON.filter((f) => !(def.fxSkip || []).includes(f.key)));
+for (const [type, def] of Object.entries(OVERLAY_TYPES)) addFilters(type, def);
 // Valeurs neutres imposées pour les effets retirés (un ancien réglage ne doit plus s'appliquer).
 function fxLocked(type) { const skip = OVERLAY_TYPES[type]?.fxSkip || []; return Object.fromEntries(skip.filter((k) => k in FX_NONE).map((k) => [k, FX_NONE[k]])); }
 
@@ -510,10 +589,26 @@ const PAD_ZONES = {
 };
 const PAD_ZONE_NAMES = { 0: 'Bas', 1: 'Droite', 2: 'Gauche', 3: 'Haut', 4: 'Bumper gauche', 5: 'Bumper droit', 6: 'Gâchette gauche', 7: 'Gâchette droite', 8: 'Bouton gauche', 9: 'Bouton droit', 12: 'Croix haut', 13: 'Croix bas', 14: 'Croix gauche', 15: 'Croix droite', 16: 'Bouton central', 17: 'Pavé', l: 'Stick gauche', r: 'Stick droit' };
 
+// Lignes du menu des pièces nettoyées (elles viennent de l'éditeur et partent dans la page OBS).
+function cleanMenuRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.slice(0, 40).map((r, i) => ({
+    id: String(r?.id || `r${i}`).slice(0, 24),
+    coins: Math.max(0, Math.min(10000000, Math.round(Number(r?.coins) || 0))),
+    text: String(r?.text ?? '').slice(0, 90),
+    emoji: String(r?.emoji ?? '').slice(0, 12),
+    gift: String(r?.gift ?? '').slice(0, 40),
+    color: /^#[0-9a-f]{6}$/i.test(r?.color || '') ? r.color : '',
+  }));
+}
+// Filtres : seulement des valeurs connues.
+const cleanPick = (v, options) => (Array.isArray(v) ? v.filter((x) => options.some((o) => o.value === x)) : []);
+
 function overlayDefaults(type) {
   const out = {};
-  for (const f of OVERLAY_TYPES[type]?.fields || []) out[f.key] = f.default;
+  // Copie des valeurs par défaut en objet (lignes du menu, finitions) : jamais partagées entre overlays.
+  for (const f of OVERLAY_TYPES[type]?.fields || []) out[f.key] = f.default && typeof f.default === 'object' ? JSON.parse(JSON.stringify(f.default)) : f.default;
   return out;
 }
 
-module.exports = { OVERLAY_TYPES, fxLocked, overlayDefaults, COLORWAYS, FINISH_GROUPS, finishFrom, PAD_ZONES, PAD_ZONE_NAMES };
+module.exports = { OVERLAY_TYPES, MENU_ROWS, cleanMenuRows, cleanPick, OVERLAY_EVENTS, EVENT_LABELS, PLATFORM_OPTIONS, passesFilter, hasFilter, fxLocked, overlayDefaults, COLORWAYS, FINISH_GROUPS, finishFrom, PAD_ZONES, PAD_ZONE_NAMES };

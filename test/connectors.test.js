@@ -387,6 +387,10 @@ test('TikTok : un message arrivé par la lecture anonyme et par ton compte ne s\
   c.stopped = false;
   c.startReader();
   assert.ok(webchat.opts, 'la lecture avec le compte démarre par défaut');
+  assert.equal(webchat.opts.isLive(), true, 'statut du live inconnu : la page s\'ouvre quand même');
+  c.setLive(false);
+  assert.equal(webchat.opts.isLive(), false);
+  c.setLive(true);
   // Lecture anonyme : message de A.
   const a = P.WebcastChatMessage.decode(chat('100', 'compteA', 'message A').payload);
   if (c.fresh('chat', a, 'anonyme')) out.push(tiktok.normalize('chat', a));
@@ -394,7 +398,8 @@ test('TikTok : un message arrivé par la lecture anonyme et par ton compte ne s\
   await webchat.opts.onData('ws', frame([chat('100', 'compteA', 'message A'), chat('101', 'compteB', 'message B')]));
   await webchat.opts.onData('ws', frame([chat('101', 'compteB', 'message B')]));
   assert.deepEqual(out.map((e) => e.text), ['message A', 'message B']);
-  assert.deepEqual(c.readerInfo(), { state: 'starting', count: 3, extra: 1 });
+  const info = c.readerInfo();
+  assert.deepEqual([info.state, info.count, info.extra], ['starting', 3, 1]);
   // B arrive ensuite aussi en anonyme : pas de doublon, et il ne compte plus comme récupéré.
   const b = P.WebcastChatMessage.decode(chat('101', 'compteB', 'message B').payload);
   assert.equal(c.fresh('chat', b, 'anonyme'), false);

@@ -179,7 +179,7 @@ class TikTokConnector extends EventEmitter {
     this.stopped = true;
     this.retry = null;
     this.failures = 0;
-    this.live = false;
+    this.live = null; // null : on ne sait pas (le relevé du live a échoué)
     this.seen = new Seen();
     this.reader = null;
     this.readerState = 'off';
@@ -207,7 +207,8 @@ class TikTokConnector extends EventEmitter {
     if (this.stopped || this.reader || !this.webchat?.watch || !this.wantsReader || !this.username) return;
     this.reader = this.webchat.watch('tiktok', this.username, {
       onData: (kind, buf) => this.onReaderData(kind, buf),
-      isLive: () => this.live,
+      // Statut inconnu (relevé refusé par TikTok) : la page s'ouvre quand même, elle saura si le live tourne.
+      isLive: () => this.live !== false,
       onChange: (st) => { this.readerState = st; this.emit('changed'); },
     });
     this.readerState = 'starting';
@@ -222,6 +223,8 @@ class TikTokConnector extends EventEmitter {
   }
 
   async onReaderData(kind, buf) {
+    // Les compteurs du diagnostic se rafraîchissent dans Connexions toutes les 5 s au plus.
+    if (Date.now() - (this.readerPushed || 0) > 5000) { this.readerPushed = Date.now(); this.emit('changed'); }
     let items;
     try { items = await decodeReaderPacket(kind, buf); } catch (e) {
       this.readerErrors += 1;
@@ -238,7 +241,9 @@ class TikTokConnector extends EventEmitter {
   readerInfo() {
     if (!this.wantsReader) return { state: 'off', count: 0, extra: 0 };
     const state = this.webchat?.logged?.tiktok ? this.readerState : 'login';
-    return { state, count: this.readerCount, extra: this.readerExtra };
+    const page = this.reader?.info?.() || {};
+    // Diagnostic affiché dans Connexions : page ouverte, connexion au chat, paquets, messages lus.
+    return { state, count: this.readerCount, extra: this.readerExtra, page: Boolean(page.page), sockets: page.sockets || 0, frames: page.frames || 0, lastAt: page.last || 0, url: page.url || '', errors: this.readerErrors };
   }
 
   status(state, detail = '') { this.emit('status', { state, detail }); }
@@ -350,7 +355,7 @@ class TikTokConnector extends EventEmitter {
     clearTimeout(this.retry);
     this.safeDisconnect();
     this.stopReader();
-    this.live = false;
+    this.live = null;
     this.status('stopped');
   }
 

@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { uid, EVENT_TYPES, defaultRules, makeOverlay } = require('../shared/defaults');
 const { rankImage } = require('../shared/rank-files');
 const { rankLook } = require('../shared/games');
-const { OVERLAY_TYPES, overlayDefaults, fxLocked } = require('../shared/overlay-schema');
+const { OVERLAY_TYPES, overlayDefaults, fxLocked, passesFilter, hasFilter, cleanMenuRows, cleanPick } = require('../shared/overlay-schema');
 const { withinLimit } = require('../shared/features');
 const { TikTokConnector } = require('./connectors/tiktok');
 const { TwitchConnector } = require('./connectors/twitch');
@@ -61,8 +61,9 @@ class Engine {
     // arrivent par dizaines chaque seconde et pousseraient les messages hors du fil.
     this.mainFeed = [];
     this.chatCounts = {};
-    this.alertQueue = [];
-    this.alertBusy = false;
+    // Files d'alertes : '' pour les overlays d'alertes sans filtre, puis une file par overlay filtré
+    // (un overlay « cadeaux TikTok » n'attend pas la fin d'un suivi Twitch affiché ailleurs).
+    this.lanes = new Map([['', { queue: [], busy: false, timer: null }]]);
     this.cool = new Map();
     this.likeMarks = {};
     this.gifts = [];
@@ -329,7 +330,7 @@ class Engine {
     if (ev.type === 'chat' && ev.accountId && !ev.test) this.chatCounts[ev.accountId] = (this.chatCounts[ev.accountId] || 0) + 1;
     this.push('event', ev);
     if (ev.type === 'chat' && this.s.chatTranslate?.enabled) this.translateChat(ev).catch((e) => this.safely('traduction', () => { throw e; }));
-    this.server.broadcast({ t: 'ev', ev }, ['chat', 'ticker', 'giftfeed', 'webcam', 'dock', 'coinjar', 'emojify', 'firework', 'avatars', 'giftcannon', 'likefountain']);
+    this.server.broadcast({ t: 'ev', ev }, ['chat', 'ticker', 'giftfeed', 'webcam', 'dock', 'coinjar', 'emojify', 'firework', 'avatars', 'giftcannon', 'likefountain', 'coinmenu']);
     if (ev.type !== 'chat') {
       this.safely('alertes', () => this.queueAlert(ev));
       this.safely('subathon', () => this.applySubathon(ev));
@@ -459,34 +460,56 @@ class Engine {
       user: ev.user?.display || '', avatar: ev.user?.avatar || '', image: rule.image || '', sound: rule.sound, volume: rule.volume ?? 80, duration: rule.duration || 6, theme: rule.theme || '', position: rule.position || '',
       gift: ev.gift ? { name: ev.gift.name, image: ev.gift.image || '' } : null, amount: ev.amount || 0, value: ev.value || 0, months: ev.months || 0, money: ev.money || '',
     };
-    this.alertQueue.push(alert);
-    if (this.alertQueue.length > 60) this.alertQueue.shift();
-    this.push('alertQueue', this.alertQueue.length);
     if (rule.tts) this.tts.say({ text: alert.title, user: ev.user, force: true });
+    this.dispatchAlert(alert);
+  }
+
+  get alertQueue() { return this.lane('').queue; }
+
+  lane(key) {
+    if (!this.lanes.has(key)) this.lanes.set(key, { queue: [], busy: false, timer: null });
+    return this.lanes.get(key);
+  }
+
+  alertOverlays() { return this.s.overlays.filter((o) => o.type === 'alerts' && o.enabled !== false); }
+
+  // Chaque overlay d'alertes ne reçoit que les alertes de ses filtres (événements, plateformes).
+  dispatchAlert(alert) {
+    const list = this.alertOverlays();
+    const filtered = list.filter((o) => hasFilter(o.settings));
+    const add = (key) => { const q = this.lane(key).queue; q.push(alert); if (q.length > 60) q.shift(); };
+    if (!list.length || filtered.length < list.length) add('');
+    for (const o of filtered) if (passesFilter(o.settings, alert.platform, alert.type)) add(o.id);
+    this.push('alertQueue', this.queuedAlerts());
     this.pumpAlerts();
   }
 
-  pumpAlerts() {
-    if (this.alertBusy || this.s.alerts.paused) return;
-    const next = this.alertQueue.shift();
+  queuedAlerts() { let n = 0; for (const l of this.lanes.values()) n = Math.max(n, l.queue.length); return n; }
+
+  pumpAlerts() { for (const key of [...this.lanes.keys()]) this.pumpLane(key); }
+
+  pumpLane(key) {
+    const lane = this.lane(key);
+    if (lane.busy || this.s.alerts.paused) return;
+    const next = lane.queue.shift();
     if (!next) return;
-    this.alertBusy = next;
-    this.server.broadcast({ t: 'alert', alert: next }, 'alerts');
-    this.push('alertQueue', this.alertQueue.length);
-    this.alertTimer = setTimeout(() => {
-      this.alertBusy = false;
-      setTimeout(() => this.pumpAlerts(), (this.s.alerts.gap ?? 1) * 1000);
+    lane.busy = next;
+    const filteredIds = new Set(this.alertOverlays().filter((o) => hasFilter(o.settings)).map((o) => o.id));
+    this.server.broadcast({ t: 'alert', alert: next }, 'alerts', key ? (c) => c.overlayId === key : (c) => !filteredIds.has(c.overlayId));
+    this.push('alertQueue', this.queuedAlerts());
+    lane.timer = setTimeout(() => {
+      lane.busy = false;
+      setTimeout(() => this.pumpLane(key), (this.s.alerts.gap ?? 1) * 1000);
     }, next.duration * 1000);
   }
 
   skipAlert() {
-    clearTimeout(this.alertTimer);
-    this.alertBusy = false;
+    for (const lane of this.lanes.values()) { clearTimeout(lane.timer); lane.busy = false; }
     this.server.broadcast({ t: 'alertSkip' }, 'alerts');
     this.pumpAlerts();
   }
 
-  clearAlerts() { this.alertQueue = []; this.push('alertQueue', 0); }
+  clearAlerts() { for (const lane of this.lanes.values()) lane.queue.length = 0; this.push('alertQueue', 0); }
 
   vars(ev) {
     return {
@@ -920,10 +943,9 @@ class Engine {
       case 'tts': this.tts.say({ text: this.expand(a.text, vars), user: ev.user, force: true }); break;
       case 'chat': this.reply(ev, this.expand(a.text, vars), a.where); break;
       case 'alert':
-        this.alertQueue.push({
+        this.dispatchAlert({
           id: uid('a'), type: 'custom', platform: ev.platform, channel: ev.channel, title: this.expand(a.text, vars), text: '', user: ev.user?.display || '', avatar: ev.user?.avatar || '', image: a.image || '', sound: a.sound || 'pop', volume: 80, duration: a.duration || 5, theme: a.theme || '', position: '',
         });
-        this.pumpAlerts();
         break;
       case 'counter': { const c = this.s.tools.counters.find((x) => x.id === a.counterId); if (c) this.setCounter(c, c.value + (a.step ?? 1)); break; }
       case 'goal': { const g = this.s.goals.find((x) => x.id === a.goalId); if (g) { this.bumpGoal(g, a.amount ?? 1); this.pushGoals(); } break; }
@@ -1403,6 +1425,20 @@ class Engine {
         if (opt?.premium) out[field.key] = field.default;
       } else out[field.key] = field.default;
     }
+    for (const field of OVERLAY_TYPES[o.type].fields) if (field.type === 'platforms' || field.type === 'events') out[field.key] = cleanPick(out[field.key], field.options);
+    if (o.type === 'coinmenu') out.rows = cleanMenuRows(out.rows);
+    return out;
+  }
+
+  // Menu des pièces : image du cadeau choisi pour chaque ligne, ou d'un cadeau TikTok du même prix.
+  menuGifts(rows) {
+    const list = this.gifts || [];
+    const url = (g) => (this.catalog ? this.catalog.localUrl(g) : g.image);
+    const out = {};
+    for (const r of rows) {
+      const g = (r.gift && list.find((x) => String(x.id) === r.gift)) || list.find((x) => Number(x.cost) === r.coins && (x.image || x.file));
+      if (g) out[r.id] = { id: String(g.id), name: g.name, image: url(g) || '', cost: g.cost };
+    }
     return out;
   }
 
@@ -1427,6 +1463,7 @@ class Engine {
       case 'coinjar': case 'firework': case 'giftcannon': case 'alerts': return { catalog: this.giftSample(36) };
       case 'likerace': return { race: this.fun.raceView() };
       case 'pointshop': return { shop: this.games.shopView() };
+      case 'coinmenu': return { gifts: this.menuGifts(this.effectiveSettings(o).rows) };
       case 'scene': case 'scenev': return { game: s.gaming.active, overlays: s.overlays.filter((x) => x.type !== 'scene' && x.type !== 'scenev').map((x) => ({ id: x.id, type: x.type, size: OVERLAY_TYPES[x.type]?.size || [1920, 1080] })) };
       case 'leaderboard': return { boards: this.viewers.boards(10) };
       case 'gamepad': return { pads: this.input?.pads?.() || [], pack: (this.s.padPacks || []).find((p) => p.id === o.settings.pack) || null };
@@ -1548,7 +1585,7 @@ class Engine {
     this.play?.stop(); this.plinko?.stop();
     clearInterval(this.ticker);
     clearTimeout(this.battleTimer);
-    clearTimeout(this.alertTimer);
+    for (const lane of this.lanes.values()) clearTimeout(lane.timer);
     clearTimeout(this.pollTimer);
     clearTimeout(this.liveTimer);
     this.games.stop();
