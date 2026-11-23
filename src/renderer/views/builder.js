@@ -1,16 +1,25 @@
 // Éditeur d'overlays personnalisés : glisser, redimensionner, effets, variables.
 import { html, useState, useEffect, useRef, act, reload, setState, copy, toast } from '../store.js';
 import { ICONS, Btn, Bay, Field, Select, Lamp, Lazy, Color, Fader, Num, PageHead, Empty, Pro, Upsell } from '../ui.js';
-import { renderElement, newElement, sampleVars, VARIABLES } from '../../overlays/custom-render.js';
+import { renderElement, newElement, sampleVars, VARIABLES, SHAPES, shapeSvg } from '../../overlays/custom-render.js';
 
 const KIND = { text: 'Texte', shape: 'Forme', image: 'Image', bar: 'Barre' };
-const FONTS = [['geist', 'Geist'], ['syne', 'Syne'], ['archivo', 'Archivo'], ['system', 'Système'], ['serif', 'Sérif'], ['rounded', 'Arrondie'], ['impact', 'Impact']].map(([value, label]) => ({ value, label }));
+const FONTS = [['onest', 'Onest'], ['geist', 'Geist'], ['syne', 'Syne'], ['archivo', 'Archivo'], ['system', 'Système'], ['serif', 'Sérif'], ['rounded', 'Arrondie'], ['impact', 'Impact']].map(([value, label]) => ({ value, label }));
 const ANIMS = [['none', 'Aucune'], ['pulse', 'Pulsation'], ['float', 'Flottement'], ['breathe', 'Respiration'], ['slide', 'Entrée glissée']].map(([value, label]) => ({ value, label }));
 const VAR_OPTS = VARIABLES.map(([value, label]) => ({ value, label }));
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 
-function Inspector({ el, up, s, insertVar }) {
+// Choix de la forme : carré, cercle, étoile, bulle… (aperçu dessiné comme dans l'overlay).
+export function ShapePick({ value, onChange }) {
+  return html`<div class="field wide"><span class="f-label">Forme</span><div class="shape-pick" role="radiogroup" aria-label="Forme">
+    ${SHAPES.map(([k, label]) => html`<button type="button" key=${k} role="radio" aria-checked=${(value || 'rect') === k} title=${label} aria-label=${label} class="shape-btn ${(value || 'rect') === k ? 'on' : ''}" onClick=${() => onChange(k)}>
+      ${k === 'rect' ? html`<span class="shape-rect"></span>` : html`<span dangerouslySetInnerHTML=${{ __html: shapeSvg({ id: `pick${k}`, shape: k, fill: '#AEB7C4' }) }}></span>`}
+    </button>`)}
+  </div></div>`;
+}
+
+export function Inspector({ el, up, s, insertVar }) {
   const n = (key, label, min, max, step = 1, unit = '') => html`<${Field} label=${label} wide><${Fader} value=${el[key] ?? 0} min=${min} max=${max} step=${step} unit=${unit} onChange=${(v) => up({ [key]: v })} /><//>`;
   return html`<div class="col">
     ${el.kind === 'text' && html`
@@ -23,17 +32,23 @@ function Inspector({ el, up, s, insertVar }) {
       ${n('size', 'Taille', 10, 240, 1, ' px')}${n('weight', 'Graisse', 300, 900, 100)}
       <${Field} label="Couleur"><${Color} value=${el.color} onChange=${(color) => up({ color })} /><//>
     `}
+    ${el.kind === 'shape' && html`<${ShapePick} value=${el.shape} onChange=${(shape) => up({ shape })} />`}
     ${(el.kind === 'shape' || el.kind === 'bar') && html`
       <div class="two-in">
         <${Field} label=${el.kind === 'bar' ? 'Rail' : 'Couleur'}><${Color} value=${el.fill === 'transparent' ? '#000000' : el.fill} onChange=${(fill) => up({ fill })} /><//>
         <${Field} label=${el.kind === 'bar' ? 'Remplissage' : 'Dégradé'}>${el.kind === 'bar' ? html`<${Color} value=${el.color} onChange=${(color) => up({ color })} />` : html`<${Color} value=${el.fill2 || el.fill} onChange=${(fill2) => up({ fill2 })} />`}<//>
       </div>
       ${el.kind === 'shape' && html`<${Lamp} on=${Boolean(el.fill2)} label="Utiliser un dégradé" onChange=${(on) => up({ fill2: on ? '#8B3DFF' : '' })} />`}
+      ${el.kind === 'shape' && el.fill2 && n('angle', 'Sens du dégradé', 0, 360, 5, '°')}
     `}
     ${el.kind === 'bar' && html`<${Field} label="Valeur"><${Select} value=${el.value} options=${VAR_OPTS} onChange=${(value) => up({ value })} /><//><${Field} label="Objectif"><${Select} value=${el.target} options=${VAR_OPTS} onChange=${(target) => up({ target })} /><//>`}
     ${el.kind === 'image' && html`<div class="row tight"><${Btn} onClick=${async () => { const r = await act('importMedia', 'visual'); if (r) { up({ src: r.name }); setState({ media: r.media }); } }}>${el.src ? 'Changer d\'image' : 'Importer une image'}<//></div>`}
-    ${el.kind !== 'text' && n('radius', 'Arrondi', 0, 540, 1, ' px')}
+    ${el.kind !== 'text' && (el.kind !== 'shape' || !el.shape || el.shape === 'rect') && n('radius', 'Arrondi', 0, 540, 1, ' px')}
     ${el.kind === 'shape' && n('stroke', 'Contour', 0, 30, 1, ' px')}
+    ${el.kind === 'shape' && el.stroke > 0 && html`<div class="two-in">
+      <${Field} label="Couleur du contour"><${Color} value=${el.strokeColor || '#FFFFFF'} onChange=${(strokeColor) => up({ strokeColor })} /><//>
+      <${Field} label="Trait"><${Select} value=${el.dash || 'plein'} options=${[{ value: 'plein', label: 'Plein' }, { value: 'tirets', label: 'Tirets' }, { value: 'points', label: 'Points' }]} onChange=${(dash) => up({ dash })} /><//>
+    </div>`}
     ${n('opacity', 'Opacité', 0, 100, 1, ' %')}${n('rot', 'Rotation', -180, 180, 1, '°')}
     ${n('shadow', 'Ombre', 0, 60, 1, ' px')}
     ${el.shadow > 0 && html`<${Field} label="Couleur de l'ombre"><${Color} value=${el.shadowColor || '#000000'} onChange=${(shadowColor) => up({ shadowColor })} /><//>`}

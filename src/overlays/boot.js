@@ -1,6 +1,7 @@
 // Chargeur commun : connexion au serveur local, puis délégation au module du type d'overlay.
-import { query, setFont, confetti, playSound } from './lib.js';
+import { query, setFont, confetti, playSound, media } from './lib.js';
 import { setParticles } from './particles.js';
+import { renderElement, sampleVars } from './custom-render.js';
 
 const root = document.getElementById('root');
 const mark = document.getElementById('mark');
@@ -13,6 +14,29 @@ let confettiOn = false;
 let lastBurst = 0;
 
 if (query.get('preview') && !query.get('bare')) document.body.classList.add('preview');
+
+// Décor : formes, textes et images posés par le streamer, derrière (back) ou devant (front) l'overlay.
+const decorBack = document.createElement('div');
+const decorFront = document.createElement('div');
+decorBack.id = 'decor-back';
+decorFront.id = 'decor-front';
+root.before(decorBack);
+root.after(decorFront);
+let decor = [];
+let decorVars = {};
+const usesVars = () => decor.some((e) => e.kind === 'bar' || /\{[a-zA-Z]+\}/.test(e.text || ''));
+function paintDecor() {
+  decorBack.textContent = '';
+  decorFront.textContent = '';
+  const vars = query.get('preview') && !Object.keys(decorVars).length ? sampleVars() : decorVars;
+  for (const e of decor) (e.layer === 'front' ? decorFront : decorBack).append(renderElement(e, vars, media));
+}
+// Aperçu dans l'éditeur : le décor suit la souris sans attendre l'enregistrement.
+if (query.get('preview')) {
+  addEventListener('message', (e) => {
+    if (e.data?.regie === 'decor' && Array.isArray(e.data.decor)) { decor = e.data.decor; paintDecor(); }
+  });
+}
 
 // Langue des textes de l'overlay : français, anglais ou les deux. Les textes posés par les modules sont
 // traduits à la volée ; ce qu'écrivent les viewers (messages, TTS) n'est jamais touché.
@@ -65,6 +89,49 @@ window.regieTr = (text) => {
   return en === text ? text : (overlayLang === 'both' ? both(text, en) : en);
 };
 
+// Forme des cartes (onglet Style) : silhouette, fond, motif et bordure posés par-dessus le style choisi.
+const skinStyle = document.createElement('style');
+skinStyle.id = 'skin';
+custom.before(skinStyle); // le CSS personnalisé du streamer garde le dernier mot
+const hexOk = (v, d) => (/^#[0-9a-f]{6}$/i.test(String(v || '')) ? v : d);
+const rgbaHex = (v, a) => { const h = hexOk(v, '#000000'); return `rgba(${parseInt(h.slice(1, 3), 16)},${parseInt(h.slice(3, 5), 16)},${parseInt(h.slice(5, 7), 16)},${a})`; };
+const TEXTURE = {
+  rayures: 'repeating-linear-gradient(45deg, rgba(255,255,255,.08) 0 6px, transparent 6px 14px)',
+  points: 'radial-gradient(rgba(255,255,255,.16) 1.2px, transparent 1.8px) 0 0 / 12px 12px',
+  grille: 'linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px) 0 0 / 16px 16px, linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px) 0 0 / 16px 16px',
+  lignes: 'repeating-linear-gradient(0deg, rgba(0,0,0,.2) 0 2px, transparent 2px 4px)',
+};
+export function skinCss(sel, s) {
+  if (!sel) return '';
+  const out = [];
+  const c = `${Math.max(4, Math.min(60, Number(s.skCut) || 16))}px`;
+  const clip = {
+    coupe: `polygon(${c} 0, calc(100% - ${c}) 0, 100% ${c}, 100% calc(100% - ${c}), calc(100% - ${c}) 100%, ${c} 100%, 0 calc(100% - ${c}), 0 ${c})`,
+    biseau: `polygon(${c} 0, 100% 0, calc(100% - ${c}) 100%, 0 100%)`,
+    fleche: `polygon(0 0, calc(100% - ${c}) 0, 100% 50%, calc(100% - ${c}) 100%, 0 100%, ${c} 50%)`,
+    hexa: `polygon(${c} 0, calc(100% - ${c}) 0, 100% 50%, calc(100% - ${c}) 100%, ${c} 100%, 0 50%)`,
+    onglet: `polygon(0 0, calc(100% - ${c}) 0, 100% ${c}, 100% 100%, 0 100%)`,
+  }[s.skShape];
+  if (s.skShape === 'carre') out.push('border-radius: 0');
+  if (s.skShape === 'arrondi') out.push(`border-radius: ${Math.max(0, Math.min(60, Number(s.skRadius) || 0))}px`);
+  if (s.skShape === 'pilule') out.push('border-radius: 999px');
+  if (clip) {
+    out.push('border-radius: 0', `clip-path: ${clip}`);
+    if (['biseau', 'fleche', 'hexa'].includes(s.skShape)) out.push(`padding-left: calc(${c} + .5em)`, `padding-right: calc(${c} + .5em)`);
+  }
+  const a = Math.max(0, Math.min(100, s.skAlpha ?? 90)) / 100;
+  const tex = TEXTURE[s.skTexture] ? `${TEXTURE[s.skTexture]}, ` : '';
+  if (s.skFill === 'uni') out.push(`background: ${tex}${rgbaHex(s.skColor1, a)}`, 'backdrop-filter: none');
+  if (s.skFill === 'degrade') out.push(`background: ${tex}linear-gradient(${Number(s.skAngle) || 0}deg, ${rgbaHex(s.skColor1, a)}, ${rgbaHex(s.skColor2, a)})`, 'backdrop-filter: none');
+  if (s.skFill === 'verre') out.push(`background: ${tex}linear-gradient(150deg, rgba(255,255,255,.22), rgba(255,255,255,.05)), ${rgbaHex(s.skColor1, 0.38)}`, 'backdrop-filter: blur(14px) saturate(1.4)', 'box-shadow: inset 0 1px 0 rgba(255,255,255,.42), inset 0 0 0 1px rgba(255,255,255,.14), 0 8px 26px rgba(0,0,0,.3)');
+  if (s.skFill === 'aucun') out.push('background: none', 'box-shadow: none', 'backdrop-filter: none');
+  const bw = Math.max(0, Math.min(12, Number(s.skBorder) || 0));
+  if (bw) out.push(`border: ${bw}px ${['solid', 'dashed', 'dotted', 'double'].includes(s.skBorderStyle) ? s.skBorderStyle : 'solid'} ${hexOk(s.skBorderColor, '#FFFFFF')}`);
+  if (!out.length) return '';
+  const list = sel.split(',').map((x) => `#root ${x.trim()}`).join(', ');
+  return `${list} { ${out.map((r) => `${r} !important`).join('; ')}; }`;
+}
+
 function applyCommon(msg) {
   const s = msg.overlay.settings;
   const lang = s.lang && s.lang !== 'auto' ? s.lang : (msg.lang === 'en' ? 'en' : 'fr');
@@ -73,7 +140,13 @@ function applyCommon(msg) {
   mark.hidden = !msg.watermark;
   // Un overlay désactivé garde son lien mais n'affiche plus rien.
   root.hidden = msg.overlay.enabled === false && !query.get('preview');
+  decorBack.hidden = root.hidden;
+  decorFront.hidden = root.hidden;
+  decor = Array.isArray(s.decor) ? s.decor : [];
+  if (msg.data?.vars) decorVars = msg.data.vars;
+  paintDecor();
   custom.textContent = s.customCss || '';
+  skinStyle.textContent = skinCss(msg.overlay.skin || '', s);
   setFont(s.font);
   const css = document.documentElement.style;
   css.setProperty('--scale', (s.scale || 100) / 100);
@@ -170,6 +243,7 @@ async function onMessage(msg) {
     mod.update?.(msg.overlay.settings, msg.data);
   } else {
     if (filtered(msg)) return;
+    if (msg.t === 'vars') { decorVars = msg.vars || {}; if (usesVars()) paintDecor(); }
     mod?.on?.(msg);
     if (msg.t === 'sound') playSound(msg.sound, msg.volume);
     if (bigMoment(msg) && Date.now() - lastBurst > 2500) { lastBurst = Date.now(); confetti(); }

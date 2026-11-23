@@ -702,3 +702,25 @@ test('Les filtres d\'overlay : un événement passe selon sa plateforme et son t
   }
   assert.ok(OVERLAY_TYPES.alerts.fields.find((f) => f.key === 'onlyEvents').options.some((o) => o.value === 'share'));
 });
+
+test('Décor et forme des cartes : nettoyés, envoyés à l\'overlay avec les valeurs du live si besoin', () => {
+  const { engine } = rig();
+  const { cleanDecor, overlaySize, OVERLAY_TYPES } = require('../src/shared/overlay-schema');
+  const d = cleanDecor([{ kind: 'shape', shape: 'etoile', x: '12', w: 99999, fill: 'url(javascript:x)', id: 'a"b' }, { kind: 'iframe' }, { kind: 'text', text: '{viewers} vues', layer: 'front' }]);
+  assert.equal(d.length, 2);
+  assert.deepEqual([d[0].shape, d[0].x, d[0].w, d[0].fill, d[0].id, d[1].layer], ['etoile', 12, 8000, '#171230', 'ab', 'front']);
+  // Tous les overlays ont un décor, sauf ceux qu'on compose déjà à la main.
+  assert.ok(OVERLAY_TYPES.alerts.fields.some((f) => f.type === 'decor'));
+  assert.ok(!OVERLAY_TYPES.custom.fields.some((f) => f.type === 'decor'));
+  assert.equal(OVERLAY_TYPES.chat.skin, '.msg');
+  assert.deepEqual(overlaySize({ type: 'alerts', settings: { canvas: '1080x1920' } }), [1080, 1920]);
+  assert.deepEqual(overlaySize({ type: 'alerts', settings: { canvas: 'perso', canvasW: 50, canvasH: 9000 } }), [120, 2160]);
+  const o = engine.addOverlay('goal');
+  o.settings.decor = [{ kind: 'text', text: '{viewers} vues', x: 0, y: 0, w: 200, h: 40 }];
+  o.settings.skShape = 'hexa';
+  const init = engine.overlayInit(o);
+  assert.equal(init.overlay.skin, '.goal');
+  assert.equal(init.overlay.settings.decor[0].text, '{viewers} vues');
+  assert.ok(init.data.vars, 'le décor qui affiche {viewers} reçoit les valeurs du live');
+  engine.stop();
+});

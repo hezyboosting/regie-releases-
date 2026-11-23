@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { uid, EVENT_TYPES, defaultRules, makeOverlay } = require('../shared/defaults');
 const { rankImage } = require('../shared/rank-files');
 const { rankLook } = require('../shared/games');
-const { OVERLAY_TYPES, overlayDefaults, fxLocked, passesFilter, hasFilter, cleanMenuRows, cleanPick } = require('../shared/overlay-schema');
+const { OVERLAY_TYPES, overlayDefaults, fxLocked, passesFilter, hasFilter, cleanMenuRows, cleanPick, cleanDecor, decorNeedsVars, overlaySize } = require('../shared/overlay-schema');
 const { withinLimit } = require('../shared/features');
 const { TikTokConnector } = require('./connectors/tiktok');
 const { TwitchConnector } = require('./connectors/twitch');
@@ -723,7 +723,10 @@ class Engine {
     if (this.liveTimer) return;
     this.liveTimer = setTimeout(() => {
       this.liveTimer = null;
-      this.server.broadcast({ t: 'vars', vars: this.liveVars() }, ['custom', 'webcam']);
+      // Overlays dont le décor affiche des valeurs du live ({spectateurs}, barres) : ils les reçoivent aussi.
+      const types = new Set(['custom', 'webcam']);
+      for (const o of this.s.overlays) if (decorNeedsVars(o.settings)) types.add(o.type);
+      this.server.broadcast({ t: 'vars', vars: this.liveVars() }, [...types]);
       this.server.broadcast({ t: 'boards', boards: this.viewers.boards(10) }, 'leaderboard');
       const gifts = this.viewers.giftView();
       this.server.broadcast({ t: 'gifts', gifts }, ['gifttracker', 'topgift', 'topstreak']);
@@ -1427,6 +1430,7 @@ class Engine {
     }
     for (const field of OVERLAY_TYPES[o.type].fields) if (field.type === 'platforms' || field.type === 'events') out[field.key] = cleanPick(out[field.key], field.options);
     if (o.type === 'coinmenu') out.rows = cleanMenuRows(out.rows);
+    if ('decor' in out) out.decor = cleanDecor(out.decor);
     return out;
   }
 
@@ -1464,7 +1468,7 @@ class Engine {
       case 'likerace': return { race: this.fun.raceView() };
       case 'pointshop': return { shop: this.games.shopView() };
       case 'coinmenu': return { gifts: this.menuGifts(this.effectiveSettings(o).rows) };
-      case 'scene': case 'scenev': return { game: s.gaming.active, overlays: s.overlays.filter((x) => x.type !== 'scene' && x.type !== 'scenev').map((x) => ({ id: x.id, type: x.type, size: OVERLAY_TYPES[x.type]?.size || [1920, 1080] })) };
+      case 'scene': case 'scenev': return { game: s.gaming.active, overlays: s.overlays.filter((x) => x.type !== 'scene' && x.type !== 'scenev').map((x) => ({ id: x.id, type: x.type, size: overlaySize(x) })) };
       case 'leaderboard': return { boards: this.viewers.boards(10) };
       case 'gamepad': return { pads: this.input?.pads?.() || [], pack: (this.s.padPacks || []).find((p) => p.id === o.settings.pack) || null };
       case 'gamecard': return { game: this.gameView() };
@@ -1563,7 +1567,9 @@ class Engine {
   }
 
   overlayInit(o) {
-    return { t: 'init', lang: this.s.settings.uiLang === 'en' ? 'en' : 'fr', overlay: { id: o.id, type: o.type, name: o.name, enabled: o.enabled !== false, settings: this.effectiveSettings(o) }, watermark: !this.allowed('removeWatermark'), data: this.overlayData(o) };
+    const data = this.overlayData(o) || {};
+    if (decorNeedsVars(o.settings) && !data.vars) data.vars = this.liveVars();
+    return { t: 'init', lang: this.s.settings.uiLang === 'en' ? 'en' : 'fr', overlay: { id: o.id, type: o.type, name: o.name, enabled: o.enabled !== false, skin: OVERLAY_TYPES[o.type]?.skin || '', settings: this.effectiveSettings(o) }, watermark: !this.allowed('removeWatermark'), data };
   }
 
   pushOverlayConfig(o) {

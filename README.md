@@ -155,6 +155,12 @@ L'overlay `coinmenu` affiche les lignes `rows` (`{ id, coins, text, emoji, gift,
 
 Chaque overlay qui montre des événements en direct a deux réglages communs, `onlyPlatforms` et `onlyEvents` (liste des types pertinents dans `OVERLAY_EVENTS`, vide = tout), appliqués dans `overlays/boot.js` avant le module de l'overlay. Pour les alertes, le moteur garde une file par overlay filtré (`engine.lanes`) et une file commune pour les overlays sans filtre ; `passesFilter()` est partagé entre le moteur et les tests.
 
+## Décor, forme des cartes et format
+
+Chaque overlay (sauf l'éditeur libre et les scènes) a un réglage `decor` : des éléments `text`, `shape`, `image` ou `bar` (rendus par `custom-render.js`, nettoyés par `cleanDecor`) posés dans `#decor-back` ou `#decor-front`, autour de `#root`. Les formes autres que le rectangle sont dessinées en SVG (`shapeSvg`, repère 100 × 100, contour à épaisseur fixe). Dans l'onglet Décor de l'éditeur, un calque posé sur l'aperçu sert à déplacer et redimensionner les éléments ; l'aperçu les reçoit tout de suite par `postMessage`, l'enregistrement suit 400 ms plus tard. Un décor qui affiche des valeurs du live (`{viewers}`, barres) reçoit `vars` comme l'éditeur libre.
+
+`SKIN` dans `overlay-schema.js` donne le sélecteur des cartes de chaque overlay ; les réglages `sk*` (silhouette, fond, motif, bordure) deviennent une règle CSS générée par `skinCss()` dans `overlays/boot.js`, placée avant le CSS personnalisé du streamer. `canvas` (et `canvasW`, `canvasH`) change la taille de la source ; `overlaySize()` sert au lien OBS, aux scènes et à l'aperçu.
+
 ## Discord et téléphone
 
 `src/main/discord.js` poste par un webhook (gardé dans le coffre chiffré) l'annonce du début de live, au plus une fois par demi-heure, et le récap de fin. La télécommande et le chat s'ouvrent sur un téléphone du même Wi-Fi par QR code (`api.phoneLinks`, paquet `qrcode`) ; `api.setLanLive` ouvre le serveur au réseau local sans redémarrer Régie.

@@ -1,6 +1,16 @@
 // Nouveautés montrées dans « Quoi de neuf » après une mise à jour. La plus récente en premier.
 const CHANGELOG = [
   {
+    version: '2.19.0',
+    title: 'Change la forme de tes overlays et ajoute ton décor',
+    items: [
+      'Onglet Décor sur chaque overlay : ajoute des formes (carré, cercle, étoile, cœur, flèche, bannière, bulle…), des textes et des images, derrière ou devant l\'overlay, et place-les à la souris dans l\'aperçu.',
+      'Forme des cartes dans l\'onglet Style : silhouette (carré, pilule, coins coupés, penché, flèche, hexagone, onglet), fond uni, dégradé ou verre, motif et bordure, par-dessus le style choisi.',
+      'Format de l\'overlay dans l\'onglet Position : horizontal, vertical, carré ou sur mesure.',
+      'Les textes du décor peuvent afficher les valeurs du live (spectateurs, dernier suivi…), et l\'éditeur d\'overlays gagne les mêmes formes.',
+    ],
+  },
+  {
     version: '2.18.0',
     title: 'Menu des pièces et filtres pour chaque overlay',
     items: [

@@ -22,6 +22,38 @@ export function fillVars(text, vars = {}) {
 
 const FONTS = { onest: '"Onest", system-ui, sans-serif', geist: '"Geist", system-ui, sans-serif', syne: '"Syne", "Geist", sans-serif', archivo: '"Archivo", sans-serif', system: 'system-ui, "Segoe UI", sans-serif', serif: 'Georgia, serif', rounded: '"Arial Rounded MT Bold", "Segoe UI", sans-serif', impact: 'Impact, "Arial Narrow Bold", sans-serif' };
 
+// Formes dessinées en SVG (repère 100 × 100 étiré à la taille de l'élément ; le contour garde son épaisseur).
+export const SHAPES = [
+  ['rect', 'Rectangle'], ['ellipse', 'Cercle'], ['triangle', 'Triangle'], ['losange', 'Losange'], ['hexagone', 'Hexagone'], ['etoile', 'Étoile'],
+  ['coeur', 'Cœur'], ['fleche', 'Flèche'], ['banniere', 'Bannière'], ['bulle', 'Bulle'], ['coupe', 'Coins coupés'], ['biseau', 'Penché'],
+];
+export const SHAPE_PATHS = {
+  triangle: 'M50 2 L98 98 L2 98 Z',
+  losange: 'M50 2 L98 50 L50 98 L2 50 Z',
+  hexagone: 'M25 2 L75 2 L98 50 L75 98 L25 98 L2 50 Z',
+  etoile: 'M50 3 L61.8 37 L97.6 37.6 L69 59.4 L79.4 93.7 L50 73.2 L20.6 93.7 L31 59.4 L2.4 37.6 L38.2 37 Z',
+  coeur: 'M50 92 C22 72 3 54 3 32 C3 15 16 4 30 4 C40 4 47 10 50 18 C53 10 60 4 70 4 C84 4 97 15 97 32 C97 54 78 72 50 92 Z',
+  fleche: 'M2 30 L62 30 L62 6 L98 50 L62 94 L62 70 L2 70 Z',
+  banniere: 'M2 6 L98 6 L86 50 L98 94 L2 94 L14 50 Z',
+  bulle: 'M8 4 L92 4 Q98 4 98 10 L98 66 Q98 72 92 72 L36 72 L18 96 L22 72 L8 72 Q2 72 2 66 L2 10 Q2 4 8 4 Z',
+  coupe: 'M14 2 L86 2 L98 14 L98 86 L86 98 L14 98 L2 86 L2 14 Z',
+  biseau: 'M14 2 L98 2 L86 98 L2 98 Z',
+};
+const hex = (v, def = '#000000') => (/^#[0-9a-f]{3,8}$/i.test(String(v || '')) ? v : def);
+const DASH = { plein: '', tirets: ' stroke-dasharray="10 7"', points: ' stroke-dasharray="1 7" stroke-linecap="round"' };
+
+export function shapeSvg(el) {
+  const shape = SHAPE_PATHS[el.shape] ? el.shape : 'ellipse';
+  const gid = `g${String(el.id || '').replace(/[^a-z0-9]/gi, '')}`;
+  const angle = Number(el.angle ?? 120) || 0;
+  const grad = el.fill2 ? `<defs><linearGradient id="${gid}" x1="0" y1=".5" x2="1" y2=".5" gradientTransform="rotate(${angle - 90} .5 .5)"><stop offset="0" stop-color="${hex(el.fill)}"/><stop offset="1" stop-color="${hex(el.fill2)}"/></linearGradient></defs>` : '';
+  const fill = el.fill === 'transparent' && !el.fill2 ? 'none' : el.fill2 ? `url(#${gid})` : hex(el.fill);
+  const sw = Math.max(0, Math.min(40, Number(el.stroke) || 0));
+  const stroke = sw ? ` stroke="${hex(el.strokeColor, '#FFFFFF')}" stroke-width="${sw}" vector-effect="non-scaling-stroke" stroke-linejoin="round"${DASH[el.dash] || ''}` : '';
+  const body = shape === 'ellipse' ? `<ellipse cx="50" cy="50" rx="49" ry="49" fill="${fill}"${stroke}/>` : `<path d="${SHAPE_PATHS[shape]}" fill="${fill}"${stroke}/>`;
+  return `<svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%" style="display:block;overflow:visible">${grad}${body}</svg>`;
+}
+
 export const newElement = (kind, over = {}) => ({
   id: `e${Math.random().toString(36).slice(2, 9)}`, kind, x: 760, y: 440, w: kind === 'text' ? 400 : 320, h: kind === 'bar' ? 36 : kind === 'text' ? 80 : 200, rot: 0, opacity: 100,
   text: kind === 'text' ? 'Ton texte' : '', font: 'onest', size: 48, weight: 700, color: '#FFFFFF', align: 'left', fill: kind === 'shape' ? '#FF3D71' : '#171230', fill2: '', radius: kind === 'shape' ? 18 : 8,
@@ -50,9 +82,12 @@ export function renderElement(el, vars, media = (v) => v) {
     st.textAlign = el.align;
     n.textContent = fillVars(el.text, vars);
   } else if (el.kind === 'shape') {
-    st.background = el.fill2 ? `linear-gradient(120deg, ${el.fill}, ${el.fill2})` : el.fill;
-    st.borderRadius = `${el.radius}px`;
-    if (el.stroke) st.border = `${el.stroke}px solid ${el.strokeColor}`;
+    if (SHAPE_PATHS[el.shape] || el.shape === 'ellipse') n.innerHTML = shapeSvg(el);
+    else {
+      st.background = el.fill2 ? `linear-gradient(${Number(el.angle ?? 120) || 0}deg, ${el.fill}, ${el.fill2})` : el.fill;
+      st.borderRadius = `${el.radius}px`;
+      if (el.stroke) st.border = `${el.stroke}px ${{ tirets: 'dashed', points: 'dotted' }[el.dash] || 'solid'} ${el.strokeColor}`;
+    }
   } else if (el.kind === 'image') {
     st.borderRadius = `${el.radius}px`;
     st.overflow = 'hidden';

@@ -548,6 +548,69 @@ const COMMON = [
 const FX_NONE = { fxIntro: 'none', fxIdle: 'none', fxItems: false, fxSpeed: 100, fxConfetti: false };
 for (const def of Object.values(OVERLAY_TYPES)) if (!def.noFx) def.fields.push(...COMMON.filter((f) => !(def.fxSkip || []).includes(f.key)));
 for (const [type, def] of Object.entries(OVERLAY_TYPES)) addFilters(type, def);
+// ---------- Forme des cartes : changer la silhouette de l'overlay, pas seulement ses couleurs ----------
+// Sélecteur des « cartes » de chaque overlay (bulle de chat, ligne, panneau…), habillées par overlays/boot.js.
+const SKIN = {
+  alerts: '.al', chat: '.msg', ticker: '.tick', giftfeed: '.gf-row', goal: '.goal', timer: '.tm', counter: '.ct', viewers: '.big',
+  leaderboard: '.panel', gifttracker: '.panel', poll: '.panel', giveaway: '.panel', prediction: '.panel', chatplays: '.panel', plinko: '.panel',
+  topgift: '.tg', topstreak: '.tg', tts: '.tb', battle: '.battle', arena: '.ar', boss: '.bs', gamecard: '.gc', gamelive: '.gl', minigame: '.mg', rankcard: '.rc',
+  lastx: '.lx-card', welcome: '.wc-banner', queue: '.qu', pointshop: '.ps-item', socials: '.so-item', coinmenu: '.cm-row',
+};
+const sk = { tab: 'style' };
+const SKIN_FIELDS = [
+  S('skShape', 'Silhouette', 'auto', [
+    { value: 'auto', label: 'Celle du style' }, { value: 'carre', label: 'Carré' }, { value: 'arrondi', label: 'Arrondi' }, { value: 'pilule', label: 'Pilule' },
+    { value: 'coupe', label: 'Coins coupés' }, { value: 'biseau', label: 'Penché' }, { value: 'fleche', label: 'Flèche' }, { value: 'hexa', label: 'Hexagone' }, { value: 'onglet', label: 'Onglet' },
+  ], sk),
+  R('skRadius', 'Arrondi des cartes', 16, 0, 60, 1, ' px', { ...sk, when: { skShape: 'arrondi' } }),
+  R('skCut', 'Taille de la coupe', 16, 4, 60, 1, ' px', { ...sk, when: { skShape: ['coupe', 'biseau', 'fleche', 'hexa', 'onglet'] } }),
+  S('skFill', 'Fond des cartes', 'auto', [
+    { value: 'auto', label: 'Celui du style' }, { value: 'uni', label: 'Couleur unie' }, { value: 'degrade', label: 'Dégradé' }, { value: 'verre', label: 'Verre dépoli' }, { value: 'aucun', label: 'Transparent' },
+  ], sk),
+  C('skColor1', 'Couleur du fond', '#1B1530', { ...sk, when: { skFill: ['uni', 'degrade', 'verre'] } }),
+  C('skColor2', 'Deuxième couleur', '#5B2BD6', { ...sk, when: { skFill: 'degrade' } }),
+  R('skAngle', 'Sens du dégradé', 120, 0, 360, 5, '°', { ...sk, when: { skFill: 'degrade' } }),
+  R('skAlpha', 'Opacité du fond', 90, 0, 100, 5, ' %', { ...sk, when: { skFill: ['uni', 'degrade'] } }),
+  S('skTexture', 'Motif', 'aucun', [{ value: 'aucun', label: 'Aucun' }, { value: 'rayures', label: 'Rayures' }, { value: 'points', label: 'Points' }, { value: 'grille', label: 'Grille' }, { value: 'lignes', label: 'Lignes d\'écran' }], { ...sk, when: { skFill: ['uni', 'degrade', 'verre'] } }),
+  R('skBorder', 'Bordure', 0, 0, 12, 1, ' px', sk),
+  C('skBorderColor', 'Couleur de la bordure', '#FFFFFF', { ...sk, when: { skBorder: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] } }),
+  S('skBorderStyle', 'Trait de la bordure', 'solid', [{ value: 'solid', label: 'Plein' }, { value: 'dashed', label: 'Tirets' }, { value: 'dotted', label: 'Points' }, { value: 'double', label: 'Double' }], { ...sk, when: { skBorder: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] } }),
+];
+// Placés juste après le choix du style, sous un petit titre, pour qu'on les trouve.
+for (const [type, sel] of Object.entries(SKIN)) {
+  const def = OVERLAY_TYPES[type];
+  if (!def) continue;
+  def.skin = sel;
+  const at = def.fields.findIndex((f) => (f.key === 'theme' || f.key === 'style') && f.type === 'select');
+  def.fields.splice(at + 1, 0, { key: 'skinHead', label: 'Forme des cartes', type: 'heading', tab: 'style', hint: 'Change la silhouette, le fond et la bordure, par-dessus le style choisi.' }, ...SKIN_FIELDS);
+}
+
+// ---------- Format : taille de la source dans OBS / TikTok LIVE Studio ----------
+const ps2 = { tab: 'pos' };
+const FORMAT_FIELDS = [
+  S('canvas', 'Format de l\'overlay', 'auto', [
+    { value: 'auto', label: 'Taille prévue' }, { value: '1920x1080', label: 'Horizontal 1920 × 1080' }, { value: '1280x720', label: 'Horizontal 1280 × 720' },
+    { value: '1080x1920', label: 'Vertical 1080 × 1920' }, { value: '1080x1080', label: 'Carré 1080 × 1080' }, { value: 'perso', label: 'Sur mesure' },
+  ], ps2),
+  R('canvasW', 'Largeur', 800, 120, 3840, 10, ' px', { ...ps2, when: { canvas: 'perso' } }),
+  R('canvasH', 'Hauteur', 600, 60, 2160, 10, ' px', { ...ps2, when: { canvas: 'perso' } }),
+];
+for (const [type, def] of Object.entries(OVERLAY_TYPES)) if (!['custom', 'scene', 'scenev'].includes(type)) def.fields.push(...FORMAT_FIELDS);
+// Taille réelle d'un overlay (format choisi, ou celle prévue pour son type).
+function overlaySize(o) {
+  if (!o) return [1920, 1080];
+  if (o.type === 'custom') return o.settings?.format === '9:16' ? [1080, 1920] : [1920, 1080];
+  const st = o.settings || {};
+  if (st.canvas === 'perso') return [Math.max(120, Math.min(3840, Number(st.canvasW) || 800)), Math.max(60, Math.min(2160, Number(st.canvasH) || 600))];
+  const m = /^(\d+)x(\d+)$/.exec(st.canvas || '');
+  if (m) return [Number(m[1]), Number(m[2])];
+  return OVERLAY_TYPES[o.type]?.size || [1920, 1080];
+}
+
+// Décor : formes, textes et images libres, derrière ou devant l'overlay (onglet Décor de l'éditeur).
+// Les overlays composés à la main (custom) ou qui assemblent d'autres overlays (scènes) n'en ont pas besoin.
+const NO_DECOR = ['custom', 'scene', 'scenev'];
+for (const [type, def] of Object.entries(OVERLAY_TYPES)) if (!NO_DECOR.includes(type)) def.fields.push({ key: 'decor', label: 'Décor', type: 'decor', default: [], tab: 'decor' });
 // Valeurs neutres imposées pour les effets retirés (un ancien réglage ne doit plus s'appliquer).
 function fxLocked(type) { const skip = OVERLAY_TYPES[type]?.fxSkip || []; return Object.fromEntries(skip.filter((k) => k in FX_NONE).map((k) => [k, FX_NONE[k]])); }
 
@@ -601,14 +664,34 @@ function cleanMenuRows(rows) {
     color: /^#[0-9a-f]{6}$/i.test(r?.color || '') ? r.color : '',
   }));
 }
+// Éléments de décor nettoyés : mêmes réglages que l'éditeur d'overlays, valeurs bornées.
+const DECOR_KINDS = ['text', 'shape', 'image', 'bar'];
+const DECOR_SHAPES = ['rect', 'ellipse', 'triangle', 'losange', 'hexagone', 'etoile', 'coeur', 'fleche', 'banniere', 'bulle', 'coupe', 'biseau'];
+const hexOr = (v, def) => (/^#[0-9a-f]{3,8}$/i.test(String(v || '')) ? v : (v === 'transparent' ? 'transparent' : def));
+const num = (v, min, max, def = 0) => { const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def; };
+function cleanDecor(list) {
+  if (!Array.isArray(list)) return [];
+  return list.filter((e) => e && DECOR_KINDS.includes(e.kind)).slice(0, 40).map((e, i) => ({
+    id: String(e.id || `d${i}`).replace(/[^a-z0-9]/gi, '').slice(0, 24) || `d${i}`, kind: e.kind, layer: e.layer === 'front' ? 'front' : 'back',
+    x: num(e.x, -4000, 8000), y: num(e.y, -4000, 8000), w: num(e.w, 4, 8000, 200), h: num(e.h, 2, 8000, 120), rot: num(e.rot, -360, 360), opacity: num(e.opacity, 0, 100, 100),
+    text: String(e.text ?? '').slice(0, 300), font: String(e.font || 'onest').slice(0, 20), size: num(e.size, 6, 400, 48), weight: num(e.weight, 100, 900, 700), color: hexOr(e.color, '#FFFFFF'),
+    align: ['left', 'center', 'right'].includes(e.align) ? e.align : 'left', fill: hexOr(e.fill, '#171230'), fill2: e.fill2 ? hexOr(e.fill2, '') : '', angle: num(e.angle, 0, 360, 120),
+    shape: DECOR_SHAPES.includes(e.shape) ? e.shape : 'rect', radius: num(e.radius, 0, 2000, 8), stroke: num(e.stroke, 0, 40), strokeColor: hexOr(e.strokeColor, '#FFFFFF'), dash: ['plein', 'tirets', 'points'].includes(e.dash) ? e.dash : 'plein',
+    shadow: num(e.shadow, 0, 80), shadowColor: hexOr(e.shadowColor, '#000000'), glow: num(e.glow, 0, 80), glowColor: hexOr(e.glowColor, '#8FD3FF'), blur: num(e.blur, 0, 80), backdrop: num(e.backdrop, 0, 40),
+    anim: ['none', 'pulse', 'float', 'breathe', 'slide'].includes(e.anim) ? e.anim : 'none', src: String(e.src || '').slice(0, 300), value: String(e.value || 'goal').slice(0, 30), target: String(e.target || 'goalTarget').slice(0, 30), lock: Boolean(e.lock),
+  }));
+}
+// Le décor affiche-t-il des valeurs du live (textes avec {variable}, barres) ?
+const decorNeedsVars = (st = {}) => Array.isArray(st.decor) && st.decor.some((e) => e && (e.kind === 'bar' || /\{[a-zA-Z]+\}/.test(e.text || '')));
+
 // Filtres : seulement des valeurs connues.
 const cleanPick = (v, options) => (Array.isArray(v) ? v.filter((x) => options.some((o) => o.value === x)) : []);
 
 function overlayDefaults(type) {
   const out = {};
   // Copie des valeurs par défaut en objet (lignes du menu, finitions) : jamais partagées entre overlays.
-  for (const f of OVERLAY_TYPES[type]?.fields || []) out[f.key] = f.default && typeof f.default === 'object' ? JSON.parse(JSON.stringify(f.default)) : f.default;
+  for (const f of OVERLAY_TYPES[type]?.fields || []) if (f.type !== 'heading') out[f.key] = f.default && typeof f.default === 'object' ? JSON.parse(JSON.stringify(f.default)) : f.default;
   return out;
 }
 
-module.exports = { OVERLAY_TYPES, MENU_ROWS, cleanMenuRows, cleanPick, OVERLAY_EVENTS, EVENT_LABELS, PLATFORM_OPTIONS, passesFilter, hasFilter, fxLocked, overlayDefaults, COLORWAYS, FINISH_GROUPS, finishFrom, PAD_ZONES, PAD_ZONE_NAMES };
+module.exports = { OVERLAY_TYPES, SKIN, overlaySize, MENU_ROWS, cleanMenuRows, cleanPick, cleanDecor, decorNeedsVars, OVERLAY_EVENTS, EVENT_LABELS, PLATFORM_OPTIONS, passesFilter, hasFilter, fxLocked, overlayDefaults, COLORWAYS, FINISH_GROUPS, finishFrom, PAD_ZONES, PAD_ZONE_NAMES };

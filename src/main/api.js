@@ -4,7 +4,7 @@ const path = require('path');
 const { dialog, shell, clipboard, session: eSession, app } = require('electron');
 const { readObsConfig, loginWindow } = require('./logins');
 const { uid, EVENT_TYPES, ALL, makeOverlay } = require('../shared/defaults');
-const { OVERLAY_TYPES, COLORWAYS, FINISH_GROUPS, finishFrom, PAD_ZONES, PAD_ZONE_NAMES } = require('../shared/overlay-schema');
+const { OVERLAY_TYPES, COLORWAYS, FINISH_GROUPS, finishFrom, PAD_ZONES, PAD_ZONE_NAMES, overlaySize } = require('../shared/overlay-schema');
 const { GAMES, STAT_LABEL } = require('../shared/games');
 const { SOURCES: RANK_SOURCES, cs2Plate, hasOfficial } = require('../shared/rank-sources');
 const { rankFromFile, gameFromFolder } = require('../shared/rank-files');
@@ -143,7 +143,7 @@ function createApi(ctx) {
       let v = st.overlays.find((x) => x.type === 'scenev');
       if (!v) v = engine.addOverlay('scenev');
       const src = ((layout && h?.settings.layouts?.[layout]) || h?.settings.items || []).filter((it) => st.overlays.some((o) => o.id === it.id));
-      const sizeOf = (o) => (o.type === 'custom' && o.settings.format === '9:16' ? [1080, 1920] : OVERLAY_TYPES[o.type]?.size || [1920, 1080]);
+      const sizeOf = (o) => overlaySize(o);
       const rows = [...src].sort((a, b) => (a.y - b.y) || (a.x - b.x)).map((it) => {
         const o = st.overlays.find((x) => x.id === it.id);
         const [w, hh] = sizeOf(o);
@@ -1265,7 +1265,7 @@ function createApi(ctx) {
     obsToggleMic() { return obs.toggleMute(); },
     async obsAddOverlay(id) {
       const o = find(s().overlays, id, 'Overlay');
-      const [width, height] = o.type === 'custom' && o.settings.format === '9:16' ? [1080, 1920] : OVERLAY_TYPES[o.type].size;
+      const [width, height] = overlaySize(o);
       return obs.addBrowserSource({ name: `Régie ${o.name}`, url: server.link(o.id), width, height });
     },
     updateScenes(patch) { if (patch.useTransition) need('customTransitions', 'Les transitions personnalisées sont réservées à PRO.'); Object.assign(s().scenes, patch); file.save(); return s().scenes; },

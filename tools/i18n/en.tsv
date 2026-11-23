@@ -3406,3 +3406,60 @@ Chaque overlay choisit ce qu'il montre : quels événements (suivis, likes, part
 Plusieurs overlays d'alertes : chacun a sa propre file, un overlay « cadeaux TikTok » n'attend plus la fin d'une alerte Twitch. Dans Alertes, les plateformes de chaque alerte se règlent d'un clic.	Several alert overlays: each has its own queue, so a "TikTok gifts" overlay no longer waits for a Twitch alert to end. In Alerts, each alert's platforms are set in one click.
 TikTok : la lecture avec ton compte démarre même quand TikTok ne dit pas si tu es en live, et Connexions affiche un diagnostic (page, connexion au chat, paquets, messages) pour voir où ça coince.	TikTok: reading with your account starts even when TikTok won't say whether you're live, and Connections shows a diagnostic (page, chat connection, packets, messages) to see where it gets stuck.
 TikTok demande de te reconnecter : Déconnecter, puis reconnecte ton compte TikTok.	TikTok wants you to sign in again: Disconnect, then reconnect your TikTok account.
+# 2.19.0 : décor, forme des cartes, format
+Décor	Decor
+Ajoute des formes, des textes ou des images autour de l'overlay, puis attrape-les dans l'aperçu pour les placer. Tire les coins pour la taille.	Add shapes, text or images around the overlay, then grab them in the preview to place them. Drag the corners to resize.
+Idées	Ideas
+Idées de décor…	Decor ideas…
+Fond derrière tout	Background behind everything
+Cadre	Frame
+Bandeau en bas	Bottom banner
+Étoile qui brille	Glowing star
+Derrière l'overlay	Behind the overlay
+Annuler la dernière modification	Undo last change
+Pas encore de décor sur cet overlay.	No decor on this overlay yet.
+Cercle	Circle
+Losange	Diamond
+Hexagone	Hexagon
+Étoile	Star
+Cœur	Heart
+Bannière	Banner
+Bulle	Bubble
+Coins coupés	Cut corners
+Penché	Slanted
+Sens du dégradé	Gradient direction
+Trait	Line
+Tirets	Dashes
+Points	Dots
+Forme des cartes	Card shape
+Change la silhouette, le fond et la bordure, par-dessus le style choisi.	Changes the outline, background and border, on top of the chosen style.
+Silhouette	Outline
+Celle du style	The style's own
+Carré	Square
+Onglet	Tab
+Arrondi des cartes	Card rounding
+Taille de la coupe	Cut size
+Fond des cartes	Card background
+Celui du style	The style's own
+Couleur unie	Solid color
+Verre dépoli	Frosted glass
+Couleur du fond	Background color
+Deuxième couleur	Second color
+Motif	Pattern
+Rayures	Stripes
+Grille	Grid
+Lignes d'écran	Scanlines
+Couleur de la bordure	Border color
+Trait de la bordure	Border line
+Format de l'overlay	Overlay format
+Taille prévue	Default size
+Horizontal 1920 × 1080	Landscape 1920 × 1080
+Horizontal 1280 × 720	Landscape 1280 × 720
+Vertical 1080 × 1920	Portrait 1080 × 1920
+Carré 1080 × 1080	Square 1080 × 1080
+Sur mesure	Custom
+Change la forme de tes overlays et ajoute ton décor	Change your overlays' shape and add your own decor
+Onglet Décor sur chaque overlay : ajoute des formes (carré, cercle, étoile, cœur, flèche, bannière, bulle…), des textes et des images, derrière ou devant l'overlay, et place-les à la souris dans l'aperçu.	Decor tab on every overlay: add shapes (square, circle, star, heart, arrow, banner, bubble…), text and images, behind or in front of the overlay, and place them with the mouse in the preview.
+Forme des cartes dans l'onglet Style : silhouette (carré, pilule, coins coupés, penché, flèche, hexagone, onglet), fond uni, dégradé ou verre, motif et bordure, par-dessus le style choisi.	Card shape in the Style tab: outline (square, pill, cut corners, slanted, arrow, hexagon, tab), solid, gradient or glass background, pattern and border, on top of the chosen style.
+Format de l'overlay dans l'onglet Position : horizontal, vertical, carré ou sur mesure.	Overlay format in the Position tab: landscape, portrait, square or custom.
+Les textes du décor peuvent afficher les valeurs du live (spectateurs, dernier suivi…), et l'éditeur d'overlays gagne les mêmes formes.	Decor text can show live values (viewers, latest follower…), and the overlay editor gets the same shapes.

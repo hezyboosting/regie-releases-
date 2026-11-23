@@ -6,6 +6,8 @@ import { brandSvg } from '../../overlays/brands.js';
 import { ICONS, Btn, Bay, Lamp, Field, Select, Fader, Color, Segments, Lazy, Num, Pro, PageHead, Upsell } from '../ui.js';
 import { PadStudio, LiveBadge, STUDIO_KEYS } from './padstudio.js';
 import { SceneEditor } from './scene.js';
+import { Inspector } from './builder.js';
+import { newElement, SHAPES } from '../../overlays/custom-render.js';
 
 const GROUP_ORDER = ['Mes overlays', 'Alertes et live', 'Cadeaux et classements', 'Jeux avec le chat', 'Objectifs et outils', 'Mon jeu et manette'];
 // Catégories de la galerie : quelques familles claires plutôt que les groupes techniques des overlays.
@@ -180,6 +182,15 @@ function FieldInput({ f, value, set, s, overlay }) {
   const locked = f.feature && !s.features[f.feature];
   if (f.type === 'platforms' || f.type === 'events') return html`<${PickMany} f=${f} value=${value} set=${set} />`;
   if (f.type === 'menurows') return html`<${MenuRows} value=${value} set=${set} s=${s} />`;
+  if (f.type === 'heading') return html`<div class="field wide ed-sub"><b>${f.label}</b>${f.hint && html`<span>${f.hint}</span>`}</div>`;
+  // Forme des cartes : on choisit en voyant la silhouette.
+  if (f.key === 'skShape') {
+    return html`<div class="field wide"><span class="f-label">${f.label}</span><div class="sk-pick" role="radiogroup" aria-label=${f.label}>
+      ${f.options.map((o) => html`<button type="button" key=${o.value} role="radio" aria-checked=${value === o.value} class="sk-opt ${value === o.value ? 'on' : ''}" onClick=${() => set(o.value)}>
+        <i class="sk-mini sk-${o.value}"></i><span>${o.label}</span>
+      </button>`)}
+    </div></div>`;
+  }
   if (f.type === 'padpack') return html`<${PackField} s=${s} overlay=${overlay} value=${value} set=${set} locked=${locked} />`;
   // Suivi = Rang : jeu, rangs qui sortent, chances et révélation, réglés depuis l'overlay lui-même.
   if (f.type === 'rankconfig') return html`<div class="field wide rank-inline"><${RankConfig} s=${s} compact /></div>`;
@@ -215,8 +226,114 @@ function FieldInput({ f, value, set, s, overlay }) {
   return html`<${Field} label=${html`${f.label}${locked && html` <${Pro} />`}`} wide=${f.type === 'code'}>${body}<//>`;
 }
 
+// ---------- Décor : formes, textes et images libres autour de n'importe quel overlay ----------
+const clonej = (x) => JSON.parse(JSON.stringify(x));
+const KIND_LABEL = { text: 'Texte', shape: 'Forme', image: 'Image', bar: 'Barre' };
+const decorId = () => `d${Math.random().toString(36).slice(2, 9)}`;
+// Un nouvel élément se pose au milieu de l'overlay, à une taille qui lui va.
+function decorElement(kind, w, h, over = {}) {
+  const ew = Math.round(kind === 'text' ? Math.min(420, w * 0.7) : kind === 'bar' ? Math.min(420, w * 0.7) : Math.min(260, w * 0.45));
+  const eh = Math.round(kind === 'text' ? Math.min(80, h * 0.14) : kind === 'bar' ? 28 : Math.min(160, h * 0.3));
+  return { ...newElement(kind), id: decorId(), x: Math.round((w - ew) / 2), y: Math.round((h - eh) / 2), w: ew, h: eh, size: Math.round(Math.min(48, eh * 0.6)), layer: kind === 'text' ? 'front' : 'back', ...over };
+}
+const DECOR_PRESETS = [
+  { id: 'fond', label: 'Fond derrière tout', make: (w, h) => decorElement('shape', w, h, { x: 0, y: 0, w, h, radius: 28, fill: '#141022', fill2: '#2A1B55', angle: 135, opacity: 85 }) },
+  { id: 'cadre', label: 'Cadre', make: (w, h) => decorElement('shape', w, h, { x: 6, y: 6, w: w - 12, h: h - 12, radius: 24, fill: 'transparent', stroke: 4, strokeColor: '#8FD3FF', glow: 14, glowColor: '#8FD3FF', layer: 'front' }) },
+  { id: 'bandeau', label: 'Bandeau en bas', make: (w, h) => decorElement('shape', w, h, { shape: 'banniere', x: Math.round(w * 0.1), y: h - Math.min(90, h * 0.2) - 10, w: Math.round(w * 0.8), h: Math.min(90, Math.round(h * 0.2)), fill: '#FF3D71', fill2: '#8B3DFF', angle: 90 }) },
+  { id: 'etoile', label: 'Étoile qui brille', make: (w, h) => decorElement('shape', w, h, { shape: 'etoile', w: 90, h: 90, x: w - 110, y: 16, fill: '#FFD166', glow: 18, glowColor: '#FFD166', anim: 'pulse', layer: 'front' }) },
+];
+
+// Calque posé sur l'aperçu : on attrape, déplace et redimensionne les éléments du décor.
+function DecorLayer({ w, h, els, sel, setSel, preview, commit }) {
+  const node = useRef(null);
+  const drag = (e, id, mode) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const item = els.find((x) => x.id === id);
+    if (!item) return;
+    setSel(id);
+    if (item.lock) return;
+    const k = node.current.getBoundingClientRect().width / w || 1;
+    const start = { x: e.clientX, y: e.clientY };
+    const before = clonej(els);
+    let list = els;
+    const onMove = (ev) => {
+      const dx = (ev.clientX - start.x) / k;
+      const dy = (ev.clientY - start.y) / k;
+      let p;
+      if (mode === 'move') p = { x: Math.round(item.x + dx), y: Math.round(item.y + dy) };
+      else {
+        const left = mode.includes('w');
+        const top = mode.includes('n');
+        const nw = Math.max(8, item.w + (left ? -dx : dx));
+        const nh = Math.max(4, item.h + (top ? -dy : dy));
+        p = { w: Math.round(nw), h: Math.round(nh), x: Math.round(left ? item.x + item.w - nw : item.x), y: Math.round(top ? item.y + item.h - nh : item.y) };
+      }
+      list = els.map((x) => (x.id === id ? { ...x, ...p } : x));
+      preview(list);
+    };
+    const onUp = () => {
+      removeEventListener('pointermove', onMove);
+      removeEventListener('pointerup', onUp);
+      if (list !== els) commit(list, before);
+    };
+    addEventListener('pointermove', onMove);
+    addEventListener('pointerup', onUp);
+  };
+  return html`<div class="dk-layer" ref=${(el) => { node.current = el; fit(el, w, h); }} style=${{ width: `${w}px`, height: `${h}px` }}
+    onPointerDown=${(e) => { if (e.target === e.currentTarget) setSel(null); }}>
+    ${els.map((x) => html`<div key=${x.id} class="dk-box ${sel === x.id ? 'on' : ''} ${x.lock ? 'locked' : ''}" title=${x.kind === 'text' ? x.text : KIND_LABEL[x.kind]}
+      style=${{ left: `${x.x}px`, top: `${x.y}px`, width: `${x.w}px`, height: `${x.h}px`, transform: x.rot ? `rotate(${x.rot}deg)` : '' }}
+      onPointerDown=${(e) => drag(e, x.id, 'move')}>
+      ${sel === x.id && !x.lock && ['nw', 'ne', 'sw', 'se'].map((c) => html`<i key=${c} class="dk-h dk-${c}" onPointerDown=${(e) => drag(e, x.id, c)}></i>`)}
+    </div>`)}
+  </div>`;
+}
+
+function DecorPanel({ s, w, h, els, sel, setSel, commit, undo, canUndo }) {
+  const current = els.find((x) => x.id === sel);
+  const up = (patch) => commit(els.map((x) => (x.id === sel ? { ...x, ...patch } : x)));
+  const add = (el) => { commit([...els, el]); setSel(el.id); };
+  const move = (d) => {
+    const i = els.findIndex((x) => x.id === sel);
+    const j = i + d;
+    if (i < 0 || j < 0 || j >= els.length) return;
+    const next = [...els];
+    [next[i], next[j]] = [next[j], next[i]];
+    commit(next);
+  };
+  return html`<div class="dk-panel">
+    <p class="note">Ajoute des formes, des textes ou des images autour de l'overlay, puis attrape-les dans l'aperçu pour les placer. Tire les coins pour la taille.</p>
+    <div class="dk-add">
+      <${Btn} icon=${ICONS.plus} onClick=${() => add(decorElement('shape', w, h))}>Forme<//>
+      <${Btn} icon=${ICONS.plus} onClick=${() => add(decorElement('text', w, h, { text: 'Ton texte' }))}>Texte<//>
+      <${Btn} icon=${ICONS.plus} onClick=${async () => { const r = await act('importMedia', 'visual'); if (r) { setState({ media: r.media }); add(decorElement('image', w, h, { src: r.name })); } }}>Image<//>
+      <${Btn} icon=${ICONS.plus} onClick=${() => add(decorElement('bar', w, h, { fill: '#171230', color: '#8FD3FF', radius: 14 }))}>Barre<//>
+      <span class="dk-preset"><${Select} value="" label="Idées" onChange=${(id) => { const p = DECOR_PRESETS.find((x) => x.id === id); if (p) add(p.make(w, h)); }}
+        options=${[{ value: '', label: 'Idées de décor…' }, ...DECOR_PRESETS.map((p) => ({ value: p.id, label: p.label }))]} /></span>
+    </div>
+    <div class="layers dk-layers">
+      ${[...els].reverse().map((x) => html`<button type="button" key=${x.id} class="layer ${sel === x.id ? 'on' : ''}" onClick=${() => setSel(x.id)}>
+        <span>${x.lock ? 'Verrouillé : ' : ''}${x.kind === 'text' ? (x.text || 'Texte') : x.kind === 'shape' ? (SHAPES.find(([k]) => k === (x.shape || 'rect'))?.[1] || 'Forme') : KIND_LABEL[x.kind]}</span>
+        <small>${x.layer === 'front' ? 'Devant' : 'Derrière'}</small>
+      </button>`)}
+      ${!els.length && html`<p class="note">Pas encore de décor sur cet overlay.</p>`}
+    </div>
+    ${current && html`<div class="row tight dk-tools">
+      <${Segments} value=${current.layer === 'front' ? 'front' : 'back'} options=${[{ value: 'back', label: 'Derrière l\'overlay' }, { value: 'front', label: 'Devant' }]} onChange=${(layer) => up({ layer })} />
+      <button type="button" class="icon" aria-label="Monter" title="Monter" onClick=${() => move(1)}>${ICONS.up}</button>
+      <button type="button" class="icon" aria-label="Descendre" title="Descendre" onClick=${() => move(-1)}>${ICONS.down}</button>
+      <button type="button" class="icon" aria-label="Dupliquer" title="Dupliquer" onClick=${() => add({ ...clonej(current), id: decorId(), x: current.x + 20, y: current.y + 20 })}>${ICONS.dup}</button>
+      <button type="button" class="icon ${current.lock ? 'on' : ''}" aria-pressed=${Boolean(current.lock)} aria-label=${current.lock ? 'Déverrouiller' : 'Verrouiller'} title=${current.lock ? 'Déverrouiller' : 'Verrouiller'} onClick=${() => up({ lock: !current.lock })}>${ICONS.lock}</button>
+      <button type="button" class="icon" aria-label="Supprimer" title="Supprimer" onClick=${() => { commit(els.filter((x) => x.id !== sel)); setSel(null); }}>${ICONS.trash}</button>
+    </div>`}
+    ${canUndo && html`<button type="button" class="linkish" onClick=${undo}>Annuler la dernière modification</button>`}
+    ${current && html`<div class="dk-inspector"><${Inspector} key=${current.id} el=${current} up=${up} s=${s} insertVar=${(k) => up({ text: `${current.text || ''}{${k}}` })} /></div>`}
+  </div>`;
+}
+
 // Onglets de l'éditeur : chaque réglage va dans Contenu, Style, Animation ou Position.
-const TABS = [['content', 'Contenu'], ['style', 'Style'], ['anim', 'Animation'], ['pos', 'Position']];
+const TABS = [['content', 'Contenu'], ['style', 'Style'], ['decor', 'Décor'], ['anim', 'Animation'], ['pos', 'Position']];
 const STYLE_KEYS = new Set(['font', 'fontSize', 'bgAlpha', 'radius', 'shine', 'glow', 'theme', 'style', 'autoColor', 'showCase', 'lightFx']);
 const tabOf = (f) => f.tab || (f.key === 'scale' ? 'pos' : f.key === 'customCss' ? 'style' : (f.type === 'color' || STYLE_KEYS.has(f.key)) ? 'style' : 'content');
 const BACKDROPS = [['scene', 'Scène'], ['dark', 'Sombre'], ['light', 'Clair'], ['check', 'Transparent'], ['green', 'Fond vert']];
@@ -239,9 +356,18 @@ function Looks({ s, overlay }) {
   </div>`;
 }
 
+// Taille réelle de l'overlay : format choisi (onglet Position) ou celle prévue pour son type.
+export function overlaySizeOf(overlay, def) {
+  const st = overlay?.settings || {};
+  if (overlay?.type === 'custom') return st.format === '9:16' ? [1080, 1920] : [1920, 1080];
+  if (st.canvas === 'perso') return [Math.max(120, Math.min(3840, Number(st.canvasW) || 800)), Math.max(60, Math.min(2160, Number(st.canvasH) || 600))];
+  const m = /^(\d+)x(\d+)$/.exec(st.canvas || '');
+  return m ? [Number(m[1]), Number(m[2])] : (def?.size || [1920, 1080]);
+}
+
 export function OverlayEditor({ s, overlay, compact }) {
   const def = s.overlayTypes[overlay.type];
-  const [w, h] = def.size;
+  const [w, h] = overlaySizeOf(overlay, def);
   const [tab, setTab] = useState('content');
   const [backdrop, setBackdrop] = useState(() => { try { return localStorage.getItem('regie.backdrop') || 'scene'; } catch { return 'scene'; } });
   const save = async (key, value) => {
@@ -249,6 +375,31 @@ export function OverlayEditor({ s, overlay, compact }) {
     if (r) setState({ overlays: s.overlays.map((o) => (o.id === overlay.id ? { ...o, settings: r.settings } : o)) });
   };
   const pickBackdrop = (b) => { setBackdrop(b); try { localStorage.setItem('regie.backdrop', b); } catch { /* aperçu seulement */ } };
+  // Décor : état local pour que le glisser soit fluide ; l'aperçu le reçoit tout de suite, l'enregistrement suit.
+  const [decor, setDecor] = useState(() => overlay.settings.decor || []);
+  const [dsel, setDsel] = useState(null);
+  const frame = useRef(null);
+  const undoStack = useRef([]);
+  const saveT = useRef(null);
+  const decorSaved = useRef(overlay.settings.decor);
+  if (decorSaved.current !== overlay.settings.decor && overlay.settings.decor !== undefined) {
+    // Changé ailleurs (onglet remis par défaut, autre fenêtre) : on reprend la version enregistrée.
+    decorSaved.current = overlay.settings.decor;
+    if (JSON.stringify(overlay.settings.decor) !== JSON.stringify(decor)) setDecor(overlay.settings.decor || []);
+  }
+  const previewDecor = (list) => { try { frame.current?.contentWindow?.postMessage({ regie: 'decor', decor: list }, '*'); } catch { /* aperçu pas encore chargé */ } };
+  const commitDecor = (next, before) => {
+    undoStack.current.push(before || clonej(decor));
+    undoStack.current = undoStack.current.slice(-60);
+    setDecor(next);
+    previewDecor(next);
+    clearTimeout(saveT.current);
+    saveT.current = setTimeout(async () => {
+      const r = await act('updateOverlay', overlay.id, { decor: next });
+      if (r) { decorSaved.current = r.settings.decor; setState({ overlays: s.overlays.map((o) => (o.id === overlay.id ? { ...o, settings: r.settings } : o)) }); }
+    }, 400);
+  };
+  const undoDecor = () => { const prev = undoStack.current.pop(); if (prev) { const keep = undoStack.current; commitDecor(prev); undoStack.current = keep; } };
   const src = `${overlay.link}&preview=1`;
   const connected = s.obs.state === 'connected';
   const studio = overlay.type === 'gamepad';
@@ -260,22 +411,39 @@ export function OverlayEditor({ s, overlay, compact }) {
   const current = tabs.some(([k]) => k === tab) ? tab : tabs[0][0];
   const reset = async () => {
     const patch = {};
-    for (const f of byTab[current]) patch[f.key] = f.default;
+    for (const f of byTab[current]) if (f.type !== 'heading') patch[f.key] = f.default;
     const r = await act('updateOverlay', overlay.id, patch);
     if (r) { setState({ overlays: s.overlays.map((o) => (o.id === overlay.id ? { ...o, settings: r.settings } : o)) }); toast('Réglages de l\'onglet remis par défaut'); }
   };
+  // Flèches, Suppr et Ctrl Z sur le décor sélectionné (onglet Décor seulement).
+  useEffect(() => {
+    if (current !== 'decor') return undefined;
+    const onKey = (e) => {
+      if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoDecor(); return; }
+      const it = decor.find((x) => x.id === dsel);
+      if (!it) return;
+      const step = e.shiftKey ? 10 : 1;
+      const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+      if (d && !it.lock) { e.preventDefault(); commitDecor(decor.map((x) => (x.id === dsel ? { ...x, x: x.x + d[0], y: x.y + d[1] } : x))); }
+      if (e.key === 'Delete') { commitDecor(decor.filter((x) => x.id !== dsel)); setDsel(null); }
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  });
   const form = html`<div class="ed-tabs" role="tablist" aria-label="Réglages">
       ${tabs.map(([k, label]) => html`<button type="button" role="tab" key=${k} aria-selected=${current === k} class="ed-tab ${current === k ? 'on' : ''}" onClick=${() => setTab(k)}>${label}</button>`)}
     </div>
     ${current === 'style' && html`<div class="ed-looks"><span class="f-label">Styles prêts en 1 clic</span><${Looks} s=${s} overlay=${overlay} /></div>`}
-    <form class="ed-form" onSubmit=${(e) => e.preventDefault()}>
+    ${current === 'decor' ? html`<${DecorPanel} s=${s} w=${w} h=${h} els=${decor} sel=${dsel} setSel=${setDsel} commit=${commitDecor} undo=${undoDecor} canUndo=${undoStack.current.length > 0} />` : html`<form class="ed-form" onSubmit=${(e) => e.preventDefault()}>
       ${byTab[current].map((f) => html`<${FieldInput} key=${f.key} f=${f} value=${overlay.settings[f.key] ?? f.default} set=${(v) => save(f.key, v)} s=${s} overlay=${overlay} />`)}
-    </form>
+    </form>`}
     ${byTab[current].length > 0 && html`<button type="button" class="linkish ed-reset" onClick=${reset}>Remettre cet onglet par défaut</button>`}`;
   return html`<div class="editor ${compact ? 'compact' : ''} ${studio ? 'pad-editor' : ''}">
     <div class="ed-stage">
       <div class="preview-frame bd-${backdrop} ${studio ? 'pad-stage' : ''}" style=${{ aspectRatio: `${w} / ${h}` }}>
-        <iframe title=${`Aperçu de ${overlay.name}`} src=${src} style=${{ width: `${w}px`, height: `${h}px`, '--w': w }} ref=${(el) => fit(el, w, h)}></iframe>
+        <iframe title=${`Aperçu de ${overlay.name}`} src=${src} class=${current === 'decor' ? 'decor-on' : ''} style=${{ width: `${w}px`, height: `${h}px`, '--w': w }} ref=${(el) => { frame.current = el; fit(el, w, h); }}></iframe>
+        ${current === 'decor' && html`<${DecorLayer} w=${w} h=${h} els=${decor} sel=${dsel} setSel=${setDsel} preview=${previewDecor} commit=${commitDecor} />`}
         ${studio && html`<${LiveBadge} s=${s} overlay=${overlay} />`}
       </div>
       <div class="bd-pick" role="radiogroup" aria-label="Fond de l'aperçu">
@@ -312,6 +480,7 @@ function fit(el, w, h) {
     const cw = box.clientWidth, ch = box.clientHeight;
     const k = Math.min(cw / w, ch / (h || w));
     el.style.transform = `translate(${((cw - w * k) / 2).toFixed(1)}px, ${((ch - (h || w) * k) / 2).toFixed(1)}px) scale(${k})`;
+    el.style.setProperty('--dk-inv', String(k ? 1 / k : 1));
   };
   apply();
   if (!el.ro) { el.ro = new ResizeObserver(apply); el.ro.observe(el.parentElement); }
@@ -343,7 +512,7 @@ function CardPreview({ overlay, size }) {
 }
 
 function Card({ s, o, def }) {
-  const size = o.type === 'custom' && o.settings.format === '9:16' ? [1080, 1920] : def.size;
+  const size = overlaySizeOf(o, def);
   const toggle = async (on) => {
     const r = await act('setOverlayEnabled', o.id, on);
     if (r) setState({ overlays: s.overlays.map((x) => (x.id === o.id ? { ...x, enabled: on } : x)) });

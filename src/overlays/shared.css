@@ -5,8 +5,10 @@
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: var(--font); color: #fff; -webkit-font-smoothing: antialiased; }
 body.preview { background-color: #39414A; background-image: conic-gradient(#303740 25%, transparent 0 50%, #303740 0 75%, transparent 0); background-size: 28px 28px; }
-#root { position: fixed; inset: 0; }
-#mark { position: fixed; right: 10px; bottom: 8px; padding: 3px 8px 3px 20px; font: 600 12px/1.2 "Archivo", sans-serif; font-stretch: 85%; color: #fff; background: rgba(20, 24, 29, .72); border-radius: 3px; }
+#root { position: fixed; inset: 0; z-index: 1; }
+#decor-back, #decor-front { position: fixed; inset: 0; pointer-events: none; overflow: hidden; } #decor-back { z-index: 0; } #decor-front { z-index: 2; }
+#decor-back[hidden], #decor-front[hidden] { display: none; }
+#mark { position: fixed; z-index: 5; right: 10px; bottom: 8px; padding: 3px 8px 3px 20px; font: 600 12px/1.2 "Archivo", sans-serif; font-stretch: 85%; color: #fff; background: rgba(20, 24, 29, .72); border-radius: 3px; }
 #mark::before { content: ""; position: absolute; left: 8px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: #F0392B; }
 .pf { display: inline-grid; place-items: center; min-width: 26px; height: 18px; padding: 0 4px; border-radius: 3px; color: #fff; font-size: 11px; font-weight: 800; font-stretch: 80%; letter-spacing: .02em; }
 .scaled { transform: scale(var(--scale)); transform-origin: top left; }
