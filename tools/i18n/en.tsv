@@ -3604,3 +3604,85 @@ Marius devient VIP	Marius becomes VIP
 devient VIP	becomes VIP
 Le Hype Train démarre	The Hype Train starts
 Objectif atteint : 100 abonnés	Goal reached: 100 followers
+Nombre	Number
+Pourcentage	Percentage
+Reste	Remaining
+Choix	Choice
+Numéro	Number
+Prix	Price
+Pochette	Cover
+Artiste	Artist
+Plateforme	Platform
+Temps	Time
+Égaliseur	Equalizer
+Annonce (suivi, cadeau…)	Announcement (follow, gift…)
+Badge LIVE	LIVE badge
+Badge et plateforme	Badge and platform
+Barre de vie	Health bar
+Bienvenue et pseudo	Welcome and username
+Boîte et effets	Box and effects
+Cadeau envoyé	Gift sent
+Choix et parieurs	Choice and bettors
+Comme le style	Like the style
+Comment jouer	How to play
+Comment participer	How to join
+Compteur (68 / 100)	Counter (68 / 100)
+Derrière les textes	Behind the text
+Décalée	Offset
+Défilement des rangs	Rank reel
+Dégradé vers	Gradient to
+En attente	Waiting
+Espacement des lettres	Letter spacing
+Hauteur minimum	Minimum height
+Icône (événements)	Icon (events)
+Interligne (0 = auto)	Line height (0 = auto)
+Italique	Italic
+Je relève la place de chaque élément…	Measuring where each element sits…
+Jeu et pseudo	Game and username
+Joueur en cours	Current player
+L'aperçu n'a pas encore de carte à relever : réessaie dans une seconde.	The preview has no card to measure yet: try again in a second.
+Le retirer	Remove it
+Lignes au maximum (0 = sans limite)	Max lines (0 = no limit)
+Marge intérieure	Inner padding
+Meilleurs joueurs	Top players
+Merci !	Thanks!
+Mes ajouts dans la carte	My additions to the card
+Message lu	Message read aloud
+Minuteurs et sondages	Timers and polls
+Mot à taper	Word to type
+Nom et niveau	Name and level
+Overlays ouverts dans OBS ou LIVE Studio	Overlays open in OBS or LIVE Studio
+Plan	Layer
+Plateau	Board
+Point du direct	Live dot
+Points et boutique	Points and shop
+Points et cote	Points and odds
+Position et taille	Position and size
+Prix (icône et pièces)	Price (icon and coins)
+Pseudo et titre	Username and title
+Pseudo, plateforme et badges	Username, platform and badges
+Rangs par mode	Ranks per mode
+Reprendre un élément de la carte	Reuse an element of the card
+Reçus pendant le live	Received during the live
+Sans fond	No background
+Sur une seule ligne	On a single line
+Série	Streak
+Titre et temps	Title and time
+Une chaîne a un problème	A channel has a problem
+Éléments de la carte	Elements of the card
+Équipe 1	Team 1
+Équipe 2	Team 2
+État (pause…)	State (paused…)
+Couleurs, forme, place de chaque texte	Colors, shape, where each text goes
+Tes overlays : personnalise-les (couleurs, forme, place de chaque élément), teste-les, copie leur lien dans OBS ou TikTok LIVE Studio.	Your overlays: customize them (colors, shape, where each element goes), test them, copy their link into OBS or TikTok LIVE Studio.
+Clique un élément dans la liste ou dans l'aperçu pour le régler. Attrape-le pour le déplacer, tire ses poignées pour sa taille. Flèches pour ajuster, Ctrl Z pour annuler.	Click an element in the list or in the preview to adjust it. Grab it to move it, drag its handles to resize it. Arrow keys to nudge, Ctrl Z to undo.
+Passe en Libre pour placer toi-même chaque élément de la carte ({0}), régler chacun à part et ajouter tes formes, textes et images dedans.	Switch to Free to place every element of the card yourself ({0}), adjust each one separately and add your own shapes, text and images inside.
+Ton ancien décor ({0} élément) est toujours affiché autour de l'overlay.	Your old decor ({0} element) is still shown around the overlay.
+Ton ancien décor ({0} éléments) est toujours affiché autour de l'overlay.	Your old decor ({0} elements) is still shown around the overlay.
+Texte « {0} »	Text “{0}”
+Menu plus simple, nouveau design, chaque overlay se place à la main	Simpler menu, new design, every overlay laid out by hand
+Menu rangé en douze entrées claires (Chat, Overlays, Alertes, Cadeaux, Jeux, Spectateurs, Outils du live…). Les pages d'un même sujet sont des onglets en haut de la page, et un voyant s'allume quand quelque chose tourne.	Menu sorted into twelve clear entries (Chat, Overlays, Alerts, Gifts, Games, Viewers, Live tools…). Pages on the same topic are tabs at the top of the page, and a light turns on when something is running.
+Nouveau design : pupitre graphite, touches qui s'allument en ambre, vert quand c'est actif, rouge réservé au direct, titres plus lisibles.	New design: graphite desk, keys that light up amber, green when active, red only for live, clearer titles.
+La Disposition libre arrive sur presque tous les overlays (chat, objectifs, classements, menu des pièces, minuteur, Spotify, roue, duels…) : le placement de départ est celui que tu vois, puis tu déplaces chaque élément à la souris.	Free layout comes to almost every overlay (chat, goals, leaderboards, coin menu, timer, Spotify, wheel, battles…): it starts from what you see, then you move each element with the mouse.
+Beaucoup plus de réglages par élément : fond et dégradé, bordure, arrondi, marge, opacité, flou, contour du texte, ombre colorée, espacement, interligne, italique, une seule ligne, devant ou derrière.	Many more settings per element: background and gradient, border, roundness, padding, opacity, blur, text outline, colored shadow, letter spacing, line height, italic, single line, front or back.
+Ajoute tes formes, textes et images directement dans la carte : ils se répètent sur chaque message ou chaque alerte, et un texte peut reprendre le pseudo de la carte. L'onglet Décor disparaît.	Add your own shapes, text and images right inside the card: they repeat on every message or alert, and a text can reuse the card's username. The Decor tab is gone.

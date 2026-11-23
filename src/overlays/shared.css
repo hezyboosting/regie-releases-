@@ -1201,6 +1201,9 @@ img.ej-i { height: auto; object-fit: contain; }
 
 /* Alertes en disposition libre : pseudo inline (quand il n'est pas séparé), texte et étiquettes */
 .al-nm { color: var(--accent); font-weight: 900; }
+/* Disposition libre : les enveloppes entre la carte et ses éléments s'effacent ; les ajouts ne captent pas la souris. */
+[data-layout="libre"] [data-lw] { display: contents !important; }
+.rg-x { pointer-events: none; }
 [data-layout="libre"] .al-msg { color: var(--text); }
 [data-layout="libre"] .al-name { display: block; overflow: hidden; text-overflow: ellipsis; }
 [data-layout="libre"] .al-chip { width: fit-content; }

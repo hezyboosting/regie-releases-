@@ -226,136 +226,51 @@ function FieldInput({ f, value, set, s, overlay }) {
   return html`<${Field} label=${html`${f.label}${locked && html` <${Pro} />`}`} wide=${f.type === 'code'}>${body}<//>`;
 }
 
-// ---------- Décor : formes, textes et images libres autour de n'importe quel overlay ----------
+// ---------- Disposition : chaque élément de la carte se place, se règle et se cache à part ----------
 const clonej = (x) => JSON.parse(JSON.stringify(x));
-const KIND_LABEL = { text: 'Texte', shape: 'Forme', image: 'Image', bar: 'Barre' };
-const decorId = () => `d${Math.random().toString(36).slice(2, 9)}`;
-// Un nouvel élément se pose au milieu de l'overlay, à une taille qui lui va.
-function decorElement(kind, w, h, over = {}) {
-  const ew = Math.round(kind === 'text' ? Math.min(420, w * 0.7) : kind === 'bar' ? Math.min(420, w * 0.7) : Math.min(260, w * 0.45));
-  const eh = Math.round(kind === 'text' ? Math.min(80, h * 0.14) : kind === 'bar' ? 28 : Math.min(160, h * 0.3));
-  return { ...newElement(kind), id: decorId(), x: Math.round((w - ew) / 2), y: Math.round((h - eh) / 2), w: ew, h: eh, size: Math.round(Math.min(48, eh * 0.6)), layer: kind === 'text' ? 'front' : 'back', ...over };
+const extraId = () => `x${Math.random().toString(36).slice(2, 9)}`;
+// Ajout dans la carte (forme, texte, image) : même modèle que les éléments de l'éditeur libre.
+function extraElement(kind, w, h, over = {}) {
+  const ew = kind === 'text' ? Math.min(220, w - 20) : Math.round(Math.min(120, w * 0.3));
+  const eh = kind === 'text' ? 34 : Math.round(Math.min(120, h * 0.6));
+  return { ...newElement(kind), id: extraId(), x: Math.round((w - ew) / 2), y: Math.round((h - eh) / 2), w: ew, h: eh, size: 22, layer: kind === 'text' ? 'front' : 'back', ...over };
 }
-const DECOR_PRESETS = [
-  { id: 'fond', label: 'Fond derrière tout', make: (w, h) => decorElement('shape', w, h, { x: 0, y: 0, w, h, radius: 28, fill: '#141022', fill2: '#2A1B55', angle: 135, opacity: 85 }) },
-  { id: 'cadre', label: 'Cadre', make: (w, h) => decorElement('shape', w, h, { x: 6, y: 6, w: w - 12, h: h - 12, radius: 24, fill: 'transparent', stroke: 4, strokeColor: '#8FD3FF', glow: 14, glowColor: '#8FD3FF', layer: 'front' }) },
-  { id: 'bandeau', label: 'Bandeau en bas', make: (w, h) => decorElement('shape', w, h, { shape: 'banniere', x: Math.round(w * 0.1), y: h - Math.min(90, h * 0.2) - 10, w: Math.round(w * 0.8), h: Math.min(90, Math.round(h * 0.2)), fill: '#FF3D71', fill2: '#8B3DFF', angle: 90 }) },
-  { id: 'etoile', label: 'Étoile qui brille', make: (w, h) => decorElement('shape', w, h, { shape: 'etoile', w: 90, h: 90, x: w - 110, y: 16, fill: '#FFD166', glow: 18, glowColor: '#FFD166', anim: 'pulse', layer: 'front' }) },
-];
+const LFONT_OPTS = [['', 'Celle de l\'overlay'], ['onest', 'Onest'], ['geist', 'Geist'], ['syne', 'Syne'], ['archivo', 'Archivo'], ['system', 'Système'], ['serif', 'Sérif'], ['rounded', 'Arrondie'], ['impact', 'Impact']].map(([value, label]) => ({ value, label }));
+const SHADOW_OPTS = [['', 'Aucune'], ['douce', 'Douce'], ['forte', 'Forte'], ['dure', 'Décalée'], ['halo', 'Halo']].map(([value, label]) => ({ value, label }));
+function normLayout(raw, def) {
+  const l = raw && typeof raw === 'object' ? raw : {};
+  const start = def.start ? { w: def.size[0], h: def.size[1], parts: clonej(def.start), extras: [] } : null;
+  const fill = (L, base) => {
+    const src = L || base;
+    if (!src) return null;
+    const keys = def.items.filter((it) => src.parts?.[it.key] || base?.parts?.[it.key]).map((it) => it.key);
+    return { w: src.w || base?.w || 400, h: src.h || base?.h || 120, extras: Array.isArray(src.extras) ? src.extras : (base?.extras || []), parts: Object.fromEntries(keys.map((k) => [k, { show: true, ...(base?.parts?.[k] || {}), ...(src.parts?.[k] || {}) }])) };
+  };
+  const all = fill(l.all, start);
+  const kinds = all ? Object.fromEntries(Object.entries(l.kinds || {}).filter(([, v]) => v).map(([k, v]) => [k, fill({ ...all, ...v, parts: { ...all.parts, ...(v.parts || {}) } }, all)])) : {};
+  return { mode: l.mode === 'libre' && all ? 'libre' : 'auto', separateName: l.separateName !== false, all, kinds };
+}
+const extraLabel = (e) => (e.kind === 'text' ? `Texte « ${String(e.text || '').slice(0, 18)} »` : e.kind === 'image' ? 'Image' : e.kind === 'bar' ? 'Barre' : 'Forme');
 
-// Calque posé sur l'aperçu : on attrape, déplace et redimensionne les éléments du décor.
-function DecorLayer({ w, h, els, sel, setSel, preview, commit }) {
-  const node = useRef(null);
+// Cadres posés sur l'aperçu, à l'endroit exact de chaque élément (positions envoyées par l'overlay).
+function LayoutLayer({ w, h, def, rects, sel, setSel, L, change, changeExtra, commit, focus }) {
+  if (!rects?.card || !L) return html`<div class="dk-layer" ref=${(el) => fit(el, w, h, focus)} style=${{ width: `${w}px`, height: `${h}px` }}></div>`;
+  const k = rects.k || 1;
   const drag = (e, id, mode) => {
     e.preventDefault();
     e.stopPropagation();
-    const item = els.find((x) => x.id === id);
-    if (!item) return;
     setSel(id);
-    if (item.lock) return;
-    const k = node.current.getBoundingClientRect().width / w || 1;
-    const start = { x: e.clientX, y: e.clientY };
-    const before = clonej(els);
-    let list = els;
-    const onMove = (ev) => {
-      const dx = (ev.clientX - start.x) / k;
-      const dy = (ev.clientY - start.y) / k;
-      let p;
-      if (mode === 'move') p = { x: Math.round(item.x + dx), y: Math.round(item.y + dy) };
-      else {
-        const left = mode.includes('w');
-        const top = mode.includes('n');
-        const nw = Math.max(8, item.w + (left ? -dx : dx));
-        const nh = Math.max(4, item.h + (top ? -dy : dy));
-        p = { w: Math.round(nw), h: Math.round(nh), x: Math.round(left ? item.x + item.w - nw : item.x), y: Math.round(top ? item.y + item.h - nh : item.y) };
-      }
-      list = els.map((x) => (x.id === id ? { ...x, ...p } : x));
-      preview(list);
-    };
-    const onUp = () => {
-      removeEventListener('pointermove', onMove);
-      removeEventListener('pointerup', onUp);
-      if (list !== els) commit(list, before);
-    };
-    addEventListener('pointermove', onMove);
-    addEventListener('pointerup', onUp);
-  };
-  return html`<div class="dk-layer" ref=${(el) => { node.current = el; fit(el, w, h); }} style=${{ width: `${w}px`, height: `${h}px` }}
-    onPointerDown=${(e) => { if (e.target === e.currentTarget) setSel(null); }}>
-    ${els.map((x) => html`<div key=${x.id} class="dk-box ${sel === x.id ? 'on' : ''} ${x.lock ? 'locked' : ''}" title=${x.kind === 'text' ? x.text : KIND_LABEL[x.kind]}
-      style=${{ left: `${x.x}px`, top: `${x.y}px`, width: `${x.w}px`, height: `${x.h}px`, transform: x.rot ? `rotate(${x.rot}deg)` : '' }}
-      onPointerDown=${(e) => drag(e, x.id, 'move')}>
-      ${sel === x.id && !x.lock && ['nw', 'ne', 'sw', 'se'].map((c) => html`<i key=${c} class="dk-h dk-${c}" onPointerDown=${(e) => drag(e, x.id, c)}></i>`)}
-    </div>`)}
-  </div>`;
-}
-
-function DecorPanel({ s, w, h, els, sel, setSel, commit, undo, canUndo }) {
-  const current = els.find((x) => x.id === sel);
-  const up = (patch) => commit(els.map((x) => (x.id === sel ? { ...x, ...patch } : x)));
-  const add = (el) => { commit([...els, el]); setSel(el.id); };
-  const move = (d) => {
-    const i = els.findIndex((x) => x.id === sel);
-    const j = i + d;
-    if (i < 0 || j < 0 || j >= els.length) return;
-    const next = [...els];
-    [next[i], next[j]] = [next[j], next[i]];
-    commit(next);
-  };
-  return html`<div class="dk-panel">
-    <p class="note">Ajoute des formes, des textes ou des images autour de l'overlay, puis attrape-les dans l'aperçu pour les placer. Tire les coins pour la taille.</p>
-    <div class="dk-add">
-      <${Btn} icon=${ICONS.plus} onClick=${() => add(decorElement('shape', w, h))}>Forme<//>
-      <${Btn} icon=${ICONS.plus} onClick=${() => add(decorElement('text', w, h, { text: 'Ton texte' }))}>Texte<//>
-      <${Btn} icon=${ICONS.plus} onClick=${async () => { const r = await act('importMedia', 'visual'); if (r) { setState({ media: r.media }); add(decorElement('image', w, h, { src: r.name })); } }}>Image<//>
-      <${Btn} icon=${ICONS.plus} onClick=${() => add(decorElement('bar', w, h, { fill: '#171230', color: '#8FD3FF', radius: 14 }))}>Barre<//>
-      <span class="dk-preset"><${Select} value="" label="Idées" onChange=${(id) => { const p = DECOR_PRESETS.find((x) => x.id === id); if (p) add(p.make(w, h)); }}
-        options=${[{ value: '', label: 'Idées de décor…' }, ...DECOR_PRESETS.map((p) => ({ value: p.id, label: p.label }))]} /></span>
-    </div>
-    <div class="layers dk-layers">
-      ${[...els].reverse().map((x) => html`<button type="button" key=${x.id} class="layer ${sel === x.id ? 'on' : ''}" onClick=${() => setSel(x.id)}>
-        <span>${x.lock ? 'Verrouillé : ' : ''}${x.kind === 'text' ? (x.text || 'Texte') : x.kind === 'shape' ? (SHAPES.find(([k]) => k === (x.shape || 'rect'))?.[1] || 'Forme') : KIND_LABEL[x.kind]}</span>
-        <small>${x.layer === 'front' ? 'Devant' : 'Derrière'}</small>
-      </button>`)}
-      ${!els.length && html`<p class="note">Pas encore de décor sur cet overlay.</p>`}
-    </div>
-    ${current && html`<div class="row tight dk-tools">
-      <${Segments} value=${current.layer === 'front' ? 'front' : 'back'} options=${[{ value: 'back', label: 'Derrière l\'overlay' }, { value: 'front', label: 'Devant' }]} onChange=${(layer) => up({ layer })} />
-      <button type="button" class="icon" aria-label="Monter" title="Monter" onClick=${() => move(1)}>${ICONS.up}</button>
-      <button type="button" class="icon" aria-label="Descendre" title="Descendre" onClick=${() => move(-1)}>${ICONS.down}</button>
-      <button type="button" class="icon" aria-label="Dupliquer" title="Dupliquer" onClick=${() => add({ ...clonej(current), id: decorId(), x: current.x + 20, y: current.y + 20 })}>${ICONS.dup}</button>
-      <button type="button" class="icon ${current.lock ? 'on' : ''}" aria-pressed=${Boolean(current.lock)} aria-label=${current.lock ? 'Déverrouiller' : 'Verrouiller'} title=${current.lock ? 'Déverrouiller' : 'Verrouiller'} onClick=${() => up({ lock: !current.lock })}>${ICONS.lock}</button>
-      <button type="button" class="icon" aria-label="Supprimer" title="Supprimer" onClick=${() => { commit(els.filter((x) => x.id !== sel)); setSel(null); }}>${ICONS.trash}</button>
-    </div>`}
-    ${canUndo && html`<button type="button" class="linkish" onClick=${undo}>Annuler la dernière modification</button>`}
-    ${current && html`<div class="dk-inspector"><${Inspector} key=${current.id} el=${current} up=${up} s=${s} insertVar=${(k) => up({ text: `${current.text || ''}{${k}}` })} /></div>`}
-  </div>`;
-}
-
-// ---------- Disposition libre : chaque élément de la carte se place à la souris ----------
-const LFONT_OPTS = [['', 'Celle de l\'overlay'], ['onest', 'Onest'], ['geist', 'Geist'], ['syne', 'Syne'], ['archivo', 'Archivo'], ['system', 'Système'], ['serif', 'Sérif'], ['rounded', 'Arrondie'], ['impact', 'Impact']].map(([value, label]) => ({ value, label }));
-function normLayout(raw, def) {
-  const start = { w: def.size[0], h: def.size[1], parts: clonej(def.start) };
-  const l = raw && typeof raw === 'object' ? raw : {};
-  const fill = (L) => ({ w: L?.w || start.w, h: L?.h || start.h, parts: Object.fromEntries(def.items.map((it) => [it.key, { show: true, ...(start.parts[it.key] || {}), ...(L?.parts?.[it.key] || {}) }])) });
-  return { mode: l.mode === 'libre' ? 'libre' : 'auto', separateName: l.separateName !== false, all: fill(l.all), kinds: Object.fromEntries(Object.entries(l.kinds || {}).filter(([, v]) => v).map(([k, v]) => [k, fill({ ...l.all, ...v, parts: { ...(l.all?.parts || {}), ...(v.parts || {}) } })])) };
-}
-
-// Cadres posés sur l'aperçu, à l'endroit exact de chaque élément (positions envoyées par l'overlay).
-function LayoutLayer({ w, h, def, rects, sel, setSel, L, zoom, change, commit, focus }) {
-  if (!rects) return html`<div class="dk-layer" ref=${(el) => fit(el, w, h, focus)} style=${{ width: `${w}px`, height: `${h}px` }}></div>`;
-  const drag = (e, key, mode) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setSel(key);
     const layer = e.currentTarget.closest('.dk-layer');
-    const k = layer.getBoundingClientRect().width / w || 1;
-    const p0 = L.parts[key];
+    const ks = (layer.getBoundingClientRect().width / w || 1) * k;
+    const isX = id.startsWith('x:');
+    const key = id.slice(2);
+    const p0 = isX ? L.extras.find((x) => x.id === key) : L.parts[key];
+    if (!p0 || p0.lock) return;
     const start = { x: e.clientX, y: e.clientY };
     let last = null;
     const onMove = (ev) => {
-      const dx = Math.round((ev.clientX - start.x) / k / zoom);
-      const dy = Math.round((ev.clientY - start.y) / k / zoom);
+      const dx = Math.round((ev.clientX - start.x) / ks);
+      const dy = Math.round((ev.clientY - start.y) / ks);
       let p;
       if (mode === 'move') p = { x: p0.x + dx, y: p0.y + dy };
       else {
@@ -367,7 +282,7 @@ function LayoutLayer({ w, h, def, rects, sel, setSel, L, zoom, change, commit, f
         if (mode.length === 2) Object.assign(p, { h: nh, y: top ? p0.y + (p0.h || 0) - nh : p0.y });
       }
       last = p;
-      change(key, p);
+      if (isX) changeExtra(key, p); else change(key, p);
     };
     const onUp = () => {
       removeEventListener('pointermove', onMove);
@@ -377,21 +292,109 @@ function LayoutLayer({ w, h, def, rects, sel, setSel, L, zoom, change, commit, f
     addEventListener('pointermove', onMove);
     addEventListener('pointerup', onUp);
   };
+  const c = rects.card;
+  const box = (id, label, r, corners) => html`<div key=${id} class="dk-box lk-box ${id.startsWith('x:') ? 'lk-extra' : ''} ${sel === id ? 'on' : ''}" title=${label} style=${{ left: `${r.x}px`, top: `${r.y}px`, width: `${Math.max(r.w, 6)}px`, height: `${Math.max(r.h, 6)}px` }} onPointerDown=${(e) => drag(e, id, 'move')}>
+    ${sel === id && html`<span class="lk-tag">${label}</span>`}
+    ${sel === id && corners.map((cn) => html`<i key=${cn} class="dk-h dk-${cn}" onPointerDown=${(e) => drag(e, id, cn)}></i>`)}
+  </div>`;
   return html`<div class="dk-layer" ref=${(el) => fit(el, w, h, focus)} style=${{ width: `${w}px`, height: `${h}px` }} onPointerDown=${(e) => { if (e.target === e.currentTarget) setSel(null); }}>
-    ${rects.card && html`<div class="lk-card" style=${{ left: `${rects.card.x}px`, top: `${rects.card.y}px`, width: `${rects.card.w}px`, height: `${rects.card.h}px` }}></div>`}
+    <div class="lk-card" style=${{ left: `${c.x}px`, top: `${c.y}px`, width: `${c.w}px`, height: `${c.h}px` }}></div>
+    ${(L.extras || []).filter((x) => x.layer !== 'front').map((x) => box(`x:${x.id}`, extraLabel(x), { x: c.x + x.x * k, y: c.y + x.y * k, w: x.w * k, h: x.h * k }, ['nw', 'ne', 'sw', 'se']))}
     ${def.items.map((it) => {
       const r = rects.rects?.[it.key];
-      if (!r || !L.parts[it.key]?.show) return null;
-      const box = it.kind === 'box';
-      return html`<div key=${it.key} class="dk-box lk-box ${sel === it.key ? 'on' : ''}" title=${it.label} style=${{ left: `${r.x}px`, top: `${r.y}px`, width: `${Math.max(r.w, 6)}px`, height: `${Math.max(r.h, 6)}px` }} onPointerDown=${(e) => drag(e, it.key, 'move')}>
-        ${sel === it.key && html`<span class="lk-tag">${it.label}</span>`}
-        ${sel === it.key && (box ? ['nw', 'ne', 'sw', 'se'] : ['w', 'e']).map((c) => html`<i key=${c} class="dk-h dk-${c}" onPointerDown=${(e) => drag(e, it.key, c)}></i>`)}
-      </div>`;
+      if (!r || !L.parts[it.key] || L.parts[it.key].show === false) return null;
+      return box(`p:${it.key}`, it.label, r, it.kind === 'box' ? ['nw', 'ne', 'sw', 'se'] : ['w', 'e']);
     })}
+    ${(L.extras || []).filter((x) => x.layer === 'front').map((x) => box(`x:${x.id}`, extraLabel(x), { x: c.x + x.x * k, y: c.y + x.y * k, w: x.w * k, h: x.h * k }, ['nw', 'ne', 'sw', 'se']))}
   </div>`;
 }
 
-function LayoutPanel({ s, def, layout, setLayout, scope, setScope, sel, setSel }) {
+// Petit groupe repliable du panneau (Position, Texte, Boîte).
+const Group = ({ title, open = true, children }) => html`<details class="lk-group" open=${open}><summary>${title}</summary><div class="lk-gbody">${children}</div></details>`;
+
+function PartInspector({ it, p, put }) {
+  const fader = (key, lab, min, max, unit = ' px', step = 1, d = 0) => html`<${Field} label=${lab} wide><${Fader} value=${Math.round(p[key] ?? d)} min=${min} max=${max} step=${step} unit=${unit} onChange=${(v) => put({ [key]: v })} /><//>`;
+  const text = it.kind === 'text';
+  return html`<div class="lk-inspector">
+    <b class="lk-title">${it.label}</b>
+    <${Group} title="Position et taille">
+      <div class="two-in">
+        <${Field} label="X"><${Num} value=${Math.round(p.x)} onSave=${(v) => put({ x: v })} /><//>
+        <${Field} label="Y"><${Num} value=${Math.round(p.y)} onSave=${(v) => put({ y: v })} /><//>
+      </div>
+      ${fader('w', 'Largeur', 8, 1600)}
+      ${it.kind === 'box' && fader('h', 'Hauteur', 2, 1000)}
+      ${fader('rot', 'Rotation', -180, 180, '°')}
+    <//>
+    ${text && html`<${Group} title="Texte">
+      ${fader('size', 'Taille du texte', 6, 160)}
+      ${fader('weight', 'Graisse', 100, 900, '', 100, 600)}
+      <div class="two-in">
+        <${Field} label="Police"><${Select} value=${p.font || ''} options=${LFONT_OPTS} onChange=${(font) => put({ font })} /><//>
+        <${Field} label="Alignement"><${Select} value=${p.align || 'left'} options=${[{ value: 'left', label: 'Gauche' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Droite' }]} onChange=${(align) => put({ align })} /><//>
+      </div>
+      <div class="row tight lk-color">
+        <${Field} label="Couleur"><${Color} value=${p.color || '#FFFFFF'} onChange=${(color) => put({ color })} /><//>
+        ${p.color && html`<button type="button" class="linkish" onClick=${() => put({ color: '' })}>Couleur du style</button>`}
+      </div>
+      <${Field} label="Majuscules" wide><${Segments} small value=${p.upper === true ? 'oui' : p.upper === false ? 'non' : 'style'} options=${[{ value: 'style', label: 'Comme le style' }, { value: 'oui', label: 'Oui' }, { value: 'non', label: 'Non' }]} onChange=${(v) => put({ upper: v === 'style' ? null : v === 'oui' })} /><//>
+      <div class="row tight"><${Lamp} on=${p.italic} label="Italique" onChange=${(italic) => put({ italic })} /><${Lamp} on=${p.nowrap} label="Sur une seule ligne" onChange=${(nowrap) => put({ nowrap })} /></div>
+      ${fader('spacing', 'Espacement des lettres', -10, 40, '', 1)}
+      ${fader('lh', 'Interligne (0 = auto)', 0, 250, ' %', 5)}
+      ${fader('lines', 'Lignes au maximum (0 = sans limite)', 0, 10, '', 1)}
+      <div class="two-in">
+        ${fader('stroke', 'Contour', 0, 12)}
+        <${Field} label="Couleur du contour"><${Color} value=${p.strokeColor || '#000000'} onChange=${(strokeColor) => put({ strokeColor })} /><//>
+      </div>
+    <//>`}
+    <${Group} title="Boîte et effets" open=${!text}>
+      <div class="two-in">
+        <${Field} label="Ombre"><${Select} value=${p.shadow === true ? 'forte' : (p.shadow || '')} options=${SHADOW_OPTS} onChange=${(shadow) => put({ shadow })} /><//>
+        <${Field} label="Couleur de l'ombre"><${Color} value=${p.shadowColor || '#000000'} onChange=${(shadowColor) => put({ shadowColor })} /><//>
+      </div>
+      <div class="row tight lk-color">
+        <${Field} label="Fond"><${Color} value=${p.bg || '#141022'} onChange=${(bg) => put({ bg })} /><//>
+        <${Field} label="Dégradé vers"><${Color} value=${p.bg2 || p.bg || '#141022'} onChange=${(bg2) => put({ bg2, bg: p.bg || '#141022' })} /><//>
+        ${(p.bg || p.bg2) && html`<button type="button" class="linkish" onClick=${() => put({ bg: '', bg2: '' })}>Sans fond</button>`}
+      </div>
+      ${p.bg && fader('bgAlpha', 'Opacité du fond', 0, 100, ' %', 1, 100)}
+      ${fader('radius', 'Arrondi', 0, 120)}
+      ${fader('pad', 'Marge intérieure', 0, 60)}
+      <div class="two-in">
+        ${fader('border', 'Bordure', 0, 16)}
+        <${Field} label="Couleur de la bordure"><${Color} value=${p.borderColor || '#FFFFFF'} onChange=${(borderColor) => put({ borderColor })} /><//>
+      </div>
+      ${fader('opacity', 'Opacité', 0, 100, ' %', 1, 100)}
+      ${fader('blur', 'Flou', 0, 20)}
+      <${Field} label="Plan" wide><${Segments} small value=${String(Math.sign(p.z || 0))} options=${[{ value: '-1', label: 'Derrière' }, { value: '0', label: 'Normal' }, { value: '1', label: 'Devant' }]} onChange=${(v) => put({ z: Number(v) * 3 })} /><//>
+    <//>
+  </div>`;
+}
+
+function ExtraInspector({ s, e, def, put, remove, dup }) {
+  const insert = (k) => put({ text: `${e.text || ''}{${k}}` });
+  return html`<div class="lk-inspector">
+    <div class="row tight"><b class="lk-title">${extraLabel(e)}</b>
+      <span class="tb-space"></span>
+      <button type="button" class="icon" aria-label="Dupliquer" title="Dupliquer" onClick=${dup}>${ICONS.dup}</button>
+      <button type="button" class="icon" aria-label="Supprimer" title="Supprimer" onClick=${remove}>${ICONS.trash}</button>
+    </div>
+    <${Field} label="Plan" wide><${Segments} small value=${e.layer === 'front' ? 'front' : 'back'} options=${[{ value: 'back', label: 'Derrière les textes' }, { value: 'front', label: 'Devant' }]} onChange=${(layer) => put({ layer })} /><//>
+    ${e.kind === 'text' && html`<div class="lk-vars"><span class="f-label">Reprendre un élément de la carte</span>
+      <div class="vars">${def.items.filter((it) => it.kind === 'text').map((it) => html`<button type="button" key=${it.key} onClick=${() => insert(it.key)}>${it.label.replace(/ \(.*\)$/, '')}</button>`)}</div></div>`}
+    <div class="two-in">
+      <${Field} label="X"><${Num} value=${Math.round(e.x)} onSave=${(v) => put({ x: v })} /><//>
+      <${Field} label="Y"><${Num} value=${Math.round(e.y)} onSave=${(v) => put({ y: v })} /><//>
+    </div>
+    <div class="two-in">
+      <${Field} label="Largeur"><${Num} value=${Math.round(e.w)} onSave=${(v) => put({ w: Math.max(4, v) })} /><//>
+      <${Field} label="Hauteur"><${Num} value=${Math.round(e.h)} onSave=${(v) => put({ h: Math.max(2, v) })} /><//>
+    </div>
+    <${Inspector} el=${e} up=${put} s=${s} insertVar=${(k) => put({ text: `${e.text || ''}{${k}}` })} />
+  </div>`;
+}
+
+function LayoutPanel({ s, overlay, def, layout, setLayout, scope, setScope, sel, setSel, capture, busy }) {
   const kinds = (def.kinds || []).length > 0;
   const own = scope === 'all' || Boolean(layout.kinds[scope]);
   const L = scope === 'all' ? layout.all : (layout.kinds[scope] || layout.all);
@@ -399,60 +402,69 @@ function LayoutPanel({ s, def, layout, setLayout, scope, setScope, sel, setSel }
   const label = (k) => (k === 'all' ? allLabel : s.eventTypes?.[k]?.label || k);
   const putL = (patch) => setLayout(scope === 'all' ? { ...layout, all: { ...layout.all, ...patch } } : { ...layout, kinds: { ...layout.kinds, [scope]: { ...L, ...patch } } });
   const putPart = (key, patch) => putL({ parts: { ...L.parts, [key]: { ...L.parts[key], ...patch } } });
-  const it = def.items.find((x) => x.key === sel);
-  const p = it ? L.parts[it.key] : null;
-  const fader = (key, lab, min, max, unit = ' px', step = 1) => html`<${Field} label=${lab} wide><${Fader} value=${Math.round(p[key] ?? 0)} min=${min} max=${max} step=${step} unit=${unit} onChange=${(v) => putPart(it.key, { [key]: v })} /><//>`;
+  const putExtra = (id, patch) => putL({ extras: L.extras.map((x) => (x.id === id ? { ...x, ...patch } : x)) });
+  const addExtra = (e) => { putL({ extras: [...(L.extras || []), e] }); setSel(`x:${e.id}`); };
+  const it = sel?.startsWith('p:') ? def.items.find((x) => x.key === sel.slice(2)) : null;
+  const ex = sel?.startsWith('x:') ? (L?.extras || []).find((x) => x.id === sel.slice(2)) : null;
+  const legacy = (overlay.settings.decor || []).length;
+  const goLibre = async () => {
+    if (layout.all) { setLayout({ ...layout, mode: 'libre' }); return; }
+    const got = await capture();
+    if (got) setLayout({ ...layout, mode: 'libre', all: { ...got, extras: [] } });
+    else toast('L\'aperçu n\'a pas encore de carte à relever : réessaie dans une seconde.');
+  };
+  const restart = async () => {
+    if (def.start) { putL({ w: def.size[0], h: def.size[1], parts: Object.fromEntries(def.items.map((x) => [x.key, { show: true, ...clonej(def.start[x.key] || {}) }])) }); return; }
+    const was = layout.mode;
+    setLayout({ ...layout, mode: 'auto' });
+    const got = await capture();
+    if (got) setLayout({ ...layout, mode: was, all: { ...got, extras: layout.all?.extras || [] }, kinds: {} });
+  };
+  const present = L ? def.items.filter((x) => L.parts[x.key]) : [];
   return html`<div class="lk-panel">
-    <${Segments} value=${layout.mode} options=${[{ value: 'auto', label: 'Automatique (le style décide)' }, { value: 'libre', label: 'Libre (je place tout)' }]} onChange=${(mode) => setLayout({ ...layout, mode })} />
-    ${layout.mode !== 'libre' ? html`<p class="note">${`Passe en Libre pour placer toi-même chaque élément de la carte (${def.items.map((x) => x.label.replace(/ \(.*\)$/, '').toLowerCase()).join(', ')}). Tu les attrapes dans l'aperçu, un par un.`}</p>` : html`
+    <${Segments} value=${layout.mode} options=${[{ value: 'auto', label: 'Automatique (le style décide)' }, { value: 'libre', label: 'Libre (je place tout)' }]} onChange=${(mode) => (mode === 'libre' ? goLibre() : setLayout({ ...layout, mode }))} />
+    ${busy && html`<p class="note">Je relève la place de chaque élément…</p>`}
+    ${legacy > 0 && html`<div class="lk-scope"><span>${`Ton ancien décor (${legacy} élément${legacy > 1 ? 's' : ''}) est toujours affiché autour de l'overlay.`}</span><button type="button" class="linkish" onClick=${async () => { const r = await act('updateOverlay', overlay.id, { decor: [] }); if (r) setState({ overlays: s.overlays.map((o) => (o.id === overlay.id ? { ...o, settings: r.settings } : o)) }); }}>Le retirer</button></div>`}
+    ${layout.mode !== 'libre' || !L ? html`<p class="note">${`Passe en Libre pour placer toi-même chaque élément de la carte (${def.items.map((x) => x.label.replace(/ \(.*\)$/, '').toLowerCase()).join(', ')}), régler chacun à part et ajouter tes formes, textes et images dedans.`}</p>` : html`
       ${kinds && html`<div class="field wide"><span class="f-label">Disposition pour</span><${Select} value=${scope} label="Disposition pour" onChange=${(v) => { setScope(v); setSel(null); }} options=${['all', ...def.kinds].map((k) => ({ value: k, label: k !== 'all' && layout.kinds[k] ? `${label(k)} (à part)` : label(k) }))} /></div>`}
       ${kinds && scope !== 'all' && html`<div class="lk-scope ${own ? 'own' : ''}">
         ${own ? html`<span>${`${label(scope)} a sa propre disposition.`}</span><button type="button" class="linkish" onClick=${() => { const next = { ...layout.kinds }; delete next[scope]; setLayout({ ...layout, kinds: next }); }}>Revenir à la disposition commune</button>`
           : html`<span>${`${label(scope)} utilise la disposition commune.`}</span><${Btn} kind="primary" onClick=${() => setLayout({ ...layout, kinds: { ...layout.kinds, [scope]: clonej(layout.all) } })}>La personnaliser pour ce type<//>`}
       </div>`}
-      <div class=${own ? '' : 'lk-off'}>
-        <div class="two-in">
-          <${Field} label="Largeur de la carte"><${Fader} value=${L.w} min=${120} max=${1600} step=${5} unit=" px" onChange=${(v) => putL({ w: v })} /><//>
-          <${Field} label="Hauteur de la carte"><${Fader} value=${L.h} min=${50} max=${1000} step=${5} unit=" px" onChange=${(v) => putL({ h: v })} /><//>
-        </div>
+      <div class=${own ? 'lk-body' : 'lk-body lk-off'}>
+        ${!def.noSize && html`<div class="two-in">
+          <${Field} label="Largeur de la carte"><${Fader} value=${L.w} min=${60} max=${1920} step=${5} unit=" px" onChange=${(v) => putL({ w: v })} /><//>
+          <${Field} label=${def.grow ? 'Hauteur minimum' : 'Hauteur de la carte'}><${Fader} value=${L.h} min=${20} max=${1080} step=${5} unit=" px" onChange=${(v) => putL({ h: v })} /><//>
+        </div>`}
         ${def.card === '.al' && html`<${Lamp} on=${layout.separateName} label="Pseudo séparé du texte" onChange=${(v) => setLayout({ ...layout, separateName: v })} />`}
-        <div class="lk-parts" role="list">
-          ${def.items.map((x) => html`<div class="lk-part ${sel === x.key ? 'on' : ''}" role="listitem" key=${x.key}>
-            <button type="button" class="lk-eye ${L.parts[x.key]?.show ? 'on' : ''}" aria-pressed=${Boolean(L.parts[x.key]?.show)} title=${L.parts[x.key]?.show ? 'Masquer' : 'Afficher'} aria-label=${`${L.parts[x.key]?.show ? 'Masquer' : 'Afficher'} : ${x.label}`} onClick=${() => putPart(x.key, { show: !L.parts[x.key]?.show })}>${L.parts[x.key]?.show ? '👁' : '—'}</button>
-            <button type="button" class="lk-name" onClick=${() => setSel(x.key)}>${x.label}</button>
+        <div class="lk-list">
+          <span class="f-label">Éléments de la carte</span>
+          ${present.map((x) => html`<div class="lk-part ${sel === `p:${x.key}` ? 'on' : ''}" key=${x.key}>
+            <button type="button" class="lk-eye ${L.parts[x.key].show !== false ? 'on' : ''}" aria-pressed=${L.parts[x.key].show !== false} title=${L.parts[x.key].show !== false ? 'Masquer' : 'Afficher'} aria-label=${`${L.parts[x.key].show !== false ? 'Masquer' : 'Afficher'} : ${x.label}`} onClick=${() => putPart(x.key, { show: L.parts[x.key].show === false })}>${L.parts[x.key].show !== false ? ICONS.eye : ICONS.eyeOff}</button>
+            <button type="button" class="lk-name" onClick=${() => setSel(`p:${x.key}`)}>${x.label}</button>
           </div>`)}
-        </div>
-        ${p ? html`<div class="lk-inspector">
-          <b class="lk-title">${it.label}</b>
-          <div class="two-in">
-            <${Field} label="X"><${Num} value=${Math.round(p.x)} onSave=${(v) => putPart(it.key, { x: v })} /><//>
-            <${Field} label="Y"><${Num} value=${Math.round(p.y)} onSave=${(v) => putPart(it.key, { y: v })} /><//>
+          <span class="f-label lk-sub">Mes ajouts dans la carte</span>
+          ${(L.extras || []).map((x) => html`<div class="lk-part ${sel === `x:${x.id}` ? 'on' : ''}" key=${x.id}>
+            <span class="lk-eye on" aria-hidden="true">${x.kind === 'text' ? 'T' : x.kind === 'image' ? ICONS.image : '◆'}</span>
+            <button type="button" class="lk-name" onClick=${() => setSel(`x:${x.id}`)}>${extraLabel(x)}</button>
+          </div>`)}
+          <div class="lk-add">
+            <${Btn} icon=${ICONS.plus} onClick=${() => addExtra(extraElement('shape', L.w, L.h, { fill: '#FF3D71', radius: 12, opacity: 90 }))}>Forme<//>
+            <${Btn} icon=${ICONS.plus} onClick=${() => addExtra(extraElement('text', L.w, L.h, { text: 'Merci !', weight: 800 }))}>Texte<//>
+            <${Btn} icon=${ICONS.plus} onClick=${async () => { const r = await act('importMedia', 'visual'); if (r) { setState({ media: r.media }); addExtra(extraElement('image', L.w, L.h, { src: r.name })); } }}>Image<//>
           </div>
-          ${fader('w', 'Largeur', 8, 1600)}
-          ${it.kind === 'box' && fader('h', 'Hauteur', 2, 1000)}
-          ${it.kind === 'text' && html`
-            ${fader('size', 'Taille du texte', 6, 140)}
-            ${fader('weight', 'Graisse', 100, 900, '', 100)}
-            <div class="two-in">
-              <${Field} label="Police"><${Select} value=${p.font || ''} options=${LFONT_OPTS} onChange=${(font) => putPart(it.key, { font })} /><//>
-              <${Field} label="Alignement"><${Select} value=${p.align || 'left'} options=${[{ value: 'left', label: 'Gauche' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Droite' }]} onChange=${(align) => putPart(it.key, { align })} /><//>
-            </div>
-            <div class="row tight lk-color">
-              <${Field} label="Couleur"><${Color} value=${p.color || '#FFFFFF'} onChange=${(color) => putPart(it.key, { color })} /><//>
-              ${p.color && html`<button type="button" class="linkish" onClick=${() => putPart(it.key, { color: '' })}>Couleur du style</button>`}
-            </div>
-            <div class="row tight"><${Lamp} on=${p.upper} label="Majuscules" onChange=${(upper) => putPart(it.key, { upper })} /><${Lamp} on=${p.shadow} label="Ombre du texte" onChange=${(shadow) => putPart(it.key, { shadow })} /></div>
-          `}
-          ${fader('rot', 'Rotation', -180, 180, '°')}
-        </div>` : html`<p class="note">Clique un élément dans la liste ou dans l'aperçu pour le régler. Attrape-le pour le déplacer, tire ses poignées pour sa taille.</p>`}
-        <button type="button" class="linkish" onClick=${() => putL({ w: def.size[0], h: def.size[1], parts: Object.fromEntries(def.items.map((x) => [x.key, { show: true, ...clonej(def.start[x.key] || {}) }])) })}>Repartir de la disposition de départ</button>
+        </div>
+        ${it && L.parts[it.key] ? html`<${PartInspector} it=${it} p=${L.parts[it.key]} put=${(patch) => putPart(it.key, patch)} />`
+          : ex ? html`<${ExtraInspector} s=${s} e=${ex} def=${def} put=${(patch) => putExtra(ex.id, patch)} remove=${() => { putL({ extras: L.extras.filter((x) => x.id !== ex.id) }); setSel(null); }} dup=${() => addExtra({ ...clonej(ex), id: extraId(), x: ex.x + 12, y: ex.y + 12 })} />`
+          : html`<p class="note">Clique un élément dans la liste ou dans l'aperçu pour le régler. Attrape-le pour le déplacer, tire ses poignées pour sa taille. Flèches pour ajuster, Ctrl Z pour annuler.</p>`}
+        <button type="button" class="linkish" onClick=${restart}>Repartir de la disposition de départ</button>
       </div>
     `}
   </div>`;
 }
 
 // Onglets de l'éditeur : chaque réglage va dans Contenu, Style, Animation ou Position.
-const TABS = [['content', 'Contenu'], ['style', 'Style'], ['layout', 'Disposition'], ['decor', 'Décor'], ['anim', 'Animation'], ['pos', 'Position']];
+const TABS = [['content', 'Contenu'], ['style', 'Style'], ['layout', 'Disposition'], ['anim', 'Animation'], ['pos', 'Position']];
 const STYLE_KEYS = new Set(['font', 'fontSize', 'bgAlpha', 'radius', 'shine', 'glow', 'theme', 'style', 'autoColor', 'showCase', 'lightFx']);
 const tabOf = (f) => f.tab || (f.key === 'scale' ? 'pos' : f.key === 'customCss' ? 'style' : (f.type === 'color' || STYLE_KEYS.has(f.key)) ? 'style' : 'content');
 const BACKDROPS = [['scene', 'Scène'], ['dark', 'Sombre'], ['light', 'Clair'], ['check', 'Transparent'], ['green', 'Fond vert']];
@@ -494,38 +506,18 @@ export function OverlayEditor({ s, overlay, compact }) {
     if (r) setState({ overlays: s.overlays.map((o) => (o.id === overlay.id ? { ...o, settings: r.settings } : o)) });
   };
   const pickBackdrop = (b) => { setBackdrop(b); try { localStorage.setItem('regie.backdrop', b); } catch { /* aperçu seulement */ } };
-  // Décor : état local pour que le glisser soit fluide ; l'aperçu le reçoit tout de suite, l'enregistrement suit.
-  const [decor, setDecor] = useState(() => overlay.settings.decor || []);
-  const [dsel, setDsel] = useState(null);
   const frame = useRef(null);
-  const undoStack = useRef([]);
-  const saveT = useRef(null);
-  const decorSaved = useRef(overlay.settings.decor);
-  if (decorSaved.current !== overlay.settings.decor && overlay.settings.decor !== undefined) {
-    // Changé ailleurs (onglet remis par défaut, autre fenêtre) : on reprend la version enregistrée.
-    decorSaved.current = overlay.settings.decor;
-    if (JSON.stringify(overlay.settings.decor) !== JSON.stringify(decor)) setDecor(overlay.settings.decor || []);
-  }
-  const previewDecor = (list) => { try { frame.current?.contentWindow?.postMessage({ regie: 'decor', decor: list }, '*'); } catch { /* aperçu pas encore chargé */ } };
-  const commitDecor = (next, before) => {
-    undoStack.current.push(before || clonej(decor));
-    undoStack.current = undoStack.current.slice(-60);
-    setDecor(next);
-    previewDecor(next);
-    clearTimeout(saveT.current);
-    saveT.current = setTimeout(async () => {
-      const r = await act('updateOverlay', overlay.id, { decor: next });
-      if (r) { decorSaved.current = r.settings.decor; setState({ overlays: s.overlays.map((o) => (o.id === overlay.id ? { ...o, settings: r.settings } : o)) }); }
-    }, 400);
-  };
-  const undoDecor = () => { const prev = undoStack.current.pop(); if (prev) { const keep = undoStack.current; commitDecor(prev); undoStack.current = keep; } };
-  // Disposition libre : même principe, l'aperçu suit tout de suite et renvoie où sont les éléments.
+  // Disposition libre : état local pour que le glisser soit fluide ; l'aperçu suit tout de suite et renvoie
+  // où sont les éléments, l'enregistrement suit 400 ms plus tard.
   const pdef = def.parts || null;
   const [layout, setLayoutState] = useState(() => (pdef ? normLayout(overlay.settings.layout, pdef) : null));
   const [scope, setScope] = useState('all');
   const [lsel, setLsel] = useState(null);
   const [rects, setRects] = useState(null);
+  const [busy, setBusy] = useState(false);
   const layoutT = useRef(null);
+  const undoStack = useRef([]);
+  const pending = useRef({});
   const postFrame = (m) => { try { frame.current?.contentWindow?.postMessage(m, '*'); } catch { /* aperçu pas prêt */ } };
   const saveLayout = (next) => {
     clearTimeout(layoutT.current);
@@ -534,21 +526,39 @@ export function OverlayEditor({ s, overlay, compact }) {
       if (r) setState({ overlays: s.overlays.map((o) => (o.id === overlay.id ? { ...o, settings: r.settings } : o)) });
     }, 400);
   };
-  const setLayout = (next) => { setLayoutState(next); postFrame({ regie: 'layout', layout: next }); saveLayout(next); };
-  const [zoomCard, setZoomCard] = useState(true);
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
-  const scopeL = layout ? (scope === 'all' ? layout.all : (layout.kinds[scope] || layout.all)) : null;
-  const changePart = (key, patch) => {
-    if (!layout) return;
-    const L = scopeL;
-    const nextL = { ...L, parts: { ...L.parts, [key]: { ...L.parts[key], ...patch } } };
-    const next = scope === 'all' ? { ...layout, all: nextL } : { ...layout, kinds: { ...layout.kinds, [scope]: nextL } };
+  const setLayout = (next, noUndo) => {
+    if (!noUndo && layoutRef.current) { undoStack.current.push(layoutRef.current); undoStack.current = undoStack.current.slice(-60); }
+    layoutRef.current = next;
     setLayoutState(next);
     postFrame({ regie: 'layout', layout: next });
+    saveLayout(next);
   };
+  const undoLayout = () => { const prev = undoStack.current.pop(); if (prev) setLayout(prev, true); };
+  // Relevé de la disposition dessinée par le style (passage en Libre, « Repartir de la disposition de départ »).
+  const capture = () => new Promise((resolve) => {
+    const id = Math.random().toString(36).slice(2);
+    setBusy(true);
+    const done = (v) => { delete pending.current[id]; setBusy(false); resolve(v); };
+    pending.current[id] = done;
+    postFrame({ regie: 'capture', id });
+    setTimeout(() => pending.current[id]?.(null), 2500);
+  });
+  const [zoomCard, setZoomCard] = useState(true);
+  const scopeL = layout ? (scope === 'all' ? layout.all : (layout.kinds[scope] || layout.all)) : null;
+  const putScope = (nextL) => (scope === 'all' ? { ...layout, all: nextL } : { ...layout, kinds: { ...layout.kinds, [scope]: nextL } });
+  const dragStart = useRef(null);
+  const live = (next) => { if (!dragStart.current) dragStart.current = layoutRef.current; layoutRef.current = next; setLayoutState(next); postFrame({ regie: 'layout', layout: next }); };
+  const changePart = (key, patch) => { const L = scopeL; live(putScope({ ...L, parts: { ...L.parts, [key]: { ...L.parts[key], ...patch } } })); };
+  const changeExtra = (id, patch) => { const L = scopeL; live(putScope({ ...L, extras: L.extras.map((x) => (x.id === id ? { ...x, ...patch } : x)) })); };
+  const commitDrag = () => { if (dragStart.current) { undoStack.current.push(dragStart.current); dragStart.current = null; } saveLayout(layoutRef.current); };
   useEffect(() => {
-    const onMsg = (e) => { if (e.source === frame.current?.contentWindow && e.data?.regie === 'rects') setRects(e.data); };
+    const onMsg = (e) => {
+      if (e.source !== frame.current?.contentWindow) return;
+      if (e.data?.regie === 'rects') setRects(e.data);
+      if (e.data?.regie === 'captured') pending.current[e.data.id]?.(e.data.layout);
+    };
     addEventListener('message', onMsg);
     return () => removeEventListener('message', onMsg);
   }, []);
@@ -578,18 +588,23 @@ export function OverlayEditor({ s, overlay, compact }) {
     postFrame({ regie: 'hold', kind: holdKind });
     return undefined;
   }, [holdKind, overlay.id]);
-  // Flèches, Suppr et Ctrl Z sur le décor sélectionné (onglet Décor seulement).
+  // Flèches (Maj : 10 px), Suppr (ajouts) et Ctrl Z sur l'élément choisi, onglet Disposition en Libre.
   useEffect(() => {
-    if (current !== 'decor') return undefined;
+    if (current !== 'layout' || layout?.mode !== 'libre' || !scopeL) return undefined;
     const onKey = (e) => {
       if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoDecor(); return; }
-      const it = decor.find((x) => x.id === dsel);
-      if (!it) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoLayout(); return; }
+      if (!lsel) return;
+      const L = scopeL;
+      const key = lsel.slice(2);
       const step = e.shiftKey ? 10 : 1;
       const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
-      if (d && !it.lock) { e.preventDefault(); commitDecor(decor.map((x) => (x.id === dsel ? { ...x, x: x.x + d[0], y: x.y + d[1] } : x))); }
-      if (e.key === 'Delete') { commitDecor(decor.filter((x) => x.id !== dsel)); setDsel(null); }
+      if (lsel.startsWith('x:')) {
+        const it = L.extras.find((x) => x.id === key);
+        if (!it) return;
+        if (d) { e.preventDefault(); setLayout(putScope({ ...L, extras: L.extras.map((x) => (x.id === key ? { ...x, x: x.x + d[0], y: x.y + d[1] } : x)) })); }
+        if (e.key === 'Delete') { setLayout(putScope({ ...L, extras: L.extras.filter((x) => x.id !== key) })); setLsel(null); }
+      } else if (d && L.parts[key]) { e.preventDefault(); setLayout(putScope({ ...L, parts: { ...L.parts, [key]: { ...L.parts[key], x: L.parts[key].x + d[0], y: L.parts[key].y + d[1] } } })); }
     };
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
@@ -598,18 +613,17 @@ export function OverlayEditor({ s, overlay, compact }) {
       ${tabs.map(([k, label]) => html`<button type="button" role="tab" key=${k} aria-selected=${current === k} class="ed-tab ${current === k ? 'on' : ''}" onClick=${() => setTab(k)}>${label}</button>`)}
     </div>
     ${current === 'style' && html`<div class="ed-looks"><span class="f-label">Styles prêts en 1 clic</span><${Looks} s=${s} overlay=${overlay} /></div>`}
-    ${current === 'layout' && pdef && layout ? html`<${LayoutPanel} s=${s} def=${pdef} layout=${layout} setLayout=${setLayout} scope=${scope} setScope=${setScope} sel=${lsel} setSel=${setLsel} />`
-    : current === 'decor' ? html`<${DecorPanel} s=${s} w=${w} h=${h} els=${decor} sel=${dsel} setSel=${setDsel} commit=${commitDecor} undo=${undoDecor} canUndo=${undoStack.current.length > 0} />` : html`<form class="ed-form" onSubmit=${(e) => e.preventDefault()}>
+    ${current === 'layout' && pdef && layout ? html`<${LayoutPanel} s=${s} overlay=${overlay} def=${pdef} layout=${layout} setLayout=${setLayout} scope=${scope} setScope=${setScope} sel=${lsel} setSel=${setLsel} capture=${capture} busy=${busy} />`
+    : html`<form class="ed-form" onSubmit=${(e) => e.preventDefault()}>
       ${byTab[current].map((f) => html`<${FieldInput} key=${f.key} f=${f} value=${overlay.settings[f.key] ?? f.default} set=${(v) => save(f.key, v)} s=${s} overlay=${overlay} />`)}
     </form>`}
     ${byTab[current].length > 0 && html`<button type="button" class="linkish ed-reset" onClick=${reset}>Remettre cet onglet par défaut</button>`}`;
   return html`<div class="editor ${compact ? 'compact' : ''} ${studio ? 'pad-editor' : ''}">
     <div class="ed-stage">
       <div class="preview-frame bd-${backdrop} ${studio ? 'pad-stage' : ''}" style=${{ aspectRatio: `${w} / ${h}` }}>
-        <iframe title=${`Aperçu de ${overlay.name}`} src=${src} class=${current === 'decor' || (current === 'layout' && layout?.mode === 'libre') ? 'decor-on' : ''} style=${{ width: `${w}px`, height: `${h}px`, '--w': w }}
+        <iframe title=${`Aperçu de ${overlay.name}`} src=${src} class=${current === 'layout' && layout?.mode === 'libre' ? 'decor-on' : ''} style=${{ width: `${w}px`, height: `${h}px`, '--w': w }}
           onLoad=${() => { if (pdef) { postFrame({ regie: 'layout', layout }); postFrame({ regie: 'hold', kind: holdKind }); } }} ref=${(el) => { frame.current = el; fit(el, w, h, focus); }}></iframe>
-        ${current === 'decor' && html`<${DecorLayer} w=${w} h=${h} els=${decor} sel=${dsel} setSel=${setDsel} preview=${previewDecor} commit=${commitDecor} />`}
-        ${current === 'layout' && layout?.mode === 'libre' && (scope === 'all' || layout.kinds[scope]) && html`<${LayoutLayer} w=${w} h=${h} def=${pdef} rects=${rects} sel=${lsel} setSel=${setLsel} L=${scopeL} zoom=${(overlay.settings.scale || 100) / 100} change=${changePart} commit=${() => saveLayout(layoutRef.current)} focus=${focus} />`}
+        ${current === 'layout' && layout?.mode === 'libre' && (scope === 'all' || layout.kinds[scope]) && html`<${LayoutLayer} w=${w} h=${h} def=${pdef} rects=${rects} sel=${lsel} setSel=${setLsel} L=${scopeL} change=${changePart} changeExtra=${changeExtra} commit=${commitDrag} focus=${focus} />`}
         ${current === 'layout' && pdef && html`<button type="button" class="lk-zoom" onClick=${() => setZoomCard(!zoomCard)}>${zoomCard ? 'Voir tout l\'overlay' : 'Zoom sur la carte'}</button>`}
         ${studio && html`<${LiveBadge} s=${s} overlay=${overlay} />`}
       </div>
@@ -705,7 +719,7 @@ function Card({ s, o, def }) {
       </div>
       <p>${def.blurb}</p>
       <div class="ov-card-acts">
-        <${Btn} kind="primary" onClick=${open}>Personnaliser<//>
+        <${Btn} onClick=${open}>Personnaliser<//>
         <${Btn} onClick=${() => act('testOverlay', o.type)}>Tester<//>
         <button type="button" class="icon" aria-label="Copier le lien" title="Copier le lien" onClick=${() => copy(o.link)}>${ICONS.copy}</button>
       </div>

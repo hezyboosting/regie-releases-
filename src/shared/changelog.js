@@ -1,6 +1,17 @@
 // Nouveautés montrées dans « Quoi de neuf » après une mise à jour. La plus récente en premier.
 const CHANGELOG = [
   {
+    version: '2.21.0',
+    title: 'Menu plus simple, nouveau design, chaque overlay se place à la main',
+    items: [
+      'Menu rangé en douze entrées claires (Chat, Overlays, Alertes, Cadeaux, Jeux, Spectateurs, Outils du live…). Les pages d\'un même sujet sont des onglets en haut de la page, et un voyant s\'allume quand quelque chose tourne.',
+      'Nouveau design : pupitre graphite, touches qui s\'allument en ambre, vert quand c\'est actif, rouge réservé au direct, titres plus lisibles.',
+      'La Disposition libre arrive sur presque tous les overlays (chat, objectifs, classements, menu des pièces, minuteur, Spotify, roue, duels…) : le placement de départ est celui que tu vois, puis tu déplaces chaque élément à la souris.',
+      'Beaucoup plus de réglages par élément : fond et dégradé, bordure, arrondi, marge, opacité, flou, contour du texte, ombre colorée, espacement, interligne, italique, une seule ligne, devant ou derrière.',
+      'Ajoute tes formes, textes et images directement dans la carte : ils se répètent sur chaque message ou chaque alerte, et un texte peut reprendre le pseudo de la carte. L\'onglet Décor disparaît.',
+    ],
+  },
+  {
     version: '2.20.0',
     title: 'Place chaque texte où tu veux sur tes cartes',
     items: [

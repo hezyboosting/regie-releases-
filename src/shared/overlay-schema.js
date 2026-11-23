@@ -552,9 +552,14 @@ for (const [type, def] of Object.entries(OVERLAY_TYPES)) addFilters(type, def);
 // card : la carte ; flatten : enveloppes qui s'effacent en mode libre ; items : les éléments déplaçables.
 // kinds : une disposition différente par type d'événement (suivi, cadeau…), lue sur data-kind de la carte.
 const LAYOUT_KINDS_ALERTS = ['follow', 'gift', 'sub', 'resub', 'giftsub', 'share', 'like', 'join', 'superfan', 'bits', 'raid', 'superchat', 'supersticker', 'member', 'milestone', 'redeem', 'vip', 'hypetrain', 'goal'];
+// Éléments des autres overlays : [clé, sélecteur, nom, 'text' ou 'box', options].
+// Leur position de départ est relevée sur l'overlay lui-même au passage en Libre (pas de start ici).
+// keepPos : la carte garde sa propre position (plein écran, personnage qui marche) ; noSize : sa taille aussi.
+// grow : la carte grandit si le texte dépasse (messages du chat).
+const P = (card, items, opts = {}) => ({ card, items: items.map(([key, sel, label, kind = 'text', o = {}]) => ({ key, sel, label, kind, ...o })), ...opts });
 const PARTS = {
   alerts: {
-    card: '.al', kinds: LAYOUT_KINDS_ALERTS, flatten: ['.al-body'], size: [560, 170],
+    card: '.al', kinds: LAYOUT_KINDS_ALERTS, flatten: ['.al-body'], size: [560, 170], zoom: true,
     items: [
       { key: 'visuel', sel: '.al-vis', label: 'Image (photo, cadeau, ton image)', kind: 'box', fill: '.al-av, .al-gift, .al-media' },
       { key: 'type', sel: '.al-kind', label: 'Étiquette (Nouveau suivi…)', kind: 'text' },
@@ -584,38 +589,88 @@ const PARTS = {
       pseudo: { x: 98, y: 44, w: 320, size: 24, weight: 800 }, detail: { x: 98, y: 79, w: 320, size: 15, weight: 600 },
     },
   },
+  chat: P('.msg', [['photo', '.cx-av', 'Photo', 'box'], ['icone', '.cx-body > .pf', 'Icône (événements)', 'box'], ['entete', '.cx-head', 'Pseudo, plateforme et badges'], ['texte', '.txt', 'Message']], { grow: true }),
+  goal: P('.goal', [['titre', '.g2-title', 'Titre'], ['nombres', '.g2-nums', 'Compteur (68 / 100)'], ['barre', '.g2-rail', 'Barre', 'box'], ['reste', '.g2-left', 'Reste'], ['pourcent', '.g2-pct', 'Pourcentage']]),
+  timer: P('.tm', [['titre', '.tm-name', 'Titre'], ['etat', '.tm-state', 'État (pause…)'], ['temps', '.tm-v', 'Temps'], ['barre', '.tm-rail', 'Barre', 'box']]),
+  counter: P('.ct', [['titre', '.ct-l', 'Titre'], ['nombre', '.ct-n', 'Nombre']]),
+  viewers: P('.big', [['point', '.dot', 'Point du direct', 'box'], ['titre', '.vw-label', 'Titre'], ['nombre', '.vw-top', 'Nombre'], ['detail', '.sub', 'Détail par plateforme']]),
+  poll: P('.pl-row', [['choix', 'span:nth-of-type(1)', 'Choix'], ['pourcent', 'span:nth-of-type(2)', 'Pourcentage']]),
+  giveaway: P('.panel', [['titre', 'h1', 'Titre'], ['noms', '.gw-names', 'Participants', 'box'], ['pied', '.pl-foot', 'Comment participer']]),
+  leaderboard: P('.lb2-row', [['rang', '.lb2-rank', 'Rang'], ['photo', '.lb2-sav', 'Photo', 'box'], ['pseudo', '.lb2-rn', 'Pseudo'], ['plateforme', '.pf', 'Plateforme', 'box'], ['points', '.lb2-pts', 'Points']]),
+  coinmenu: P('.cm-row', [['prix', '.cm-stub', 'Prix (icône et pièces)', 'box'], ['texte', '.cm-txt', 'Action'], ['emoji', '.cm-emo', 'Emoji']]),
+  giftfeed: P('.gf-row', [['cadeau', '.gf2-vis', 'Cadeau', 'box'], ['pseudo', '.gf2-who', 'Pseudo'], ['quoi', '.gf2-what', 'Cadeau envoyé'], ['nombre', '.gf2-count', 'Nombre']]),
+  gifttracker: P('.gt2-row', [['image', '.gt2-img', 'Image', 'box'], ['nom', '.gt2-name', 'Cadeau'], ['nombre', '.gt2-n', 'Nombre'], ['pieces', '.gt2-c', 'Pièces']]),
+  topgift: P('.tg', [['cadeau', '.tg2-vis', 'Cadeau', 'box'], ['titre', '.tg2-txt .gx-label', 'Titre'], ['pseudo', '.tg2-who', 'Pseudo'], ['quoi', '.tg2-what', 'Cadeau envoyé'], ['valeur', '.tg2-val', 'Valeur']]),
+  topstreak: P('.tg', [['cadeau', '.tg2-vis', 'Cadeau', 'box'], ['titre', '.tg2-txt .gx-label', 'Titre'], ['pseudo', '.tg2-who', 'Pseudo'], ['quoi', '.tg2-what', 'Cadeau envoyé'], ['valeur', '.tg2-val', 'Série']]),
+  rankcard: P('.cs', [['entete', '.cs-head', 'Pseudo et titre'], ['defile', '.cs-stage', 'Défilement des rangs', 'box'], ['resultat', '.cs-result', 'Résultat', 'box']]),
+  gamecard: P('.gc', [['entete', '.gc-head', 'Jeu et pseudo'], ['modes', '.gc-modes', 'Rangs par mode', 'box'], ['stats', '.gc-stats', 'Statistiques']]),
+  gamelive: P('.gl', [['score', '.gl-score', 'Score', 'box'], ['stats', '.gl-stats', 'Statistiques']]),
+  minigame: P('.mg-ans', [['numero', 'b', 'Numéro'], ['reponse', 'span', 'Réponse'], ['votes', 'em', 'Votes']]),
+  battle: P('.battle', [['equipe1', '.b-team:not(.r)', 'Équipe 1'], ['centre', '.b-mid', 'Titre et temps'], ['equipe2', '.b-team.r', 'Équipe 2'], ['barre', '.b-bar', 'Barre', 'box'], ['soutiens', '.b-sup', 'Meilleurs soutiens']]),
+  boss: P('.bs', [['nom', '.bs-name', 'Nom et niveau'], ['temps', '.bs-time', 'Temps'], ['scene', '.bs-stage', 'Boss', 'box'], ['vie', '.bs-hp', 'Barre de vie', 'box'], ['appel', '.bs-call', 'Comment jouer'], ['top', '.bs-top', 'Meilleurs joueurs']]),
+  arena: P('.ar-f', [['photo', '.av', 'Photo', 'box'], ['pseudo', '.ar-top b', 'Pseudo'], ['plateforme', '.pf', 'Plateforme', 'box'], ['vie', '.ar-hp', 'Barre de vie', 'box']]),
+  queue: P('.qu', [['titre', '.qu-title', 'Titre'], ['etat', '.qu-state', 'En attente'], ['joueur', '.qu-now', 'Joueur en cours', 'box'], ['liste', '.qu-list', 'Liste', 'box'], ['commande', '.qu-cmd', 'Commande']]),
+  wheel: P('.wh', [['titre', '.wh-title', 'Titre'], ['astuce', '.wh-hint', 'Commande'], ['roue', '.wh-stage', 'Roue', 'box'], ['resultat', '.wh-result', 'Résultat'], ['file', '.wh-queue', 'File d\'attente']]),
+  spotify: P('.sp', [['pochette', '.cv', 'Pochette', 'box'], ['titre', '.sp-t', 'Titre'], ['artiste', '.sp-a', 'Artiste'], ['progression', '.pr', 'Progression', 'box'], ['egaliseur', '.eq', 'Égaliseur', 'box']]),
+  ticker: P('.tk-item', [['icone', '.gx-ico', 'Icône', 'box'], ['plateforme', '.pf', 'Plateforme', 'box'], ['pseudo', 'b', 'Pseudo'], ['quoi', '.tk-what', 'Événement']]),
+  tts: P('.tb', [['egaliseur', '.tb2-eq', 'Égaliseur', 'box'], ['pseudo', '.tb2-head b', 'Pseudo'], ['texte', '.tb2-txt', 'Message lu']], { grow: true }),
+  welcome: P('.wc-banner', [['photo', '.wc-av', 'Photo', 'box'], ['ligne', '.wc-line', 'Bienvenue et pseudo'], ['badge', '.wc-sub', 'Badge et plateforme']]),
+  brb: P('.brb', [['icone', '.brb-icon', 'Icône'], ['titre', '.brb-title', 'Titre'], ['sous', '.brb-sub', 'Sous-titre'], ['minuteur', '.brb-timer', 'Minuteur']], { keepPos: true, noSize: true }),
+  socials: P('.so-item', [['logo', '.so-logo', 'Logo', 'box'], ['texte', '.so-text', 'Texte']]),
+  webcam: P('.cam', [['direct', '.cam-live', 'Badge LIVE'], ['plaque', '.cam-plate', 'Plaque'], ['annonce', '.cam-toast', 'Annonce (suivi, cadeau…)']], { keepPos: true, noSize: true }),
+  coinjar: P('.cj', [['titre', '.cj-title', 'Titre'], ['total', '.cj-total', 'Total']]),
+  likerace: P('.lr', [['titre', '.lr-title', 'Titre'], ['objectif', '.lr-goal', 'Objectif'], ['piste', '.lr-track', 'Piste', 'box']]),
+  pointshop: P('.ps-item', [['numero', '.ps-n', 'Numéro'], ['emoji', '.ps-emoji', 'Emoji'], ['nom', '.ps-name', 'Récompense'], ['prix', '.ps-cost', 'Prix']]),
+  prediction: P('.pr-opt', [['numero', '.pr-num', 'Numéro'], ['texte', '.pr-txt', 'Choix et parieurs'], ['mise', '.pr-right', 'Points et cote']]),
+  plinko: P('.pk', [['titre', '.pk-head .gx-label', 'Titre'], ['astuce', '.pk-hint', 'Commande'], ['plateau', '.pk-stage', 'Plateau', 'box']]),
+  chatplays: P('.cp-row', [['emoji', '.cp-emo', 'Emoji'], ['action', '.cp-lbl', 'Action'], ['mot', '.cp-word', 'Mot à taper'], ['votes', '.cp-n', 'Votes']]),
 };
 const LAYOUT_KINDS = LAYOUT_KINDS_ALERTS;
 const FONT_KEYS = ['', 'onest', 'geist', 'syne', 'archivo', 'system', 'serif', 'rounded', 'impact'];
-// Disposition de départ du mode libre (aussi utilisée pour « Repartir de zéro »).
+// Disposition de départ du mode libre (alertes, derniers événements). Les autres overlays la relèvent
+// sur leur propre rendu au passage en Libre : null ici.
 function startLayout(type) {
   const d = PARTS[type];
-  if (!d) return null;
-  return { w: d.size[0], h: d.size[1], parts: JSON.parse(JSON.stringify(d.start)) };
+  if (!d?.start) return null;
+  return { w: d.size[0], h: d.size[1], parts: JSON.parse(JSON.stringify(d.start)), extras: [] };
+}
+const SHADOWS = ['', 'douce', 'forte', 'halo', 'dure'];
+// Un élément : position, taille, texte (police, couleur, contour, ombre…) et boîte (fond, bordure, arrondi…).
+function cleanPart(p) {
+  const shadow = p.shadow === true ? 'forte' : (SHADOWS.includes(p.shadow) ? p.shadow : '');
+  return {
+    x: num(p.x, -2000, 4000), y: num(p.y, -2000, 4000), w: num(p.w, 4, 4000, 200), h: num(p.h, 2, 4000, 40),
+    size: num(p.size, 6, 200, 20), weight: num(p.weight, 100, 900, 600), color: p.color ? hexOr(p.color, '') : '', font: FONT_KEYS.includes(p.font) ? p.font : '',
+    align: ['left', 'center', 'right'].includes(p.align) ? p.align : 'left', rot: num(p.rot, -180, 180), show: p.show !== false,
+    upper: p.upper === undefined || p.upper === null ? null : Boolean(p.upper), italic: Boolean(p.italic), nowrap: Boolean(p.nowrap),
+    spacing: num(p.spacing, -10, 40), lh: Number(p.lh) ? num(p.lh, 70, 250, 0) : 0, lines: num(p.lines, 0, 20),
+    stroke: num(p.stroke, 0, 12), strokeColor: hexOr(p.strokeColor, '#000000'), shadow, shadowColor: hexOr(p.shadowColor, '#000000'),
+    bg: p.bg ? hexOr(p.bg, '') : '', bgAlpha: num(p.bgAlpha, 0, 100, 100), bg2: p.bg2 ? hexOr(p.bg2, '') : '', radius: num(p.radius, 0, 400), pad: num(p.pad, 0, 80),
+    border: num(p.border, 0, 20), borderColor: hexOr(p.borderColor, '#FFFFFF'), opacity: num(p.opacity, 0, 100, 100), z: num(p.z, -5, 5), blur: num(p.blur, 0, 30),
+  };
 }
 function cleanOneLayout(def, L, fallback) {
   const base = L && typeof L === 'object' ? L : fallback;
   if (!base) return null;
   const parts = {};
   for (const it of def.items) {
-    const p = { ...(fallback?.parts?.[it.key] || {}), ...(base.parts?.[it.key] || {}) };
-    parts[it.key] = {
-      x: num(p.x, -2000, 4000), y: num(p.y, -2000, 4000), w: num(p.w, 4, 4000, 200), h: num(p.h, 2, 4000, 40),
-      size: num(p.size, 6, 200, 20), weight: num(p.weight, 100, 900, 600), color: p.color ? hexOr(p.color, '') : '', font: FONT_KEYS.includes(p.font) ? p.font : '',
-      align: ['left', 'center', 'right'].includes(p.align) ? p.align : 'left', rot: num(p.rot, -180, 180), show: p.show !== false, upper: Boolean(p.upper), shadow: Boolean(p.shadow),
-    };
+    const src = base.parts?.[it.key] || fallback?.parts?.[it.key];
+    if (!src) continue;
+    parts[it.key] = cleanPart({ ...(fallback?.parts?.[it.key] || {}), ...(base.parts?.[it.key] || {}) });
   }
-  return { w: num(base.w, 80, 3000, def.size[0]), h: num(base.h, 40, 3000, def.size[1]), parts };
+  const size = def.size || [400, 120];
+  const extras = cleanDecor(Array.isArray(base.extras) ? base.extras : (fallback?.extras || [])).slice(0, 20);
+  return { w: num(base.w, 40, 4000, size[0]), h: num(base.h, 20, 4000, size[1]), parts, extras };
 }
 function cleanLayout(type, layout) {
   const def = PARTS[type];
   if (!def) return undefined;
   const l = layout && typeof layout === 'object' ? layout : {};
-  const start = startLayout(type);
-  const all = cleanOneLayout(def, l.all, start);
+  const all = cleanOneLayout(def, l.all, startLayout(type));
   const kinds = {};
-  for (const k of def.kinds || []) if (l.kinds?.[k]) kinds[k] = cleanOneLayout(def, l.kinds[k], all);
-  return { mode: l.mode === 'libre' ? 'libre' : 'auto', separateName: l.separateName !== false, all, kinds };
+  if (all) for (const k of def.kinds || []) if (l.kinds?.[k]) kinds[k] = cleanOneLayout(def, l.kinds[k], all);
+  // Libre sans disposition relevée : rien à appliquer, l'overlay reste comme son style le dessine.
+  return { mode: l.mode === 'libre' && all ? 'libre' : 'auto', separateName: l.separateName !== false, all, kinds };
 }
 for (const [type, def] of Object.entries(PARTS)) {
   if (!OVERLAY_TYPES[type]) continue;
@@ -757,7 +812,8 @@ function cleanDecor(list) {
   }));
 }
 // Le décor affiche-t-il des valeurs du live (textes avec {variable}, barres) ?
-const decorNeedsVars = (st = {}) => Array.isArray(st.decor) && st.decor.some((e) => e && (e.kind === 'bar' || /\{[a-zA-Z]+\}/.test(e.text || '')));
+const needsVars = (list) => Array.isArray(list) && list.some((e) => e && (e.kind === 'bar' || /\{[a-zA-Z]+\}/.test(e.text || '')));
+const decorNeedsVars = (st = {}) => needsVars(st.decor) || needsVars(st.layout?.all?.extras) || Object.values(st.layout?.kinds || {}).some((L) => needsVars(L?.extras));
 
 // Filtres : seulement des valeurs connues.
 const cleanPick = (v, options) => (Array.isArray(v) ? v.filter((x) => options.some((o) => o.value === x)) : []);

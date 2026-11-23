@@ -174,6 +174,12 @@ export function mount(root) {
       lastTheme = s.theme;
     },
     hold,
+    // Éditeur : la disposition change avant d'être enregistrée (pseudo séparé ou non, mode libre).
+    relayout(layout) {
+      const was = JSON.stringify([s.layout?.mode, s.layout?.separateName]);
+      s = { ...s, layout };
+      if (holding && was !== JSON.stringify([layout?.mode, layout?.separateName])) show(sample(holding), true);
+    },
     on(msg) {
       if (msg.t === 'alert') { clearInterval(demoTimer); show(msg.alert); }
       if (msg.t === 'alertSkip') clear();

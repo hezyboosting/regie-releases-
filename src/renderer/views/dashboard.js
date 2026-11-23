@@ -34,10 +34,10 @@ function Spark({ feed }) {
   const pts = bins.map((v, i) => `${(i / (N - 1)) * 1000},${54 - (v / max) * 48}`);
   return html`<svg class="spark" viewBox="0 0 1000 56" preserveAspectRatio="none" role="img" aria-label="Activité des dix dernières minutes">
     <defs>
-      <linearGradient id="spf" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#8FD3FF" stop-opacity=".22" /><stop offset="1" stop-color="#8FD3FF" stop-opacity="0" /></linearGradient>
+      <linearGradient id="spf" x1="0" x2="0" y1="0" y2="1"><stop style="stop-color: var(--green)" stop-opacity=".18" /><stop offset="1" style="stop-color: var(--green)" stop-opacity="0" /></linearGradient>
     </defs>
     <polygon points=${`0,56 ${pts.join(' ')} 1000,56`} fill="url(#spf)" />
-    <polyline points=${pts.join(' ')} fill="none" stroke="#8FD3FF" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+    <polyline points=${pts.join(' ')} fill="none" style="stroke: var(--green)" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
   </svg>`;
 }
 
@@ -49,7 +49,7 @@ const TESTS = [
 // Ce qu'on vient faire le plus souvent, en un clic.
 const SHORTCUTS = [
   ['overlays', 'overlays', 'Mettre mes overlays à l\'écran', 'Copier un lien dans OBS ou TikTok LIVE Studio'],
-  ['editor', 'overlays', 'Changer le look d\'un overlay', 'Couleurs, forme, disposition, décor'],
+  ['editor', 'overlays', 'Changer le look d\'un overlay', 'Couleurs, forme, place de chaque texte'],
   ['alerts', 'alerts', 'Régler mes alertes', 'Suivis, cadeaux, partages, pour chaque appli'],
   ['spark', 'gifts', 'Faire réagir les cadeaux', 'Un son, une touche, une action par cadeau'],
   ['dice', 'interactive', 'Lancer un jeu pour le chat', 'Roue, course aux likes, Plinko…'],

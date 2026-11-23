@@ -1570,7 +1570,11 @@ class Engine {
   // Ce que la page de l'overlay doit savoir pour la disposition libre (sélecteurs des éléments).
   partsDef(type) {
     const d = OVERLAY_TYPES[type]?.parts;
-    return d ? { card: d.card, kinds: d.kinds || [], flatten: d.flatten, items: d.items.map(({ key, sel, kind, fill, fit }) => ({ key, sel, kind, fill: fill || '', fit: Boolean(fit) })) } : null;
+    if (!d) return null;
+    return {
+      card: d.card, kinds: d.kinds || [], flatten: d.flatten || [], zoom: Boolean(d.zoom), keepPos: Boolean(d.keepPos), noSize: Boolean(d.noSize), grow: Boolean(d.grow),
+      items: d.items.map(({ key, sel, kind, fill, fit }) => ({ key, sel, kind, fill: fill || '', fit: Boolean(fit) })),
+    };
   }
 
   overlayInit(o) {

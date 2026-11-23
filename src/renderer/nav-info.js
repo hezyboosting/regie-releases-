@@ -7,7 +7,7 @@ export const PAGE_INFO = {
   deck: 'Des boutons pour tout lancer d\'un clic, aussi depuis ton téléphone.',
   scenes: 'Change de scène OBS et lance les transitions.',
   clips: 'Garde les meilleurs moments du live.',
-  overlays: 'Tes overlays : personnalise-les (couleurs, forme, disposition, décor), teste-les, copie leur lien dans OBS ou TikTok LIVE Studio.',
+  overlays: 'Tes overlays : personnalise-les (couleurs, forme, place de chaque élément), teste-les, copie leur lien dans OBS ou TikTok LIVE Studio.',
   builder: 'Crée un overlay de zéro : textes, formes, images et barres placés à la souris.',
   shop: 'Des designs prêts à installer en un clic.',
   alerts: 'Ce qui s\'affiche quand on te suit, t\'offre un cadeau, s\'abonne… et pour quelles plateformes.',

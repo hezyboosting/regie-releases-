@@ -101,28 +101,170 @@ skinStyle.after(layoutStyle);
 let partsDef = null;
 let layoutNow = null;
 let heldKind = null;
+let rectsTimer = null;
+const libre = () => Boolean(partsDef && layoutNow?.mode === 'libre' && layoutNow.all);
 function applyLayout(layout) {
   layoutNow = layout;
   layoutStyle.textContent = layoutCss(partsDef, layout);
-  document.documentElement.dataset.layout = layout?.mode === 'libre' ? 'libre' : 'auto';
+  document.documentElement.dataset.layout = libre() ? 'libre' : 'auto';
+  scheduleCards();
   if (query.get('preview')) requestAnimationFrame(sendRects);
+}
+// Cartes en mode libre : enveloppes effacées (chaque élément se place par rapport à la carte),
+// ajouts du streamer (formes, textes, images) posés dans chaque carte, hauteur qui suit le texte.
+let cardsQueued = false;
+function scheduleCards() {
+  if (cardsQueued) return;
+  cardsQueued = true;
+  requestAnimationFrame(() => { cardsQueued = false; syncCards(); });
+}
+const layoutFor = (card) => { const k = card.dataset.kind; return (k && layoutNow.kinds?.[k]) || layoutNow.all; };
+const partNodes = (card) => { const set = new Set(); for (const it of partsDef.items) for (const n of card.querySelectorAll(it.sel)) set.add(n); return set; };
+function partText(card, key) {
+  const it = partsDef.items.find((x) => x.key === key);
+  const n = it && card.querySelector(it.sel);
+  return n ? n.textContent.replace(/\s+/g, ' ').trim() : null;
+}
+function syncExtras(card, L) {
+  const list = (L.extras || []).map((e) => (e.kind === 'text' ? { ...e, text: String(e.text || '').replace(/\{(\w+)\}/g, (m, k) => partText(card, k) ?? m) } : e));
+  const vars = query.get('preview') && !Object.keys(decorVars).length ? sampleVars() : decorVars;
+  const sig = JSON.stringify(list) + (list.some((e) => e.kind === 'bar' || /\{\w+\}/.test(e.text || '')) ? JSON.stringify(vars) : '');
+  const have = card.querySelectorAll(':scope > .rg-x');
+  if (card.rgSig === sig && have.length === list.length) return;
+  have.forEach((n) => n.remove());
+  card.rgSig = sig;
+  for (const e of list) {
+    const node = renderElement(e, vars, media);
+    node.classList.add('rg-x');
+    // Derrière les textes : sous les éléments de la carte ; devant : au-dessus.
+    node.style.zIndex = e.layer === 'front' ? '6' : '0';
+    if (e.layer === 'front') card.append(node); else card.prepend(node);
+  }
+}
+function syncCards() {
+  if (!partsDef) return;
+  const on = libre();
+  for (const card of root.querySelectorAll(partsDef.card)) {
+    if (!on) {
+      card.querySelectorAll(':scope > .rg-x').forEach((n) => n.remove());
+      card.rgSig = '';
+      card.style.removeProperty('min-height');
+      continue;
+    }
+    const L = layoutFor(card);
+    const set = partNodes(card);
+    for (const n of set) {
+      for (let p = n.parentElement; p && p !== card && !set.has(p); p = p.parentElement) if (!p.hasAttribute('data-lw')) p.setAttribute('data-lw', '');
+    }
+    syncExtras(card, L);
+    if (partsDef.grow && !partsDef.noSize) {
+      let bottom = 0;
+      for (const n of set) if (n.offsetParent) bottom = Math.max(bottom, n.offsetTop + n.offsetHeight);
+      const need = Math.max(Number(L.h) || 0, Math.ceil(bottom + 10));
+      if (card.style.getPropertyValue('min-height') !== `${need}px`) card.style.setProperty('min-height', `${need}px`, 'important');
+    }
+  }
+}
+new MutationObserver(() => { if (partsDef) scheduleCards(); }).observe(root, { childList: true, subtree: true, characterData: true });
+
+// Carte suivie par l'éditeur : celle du type d'alerte gardé à l'écran, sinon la première visible.
+function editorCard() {
+  if (!partsDef) return null;
+  if (heldKind && heldKind !== 'all') { const c = root.querySelector(`${partsDef.card}[data-kind="${heldKind}"]`); if (c) return c; }
+  const all = [...root.querySelectorAll(partsDef.card)];
+  return all.find((c) => { const r = c.getBoundingClientRect(); return r.width > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth; }) || all[0] || null;
 }
 // L'éditeur demande où sont les éléments pour pouvoir les attraper à la souris.
 function sendRects() {
   if (!partsDef || window.parent === window) return;
-  const sel = heldKind && heldKind !== 'all' ? `${partsDef.card}[data-kind="${heldKind}"]` : partsDef.card;
-  const card = root.querySelector(sel) || root.querySelector(partsDef.card);
+  const card = editorCard();
   const rect = (n) => { if (!n) return null; const r = n.getBoundingClientRect(); return r.width || r.height ? { x: r.left, y: r.top, w: r.width, h: r.height } : null; };
   const rects = {};
   for (const it of partsDef.items) rects[it.key] = rect(card?.querySelector(it.sel));
-  window.parent.postMessage({ regie: 'rects', card: rect(card), kind: card?.dataset.kind || '', rects }, '*');
+  const cr = rect(card);
+  // Échelle carte → écran : par la largeur choisie en Libre (zoom et transformations compris), sinon par sa largeur CSS.
+  const lw = libre() && !partsDef.noSize && card ? Number(layoutFor(card)?.w) : 0;
+  const k = card && cr ? cr.w / (lw || card.offsetWidth || cr.w) : 1;
+  window.parent.postMessage({ regie: 'rects', card: cr, k, kind: card?.dataset.kind || '', rects }, '*');
+}
+// Passage en Libre : on relève où le style a placé chaque élément, pour partir de là.
+function capture() {
+  if (!partsDef) return null;
+  const html = document.documentElement;
+  const keep = [layoutStyle.textContent, html.dataset.layout];
+  layoutStyle.textContent = '';
+  html.dataset.layout = 'auto';
+  const card = editorCard();
+  const minH = card?.style.getPropertyValue('min-height');
+  card?.style.removeProperty('min-height');
+  const out = card ? measure(card) : null;
+  // Éléments absents de cette carte (icône d'un message d'événement…) : relevés sur une autre carte.
+  if (out) {
+    for (const other of root.querySelectorAll(partsDef.card)) {
+      if (other === card || partsDef.items.every((it) => out.parts[it.key])) continue;
+      const more = measure(other);
+      for (const [key, p] of Object.entries(more.parts)) if (!out.parts[key]) out.parts[key] = p;
+    }
+  }
+  if (card && minH) card.style.setProperty('min-height', minH, 'important');
+  [layoutStyle.textContent, html.dataset.layout] = keep;
+  return out;
+}
+function measure(card) {
+  const cr = card.getBoundingClientRect();
+  const k = cr.width / (card.offsetWidth || cr.width) || 1;
+  const ox = cr.left + card.clientLeft * k;
+  const oy = cr.top + card.clientTop * k;
+  const W = Math.round(card.clientWidth || cr.width / k);
+  const H = Math.round(card.clientHeight || cr.height / k);
+  const parts = {};
+  for (const it of partsDef.items) {
+    const n = card.querySelector(it.sel);
+    if (!n) continue;
+    const r = n.getBoundingClientRect();
+    if (!r.width && !r.height) continue;
+    const cs = getComputedStyle(n);
+    if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+    let x = Math.round((r.left - ox) / k);
+    const y = Math.round((r.top - oy) / k);
+    let w = Math.max(4, Math.round(r.width / k));
+    const p = { y, h: Math.max(2, Math.round(r.height / k)) };
+    if (it.kind === 'text') {
+      let align = cs.textAlign === 'center' ? 'center' : (['right', 'end'].includes(cs.textAlign) ? 'right' : 'left');
+      // Rangée flexible centrée ou poussée à droite : c'est justify-content qui place le texte, pas text-align.
+      if (/flex/.test(cs.display)) align = cs.justifyContent === 'center' ? 'center' : (/flex-end|end|right/.test(cs.justifyContent) ? 'right' : align);
+
+      // Un texte relevé à sa largeur exacte passerait à la ligne avec un pseudo plus long : on lui laisse de la place.
+      // Pas pour un texte qui a son propre fond (pastille) : il garderait une pastille étirée.
+      const painted = cs.backgroundImage !== 'none' || !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(cs.backgroundColor) || parseFloat(cs.borderLeftWidth) > 0;
+      if (!painted) w += 2;
+      if (painted) { /* largeur relevée telle quelle */ } else if (align === 'center') { x -= 40; w += 80; } else if (W - (x + w) < 40 && x > W / 2) { const right = x + w; w = Math.max(w, Math.round(right - W / 2)); x = right - w; align = 'right'; } else if (align === 'left') w = Math.max(w, W - x - 10);
+      const size = Math.round(parseFloat(cs.fontSize) || 16);
+      // Relevé sur une ligne : il y reste (un pseudo plus long déborde au lieu de passer à la ligne).
+      const nowrap = !partsDef.grow && r.height / k < size * 1.6;
+      const lhPx = parseFloat(cs.lineHeight);
+      const lh = Number.isFinite(lhPx) && size ? Math.max(70, Math.min(250, Math.round((lhPx / size) * 100))) : 0;
+      Object.assign(p, { size, weight: Number(cs.fontWeight) || 600, align, upper: cs.textTransform === 'uppercase' ? true : null, nowrap, lh });
+    }
+    parts[it.key] = { ...p, x, w };
+  }
+  return { w: W, h: H, parts };
 }
 if (query.get('preview')) {
   addEventListener('message', (e) => {
     const d = e.data || {};
-    if (d.regie === 'layout') applyLayout(d.layout);
-    if (d.regie === 'hold') { heldKind = d.kind || null; mod?.hold?.(heldKind); setTimeout(sendRects, 80); setTimeout(sendRects, 700); }
+    if (d.regie === 'layout') { applyLayout(d.layout); mod?.relayout?.(d.layout); }
+    if (d.regie === 'hold') {
+      heldKind = d.kind || null;
+      mod?.hold?.(heldKind);
+      setTimeout(sendRects, 80);
+      setTimeout(sendRects, 700);
+      clearInterval(rectsTimer);
+      // Les overlays qui bougent tout seuls (chat, défilement) : les cadres de l'éditeur suivent.
+      if (heldKind) rectsTimer = setInterval(sendRects, 500);
+    }
     if (d.regie === 'rects') sendRects();
+    if (d.regie === 'capture') window.parent.postMessage({ regie: 'captured', id: d.id, layout: capture() }, '*');
   });
 }
 
@@ -188,7 +330,7 @@ new MutationObserver((list) => {
   if (!root.dataset.items) return;
   for (const m of list) {
     for (const n of m.addedNodes) {
-      if (n.nodeType !== 1 || n instanceof SVGElement || n.closest('[data-btn]')) continue;
+      if (n.nodeType !== 1 || n instanceof SVGElement || n.closest('[data-btn]') || n.classList.contains('rg-x')) continue;
       if (!n.parentElement || n.parentElement === root) continue;
       n.classList.add('fx-item');
       n.addEventListener('animationend', () => n.classList.remove('fx-item'), { once: true });
@@ -239,7 +381,7 @@ async function onMessage(msg) {
     mod.update?.(msg.overlay.settings, msg.data);
   } else {
     if (filtered(msg)) return;
-    if (msg.t === 'vars') { decorVars = msg.vars || {}; if (usesVars()) paintDecor(); }
+    if (msg.t === 'vars') { decorVars = msg.vars || {}; if (usesVars()) paintDecor(); if (libre()) scheduleCards(); }
     mod?.on?.(msg);
     if (msg.t === 'sound') playSound(msg.sound, msg.volume);
     if (bigMoment(msg) && Date.now() - lastBurst > 2500) { lastBurst = Date.now(); confetti(); }

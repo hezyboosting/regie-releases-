@@ -34,16 +34,21 @@ import { DiscordView } from './views/discord.js';
 import { WhatsNew, UpdatePill } from './views/help.js';
 
 // Menu : chaque section montre directement ses pages. « flat » : pages affichées sans titre de section.
+// Menu : une entrée par grand sujet, rangées comme on y pense. Les pages d'un même sujet
+// deviennent des onglets en haut de la page. sep : petit espace avant l'entrée.
 const NAV = [
-  { title: 'Démarrer', icon: 'dash', flat: true, items: [{ id: 'dashboard', label: 'Tableau de bord', icon: 'dash', view: Dashboard }, { id: 'connections', label: 'Connexions', icon: 'link', view: Connections }] },
-  { title: 'Pendant le live', icon: 'scenes', hint: 'Pendant que tu streames', items: [{ id: 'dock', label: 'Chat unifié', icon: 'commands', view: DockView }, { id: 'deck', label: 'Télécommande', icon: 'deck', view: Deck, module: 'deck' }, { id: 'tools', label: 'Outils du live', icon: 'tools', view: Tools }, { id: 'scenes', label: 'Scènes OBS', icon: 'scenes', view: Scenes, module: 'scenes' }, { id: 'clips', label: 'Clips', icon: 'clips', view: Clips, module: 'clips' }] },
-  { title: 'Overlays', icon: 'overlays', hint: 'Ce qui s\'affiche à l\'écran', items: [{ id: 'overlays', label: 'Mes overlays', icon: 'overlays', view: Overlays, wide: true }, { id: 'builder', label: 'Créer de zéro', icon: 'editor', view: Builder, wide: true }, { id: 'shop', label: 'Designs prêts', icon: 'shop', view: Shop, module: 'shop' }] },
-  { title: 'Alertes & actions', icon: 'alerts', hint: 'Quand le public réagit', items: [{ id: 'alerts', label: 'Alertes', icon: 'alerts', view: Alerts }, { id: 'gifts', label: 'Actions des cadeaux', icon: 'spark', view: GiftActionsPage, module: 'gifts' }, { id: 'commands', label: 'Commandes du chat', icon: 'commands', view: Commands }, { id: 'automations', label: 'Automatisations', icon: 'auto', view: Automations, module: 'automations' }, { id: 'sounds', label: 'Sons', icon: 'sounds', view: Sounds, module: 'sounds' }, { id: 'tts', label: 'Voix du chat', icon: 'tts', view: TtsView, module: 'tts' }] },
-  { title: 'Jeux avec le chat', icon: 'dice', hint: 'Faire jouer le chat', items: [{ id: 'interactive', label: 'Roue de la fortune', icon: 'dice', view: WheelPage, module: 'interactive' }, { id: 'race', label: 'Course aux likes', icon: 'dice', view: RacePage, module: 'interactive' }, { id: 'plinko', label: 'Plinko', icon: 'dice', view: PlinkoView }, { id: 'chatplays', label: 'Le chat joue', icon: 'gaming', view: ChatPlaysView }, { id: 'minigames', label: 'Mini-jeux', icon: 'dice', view: MiniGamesView, module: 'chatgames' }, { id: 'battles', label: 'Duels', icon: 'battles', view: Battles, module: 'battles' }] },
-  { title: 'Défis et points', icon: 'goals', hint: 'Objectifs, paris, classements', items: [{ id: 'goals', label: 'Objectifs', icon: 'goals', view: Goals, module: 'goals' }, { id: 'pointshop', label: 'Boutique de points', icon: 'shop', view: PointShopView }, { id: 'predictions', label: 'Paris', icon: 'battles', view: PredictionView }, { id: 'ranks', label: 'Classements', icon: 'ranks', view: BoardsPage, module: 'ranks' }] },
-  { title: 'Mon jeu', icon: 'gaming', hint: 'Ton jeu vidéo à l\'écran', items: [{ id: 'games', label: 'Mes jeux', icon: 'gaming', view: Games, module: 'gaming', wide: true }, { id: 'rankfollow', label: 'Suivi = Rang', icon: 'ranks', view: RankPage, module: 'ranks' }] },
-  { title: 'Bilan', icon: 'stats', hint: 'Chiffres et cadeaux', items: [{ id: 'stats', label: 'Statistiques', icon: 'stats', view: Stats }, { id: 'giftlive', label: 'Cadeaux du live', icon: 'gifts', view: GiftLivePage }, { id: 'giftcatalog', label: 'Catalogue TikTok', icon: 'gifts', view: GiftCatalogPage }] },
-  { title: 'Intégrations', icon: 'link', hint: 'Musique, Discord, IA', items: [{ id: 'spotify', label: 'Spotify', icon: 'spotify', view: SpotifyView, module: 'spotify' }, { id: 'discord', label: 'Discord', icon: 'link', view: DiscordView }, { id: 'assistant', label: 'Assistant IA', icon: 'assist', view: AssistantView, module: 'assistant' }, { id: 'packs', label: 'Packs prêts', icon: 'spark', view: PacksView, module: 'interactive' }] },
+  { id: 'home', title: 'Accueil', icon: 'dash', items: [{ id: 'dashboard', label: 'Accueil', icon: 'dash', view: Dashboard }] },
+  { id: 'chat', title: 'Chat', icon: 'commands', items: [{ id: 'dock', label: 'Chat unifié', icon: 'commands', view: DockView }, { id: 'commands', label: 'Commandes', icon: 'commands', view: Commands }, { id: 'tts', label: 'Voix du chat', icon: 'tts', view: TtsView, module: 'tts' }] },
+  { id: 'overlays', title: 'Overlays', icon: 'overlays', items: [{ id: 'overlays', label: 'Mes overlays', icon: 'overlays', view: Overlays, wide: true }, { id: 'shop', label: 'Designs prêts', icon: 'shop', view: Shop, module: 'shop' }, { id: 'builder', label: 'Créer de zéro', icon: 'editor', view: Builder, wide: true }] },
+  { id: 'alerts', title: 'Alertes', icon: 'alerts', items: [{ id: 'alerts', label: 'Alertes', icon: 'alerts', view: Alerts }, { id: 'sounds', label: 'Sons', icon: 'sounds', view: Sounds, module: 'sounds' }] },
+  { id: 'gifts', title: 'Cadeaux', icon: 'gifts', items: [{ id: 'gifts', label: 'Actions des cadeaux', icon: 'spark', view: GiftActionsPage, module: 'gifts' }, { id: 'giftlive', label: 'Reçus pendant le live', icon: 'gifts', view: GiftLivePage }, { id: 'giftcatalog', label: 'Catalogue TikTok', icon: 'gifts', view: GiftCatalogPage }] },
+  { id: 'games', title: 'Jeux', icon: 'dice', sep: true, items: [{ id: 'interactive', label: 'Roue', icon: 'dice', view: WheelPage, module: 'interactive' }, { id: 'race', label: 'Course aux likes', icon: 'dice', view: RacePage, module: 'interactive' }, { id: 'plinko', label: 'Plinko', icon: 'dice', view: PlinkoView }, { id: 'chatplays', label: 'Le chat joue', icon: 'gaming', view: ChatPlaysView }, { id: 'minigames', label: 'Mini-jeux', icon: 'dice', view: MiniGamesView, module: 'chatgames' }, { id: 'battles', label: 'Duels', icon: 'battles', view: Battles, module: 'battles' }] },
+  { id: 'viewers', title: 'Spectateurs', icon: 'ranks', items: [{ id: 'goals', label: 'Objectifs', icon: 'goals', view: Goals, module: 'goals' }, { id: 'pointshop', label: 'Points et boutique', icon: 'shop', view: PointShopView }, { id: 'predictions', label: 'Paris', icon: 'battles', view: PredictionView }, { id: 'ranks', label: 'Classements', icon: 'ranks', view: BoardsPage, module: 'ranks' }] },
+  { id: 'mygame', title: 'Mon jeu', icon: 'gaming', items: [{ id: 'games', label: 'Mes jeux', icon: 'gaming', view: Games, module: 'gaming', wide: true }, { id: 'rankfollow', label: 'Suivi = Rang', icon: 'ranks', view: RankPage, module: 'ranks' }] },
+  { id: 'live', title: 'Outils du live', icon: 'tools', sep: true, items: [{ id: 'tools', label: 'Minuteurs et sondages', icon: 'tools', view: Tools }, { id: 'deck', label: 'Télécommande', icon: 'deck', view: Deck, module: 'deck' }, { id: 'scenes', label: 'Scènes OBS', icon: 'scenes', view: Scenes, module: 'scenes' }, { id: 'clips', label: 'Clips', icon: 'clips', view: Clips, module: 'clips' }, { id: 'automations', label: 'Automatisations', icon: 'auto', view: Automations, module: 'automations' }] },
+  { id: 'stats', title: 'Statistiques', icon: 'stats', items: [{ id: 'stats', label: 'Statistiques', icon: 'stats', view: Stats }] },
+  { id: 'apps', title: 'Intégrations', icon: 'spotify', items: [{ id: 'spotify', label: 'Spotify', icon: 'spotify', view: SpotifyView, module: 'spotify' }, { id: 'discord', label: 'Discord', icon: 'link', view: DiscordView }, { id: 'assistant', label: 'Assistant IA', icon: 'assist', view: AssistantView, module: 'assistant' }, { id: 'packs', label: 'Packs prêts', icon: 'spark', view: PacksView, module: 'interactive' }] },
+  { id: 'connections', title: 'Connexions', icon: 'link', items: [{ id: 'connections', label: 'Connexions', icon: 'link', view: Connections }] },
 ];
 const PINNED = [{ id: 'settings', label: 'Réglages', icon: 'settings', view: Settings }, { id: 'admin', label: 'Admin', icon: 'admin', view: Admin, admin: true }];
 const FLAT = [...NAV.flatMap((g) => g.items), ...PINNED];
@@ -63,35 +68,37 @@ export function LivePill({ s }) {
   return html`<span class="onair ${on ? 'on' : ''}" role="status"><i></i>${on ? 'En direct' : 'Hors ligne'}${on && Number.isFinite(since) ? ` ${clock((Date.now() - since) / 1000)}` : ''}</span>`;
 }
 
-const pickView = (id, extra = {}) => { const g = sectionOf(id); if (g) lastTab[g.title] = id; setState({ view: id, overlayId: null, ...extra }); };
+const pickView = (id, extra = {}) => { const g = sectionOf(id); if (g) lastTab[g.id] = id; setState({ view: id, overlayId: null, ...extra }); };
 
-// Sections repliables : la section de la page ouverte est toujours dépliée, les autres restent comme on les a laissées.
-const readOpen = () => { try { return JSON.parse(localStorage.getItem('navOpen') || '{}'); } catch { return {}; } };
+// Voyants de la console : allumés quand quelque chose tourne dans la section.
+function tally(s, id) {
+  const live = s.channels.some((c) => c.status.state === 'live') || s.obs.streaming;
+  if (id === 'home' && live) return ['red', 'En direct'];
+  if (id === 'connections') {
+    if (!s.channels.length) return ['amber', 'Aucune chaîne ajoutée'];
+    if (s.channels.some((c) => c.enabled !== false && c.status.state === 'error')) return ['red', 'Une chaîne a un problème'];
+    return ['green', 'Chaînes connectées'];
+  }
+  if (id === 'overlays' && s.overlays.some((o) => o.connected)) return ['green', 'Overlays ouverts dans OBS ou LIVE Studio'];
+  if (id === 'alerts') return s.alerts?.paused ? ['amber', 'Alertes en pause'] : null;
+  if (id === 'live' && s.obs.state === 'connected') return ['green', 'OBS connecté'];
+  return null;
+}
 function Side({ s }) {
   const [label, sub] = ROLE[s.role] || ROLE.free;
   const mini = s.settings.navCollapsed === true;
   const active = sectionOf(s.view);
-  const [open, setOpen] = useState(readOpen);
-  const toggle = (t, now) => { const next = { ...open, [t]: !now }; setOpen(next); try { localStorage.setItem('navOpen', JSON.stringify(next)); } catch { /* facultatif */ } };
-  const row = (key, icon, text, on, go) => html`<button type="button" key=${key} class="nav-item ${on ? 'on' : ''}" title=${mini ? text : undefined} aria-label=${text} aria-current=${on ? 'page' : undefined} onClick=${go}>${ICONS[icon]}<span>${text}</span></button>`;
+  const row = (key, icon, text, on, go, led, sep) => html`<button type="button" key=${key} class="nav-item ${on ? 'on' : ''} ${sep ? 'sep' : ''}" title=${mini ? text : (led ? led[1] : undefined)} aria-label=${led ? `${text}, ${led[1]}` : text} aria-current=${on ? 'page' : undefined} onClick=${go}>${ICONS[icon]}<span>${text}</span>${led && html`<i class="led ${led[0]}" aria-hidden="true"></i>`}</button>`;
   return html`<aside class="side ${mini ? 'mini' : ''}">
     <div class="logo"><span>${s.brand.name}</span>
       <button type="button" class="nav-fold" aria-label=${mini ? 'Déplier le menu' : 'Replier le menu'} title=${mini ? 'Déplier le menu' : 'Replier le menu'} onClick=${async () => { const r = await act('updateSettings', { navCollapsed: !mini }); if (r) setState({ settings: r }); }}>${ICONS.panel}</button>
     </div>
-    <nav class="nav nav2" aria-label="Sections">
+    <nav class="nav" aria-label="Sections">
       ${NAV.map((g) => {
     const items = g.items.filter((i) => isShown(s, i));
     if (!items.length) return null;
-    if (mini) {
-      const target = items.find((i) => i.id === lastTab[g.title]) || items[0];
-      return row(g.title, g.icon, g.title, active === g, () => pickView(target.id));
-    }
-    if (g.flat) return html`<div class="nav-flat" key=${g.title}>${items.map((i) => row(i.id, i.icon, i.label, s.view === i.id, () => pickView(i.id)))}</div>`;
-    const isOpen = active === g || open[g.title] === true;
-    return html`<div class="nav-group ${isOpen ? 'open' : ''} ${active === g ? 'here' : ''}" key=${g.title}>
-          <h4><button type="button" aria-expanded=${isOpen} title=${g.hint || ''} onClick=${() => toggle(g.title, isOpen)}>${ICONS[g.icon]}<span>${g.title}</span><i aria-hidden="true">›</i></button></h4>
-          ${isOpen && html`<div class="nav-items">${g.hint && html`<p class="nav-hint">${g.hint}</p>`}${items.map((i) => row(i.id, i.icon, i.label, s.view === i.id, () => pickView(i.id)))}</div>`}
-        </div>`;
+    const target = items.find((i) => i.id === lastTab[g.id]) || items[0];
+    return row(g.id, g.icon, g.title, active === g, () => pickView(target.id), tally(s, g.id), g.sep);
   })}
     </nav>
     <div class="side-foot">
@@ -104,6 +111,15 @@ function Side({ s }) {
   </aside>`;
 }
 
+// Onglets du sujet ouvert (Jeux : Roue, Course aux likes, Plinko…), en haut de la page.
+function SectionTabs({ s }) {
+  const g = sectionOf(s.view);
+  const items = g ? g.items.filter((i) => isShown(s, i)) : [];
+  if (items.length < 2) return null;
+  return html`<nav class="sec-tabs" aria-label=${g.title}>
+    ${items.map((i) => html`<button type="button" key=${i.id} class="sec-tab ${s.view === i.id ? 'on' : ''}" aria-current=${s.view === i.id ? 'page' : undefined} onClick=${() => pickView(i.id)}>${i.label}</button>`)}
+  </nav>`;
+}
 
 // Mots qu'on tape souvent pour trouver une page, en plus de son nom.
 const KEYWORDS = {
@@ -126,7 +142,7 @@ function Palette({ s, onClose }) {
   useEffect(() => { input.current?.focus(); }, []);
   useEffect(() => { listRef.current?.querySelector('.pal-item.on')?.scrollIntoView({ block: 'nearest' }); }, [idx]);
   const go = (view, extra = {}) => () => pickView(view, extra);
-  const pages = NAV.flatMap((g) => g.items.filter((i) => isShown(s, i)).map((i) => ({ label: i.label, icon: i.icon, hint: g.flat ? 'Page' : g.title, keys: KEYWORDS[i.id], run: go(i.id) })));
+  const pages = NAV.flatMap((g) => g.items.filter((i) => isShown(s, i)).map((i) => ({ label: i.label, icon: i.icon, hint: g.items.length > 1 ? g.title : 'Page', keys: KEYWORDS[i.id], run: go(i.id) })));
   const actions = [
     { label: s.simulating ? 'Arrêter la simulation' : 'Simuler un live (1 min)', icon: 'spark', keys: 'tester essai faux', run: () => act('simulateLive', !s.simulating, 60) },
     { label: 'Tester une alerte de suivi', icon: 'alerts', run: () => act('simulate', 'follow', 'tiktok') },
@@ -183,9 +199,8 @@ function LangSwitch() {
 
 function Titlebar({ s, journal, setJournal, wide, onSearch }) {
   const g = sectionOf(s.view);
-  const page = FLAT.find((i) => i.id === s.view);
   return html`<header class="titlebar">
-    ${g && !g.flat && page && html`<div class="crumb"><span>${g.title}</span><i aria-hidden="true">›</i><b>${page.label}</b></div>`}
+    <b class="tb-section">${g ? g.title : (FLAT.find((i) => i.id === s.view)?.label || '')}</b>
     <span class="tb-space"></span>
     <button type="button" class="search-pill" title="Rechercher (Ctrl K)" aria-label="Rechercher" onClick=${onSearch}>${ICONS.search}<span>Rechercher</span><kbd>Ctrl K</kbd></button>
     <${UpdatePill} s=${s} />
@@ -236,7 +251,7 @@ function App() {
     <div class=${`aurora ${live ? 'live' : ''} ${s.pulse ? 'pulse' : ''}`} style=${{ '--hue': `${s.pulseHue || 0}deg` }}></div>
     <${Side} s=${s} />
     <${Titlebar} s=${s} journal=${journal} setJournal=${setJournal} wide=${current.wide} onSearch=${() => setPalette(true)} />
-    <main class="view" key=${s.view}><${Banner} s=${s} /><${View} s=${s} /></main>
+    <main class="view" key=${s.view}><${SectionTabs} s=${s} /><${Banner} s=${s} /><${View} s=${s} /></main>
     ${showJournal && html`<${Journal} s=${s} />`}
     <${Toasts} list=${s.toasts} />
     ${palette && html`<${Palette} s=${s} onClose=${() => setPalette(false)} />`}

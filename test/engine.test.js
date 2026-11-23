@@ -749,3 +749,50 @@ test('Disposition libre : chaque élément de la carte d\'alerte à sa place, et
   assert.match(skinCss('.msg', { skShape: 'pilule', skFill: 'uni', skColor1: '#112233', skAlpha: 50 }), /#root \.msg \{ border-radius: 999px !important; background: rgba\(17,34,51,0.5\) !important/);
   engine.stop();
 });
+
+test('Disposition libre sur tous les overlays : relevé, réglages par élément et ajouts dans la carte', async () => {
+  const { engine } = rig();
+  const { cleanLayout, PARTS, OVERLAY_TYPES, decorNeedsVars } = require('../src/shared/overlay-schema');
+  const path = require('path');
+  const { pathToFileURL } = require('url');
+  const { layoutCss } = await import(pathToFileURL(path.join(__dirname, '../src/overlays/style-gen.js')).href);
+  assert.ok(Object.keys(PARTS).length >= 35, 'la plupart des overlays ont leurs éléments');
+  for (const [type, d] of Object.entries(PARTS)) {
+    assert.ok(OVERLAY_TYPES[type], `${type} existe`);
+    assert.ok(OVERLAY_TYPES[type].fields.some((f) => f.key === 'layout' && f.tab === 'layout'), `${type} a l'onglet Disposition`);
+    assert.equal(new Set(d.items.map((it) => it.key)).size, d.items.length, `${type} : clés uniques`);
+  }
+  assert.ok(!OVERLAY_TYPES.firework.parts && !OVERLAY_TYPES.custom.parts, 'les effets et l\'éditeur libre n\'en ont pas');
+  // Sans disposition relevée, le mode libre ne s'applique pas encore.
+  assert.equal(cleanLayout('chat', { mode: 'libre' }).mode, 'auto');
+  const raw = {
+    mode: 'libre',
+    all: {
+      w: 380, h: 60,
+      parts: { texte: { x: 60, y: 24, w: 300, size: 18, shadow: true, upper: false, lh: 0, nowrap: true, bg: '#112233', bgAlpha: 40, radius: 10, stroke: 2, strokeColor: '#ff0000' }, photo: { x: 8, y: 8, w: 40, h: 40, z: 3 } },
+      extras: [{ id: 'a1', kind: 'shape', x: 0, y: 0, w: 380, h: 4, fill: '#FF3D71' }, { id: 'a2', kind: 'text', text: 'Merci {entete} !', x: 10, y: 40, w: 200, h: 20 }, { kind: 'virus' }],
+    },
+  };
+  const L = cleanLayout('chat', raw);
+  assert.equal(L.mode, 'libre');
+  assert.deepEqual(Object.keys(L.all.parts).sort(), ['photo', 'texte'], 'seuls les éléments relevés sont gardés');
+  const t = L.all.parts.texte;
+  assert.equal(t.shadow, 'forte', 'l\'ancienne ombre devient « forte »');
+  assert.equal(t.upper, false);
+  assert.equal(L.all.parts.photo.upper, null, 'majuscules : comme le style par défaut');
+  assert.equal(t.lh, 0, 'interligne automatique gardé');
+  assert.equal(L.all.extras.length, 2, 'un ajout inconnu est retiré');
+  const o = engine.addOverlay('chat');
+  o.settings.layout = raw;
+  const init = engine.overlayInit(o);
+  assert.equal(init.overlay.parts.grow, true);
+  const css = layoutCss(init.overlay.parts, init.overlay.settings.layout);
+  assert.match(css, /#root \.msg \{[^}]*min-height: 60px !important; height: auto !important/, 'la bulle de chat grandit avec le message');
+  assert.match(css, /#root \.msg \.txt \{[^}]*white-space: nowrap[^}]*text-transform: none[^}]*-webkit-text-stroke: 2px #ff0000[^}]*background: rgba\(17,34,51,0.4\)[^}]*border-radius: 10px/);
+  assert.doesNotMatch(css, /\.txt \{[^}]*justify-content/, 'aligné à gauche : rien à pousser');
+  assert.match(css, /#root \.msg \.cx-av \{[^}]*z-index: 3/);
+  assert.ok(decorNeedsVars({ layout: L }), 'un texte ajouté avec {…} reçoit les valeurs du live');
+  const cam = layoutCss({ ...PARTS.webcam, items: PARTS.webcam.items }, { mode: 'libre', all: { w: 100, h: 100, parts: { direct: { x: 1, y: 2, w: 50 } } } });
+  assert.doesNotMatch(cam.split('\n')[0], /position: relative|width: 100px/, 'le cadre webcam garde sa place et sa taille');
+  engine.stop();
+});
