@@ -388,7 +388,8 @@ test('Follow = Rank : un rang à la première fois, et pas à chaque follow', ()
   r.engine.handle(r.ev('follow'));
   const cards = r.sent.filter((x) => x.m.t === 'rank');
   assert.equal(cards.length, 1);
-  assert.ok(r.file.data.ranks.list.some((x) => x.id === cards[0].m.card.rank.id));
+  // Le rang tiré vient des rangs du jeu choisi (pas forcément de la liste « Autre jeu »).
+  assert.ok(r.engine.games.rankById(cards[0].m.card.rank.id));
   assert.equal(r.viewers.file.data.list['twitch:u1'].rank, cards[0].m.card.rank.id);
   r.engine.stop();
 });
