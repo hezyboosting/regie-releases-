@@ -1,6 +1,16 @@
 // Nouveautés montrées dans « Quoi de neuf » après une mise à jour. La plus récente en premier.
 const CHANGELOG = [
   {
+    version: '2.24.0',
+    title: 'Repères dans le chat, avertissements, modération en raccourci',
+    items: [
+      'Le chat multi marque le premier message d\'un nouveau venu, les habitués et les gros soutiens, sur leur premier message du live. Seuils et marques se règlent dans la page Chat.',
+      'Avertissements : bouton Avertir dans le dock et sur la fiche, ou !avertir pseudo raison dans le chat. Chaque avertissement est annoncé (@pseudo avertissement 1/3) et, au dernier, l\'exclusion ou le ban tombe tout seul. Le compteur repart de zéro après 24 h.',
+      'Nouvelles actions pour les commandes, automatisations, la télécommande, le Stream Deck et les raccourcis clavier : mode lent, followers, abonnés ou émotes seulement (activer, couper ou basculer), vider le chat, afficher ou retirer le message à l\'écran.',
+      'Une commande comme !question avec l\'action Afficher le message à l\'écran met la question du spectateur en grand sur ton live, sans le mot de la commande.',
+    ],
+  },
+  {
     version: '2.23.0',
     title: 'Fiche spectateur, message à l\'écran, réglages du chat et commandes de modo',
     items: [

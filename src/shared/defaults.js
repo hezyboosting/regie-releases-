@@ -121,7 +121,12 @@ const defaultState = () => {
     chatTranslate: { enabled: false, target: 'auto', engine: 'google', mode: 'below', showLang: true },
     // Spectateurs bloqués dans Régie : leurs messages ne passent plus (overlays, voix, commandes, jeux).
     // Modération : bloqués, historique des sanctions, notes par spectateur, commandes de modo dans le chat.
-    moderation: { blocked: [], history: [], notes: {}, commands: { enabled: true, timeout: '!exclure', ban: '!ban', unban: '!debannir', minutes: 10, confirm: true } },
+    moderation: {
+      blocked: [], history: [], notes: {}, warns: {},
+      commands: { enabled: true, timeout: '!exclure', ban: '!ban', unban: '!debannir', warn: '!avertir', minutes: 10, confirm: true, warnLimit: 3, warnAction: 'timeout', warnMinutes: 10 },
+    },
+    // Repères dans le chat unifié : premier message, habitué (jours de présence), gros soutien (pièces).
+    chatTags: { enabled: true, newcomer: true, regular: true, regularDays: 5, fan: true, fanCoins: 1000, always: false },
     recap: { open: true, thanks: false, thanksText: 'Merci {top} pour ce live ❤️ À très vite !' },
     tts: {
       enabled: false, provider: 'system', voice: '', rate: 1, pitch: 1, volume: 80,

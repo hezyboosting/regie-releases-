@@ -77,7 +77,7 @@ class OverlayServer {
     if (p === '/dock' && req.method === 'GET') return this.sendFile(res, this.overlaysDir, 'dock.html', req);
     if (p === '/dock/state' && req.method === 'GET') return this.send(res, 200, JSON.stringify(this.dock.state()), 'application/json');
     // Actions du chat unifié : modération, fiche spectateur, note, message à l'écran, réglages du chat.
-    const DOCK_POST = { '/dock/mod': 'moderate', '/dock/unblock': 'unblock', '/dock/viewer': 'viewer', '/dock/note': 'note', '/dock/spotlight': 'spotlight', '/dock/chatsettings': 'chatSettings', '/dock/chatset': 'setChat' };
+    const DOCK_POST = { '/dock/mod': 'moderate', '/dock/unblock': 'unblock', '/dock/viewer': 'viewer', '/dock/note': 'note', '/dock/warnreset': 'warnReset', '/dock/spotlight': 'spotlight', '/dock/chatsettings': 'chatSettings', '/dock/chatset': 'setChat' };
     if (DOCK_POST[p] && req.method === 'POST') {
       let body = '';
       req.on('data', (d) => { if (body.length < 4000) body += d; });

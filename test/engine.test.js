@@ -1061,3 +1061,108 @@ test('commandes de modo : !exclure, !ban et !debannir depuis le chat', async () 
   assert.notEqual(calls.at(-1)[0], 'ban');
   r.engine.stop();
 });
+
+test('repères du dock : premier message, habitué, gros soutien', () => {
+  const r = rig();
+  const acc = { id: 'a', platform: 'twitch', label: 'Ch' };
+  const last = () => r.engine.mainFeed.at(-1);
+  r.engine.ingest(acc, { type: 'chat', text: 'coucou', user: { id: 'n1', name: 'nouveau', display: 'Nouveau' } });
+  assert.deepEqual(last().tags, ['new']);
+  assert.ok(r.sent.some((x) => x.m.t === 'ev' && x.m.ev.tags?.includes('new')), 'le dock reçoit la marque avec le message');
+  r.engine.ingest(acc, { type: 'chat', text: 'encore moi', user: { id: 'n1', name: 'nouveau', display: 'Nouveau' } });
+  assert.equal(last().tags, undefined, 'seulement le premier message du live');
+  // Habitué : présent au moins 5 jours sur les 2 derniers mois ; gros soutien : 1000 pièces.
+  const days = r.viewers.file.data.days;
+  for (let i = 1; i <= 5; i += 1) days[`2026-10-0${i}`] = { 'twitch:h1': { messages: 3 } };
+  r.viewers.file.data.list['twitch:h1'] = { key: 'twitch:h1', name: 'Habi', platform: 'twitch', messages: 40, coins: 2500, points: 0, likes: 0, gifts: 0, first: 1 };
+  r.engine.ingest(acc, { type: 'chat', text: 're', user: { id: 'h1', name: 'habi', display: 'Habi' } });
+  assert.deepEqual(last().tags.sort(), ['fan', 'regular']);
+  // Réglages : seuils, marques coupées, sur tous les messages.
+  r.file.data.chatTags = { ...r.file.data.chatTags, fan: false, always: true };
+  r.engine.ingest(acc, { type: 'chat', text: 're re', user: { id: 'h1', name: 'habi', display: 'Habi' } });
+  assert.deepEqual(last().tags, ['regular']);
+  r.file.data.chatTags.enabled = false;
+  r.engine.ingest(acc, { type: 'chat', text: 'salut', user: { id: 'n2', name: 'autre', display: 'Autre' } });
+  assert.equal(last().tags, undefined);
+  r.engine.stop();
+});
+
+test('avertissements : compteur, annonce dans le chat, sanction au seuil, remise à zéro', async () => {
+  const r = rig();
+  const acc = { id: 'a', platform: 'twitch', label: 'Ch' };
+  const said = [];
+  const calls = [];
+  r.engine.connectors.set('a', { ...fakeConn((x) => said.push(x)), modCaps: () => ({ timeout: true, ban: true, unban: true }), modReason: () => '', moderate: async (act, w) => calls.push([act, w.userId, w.seconds]) });
+  r.engine.ingest(acc, { type: 'chat', text: 'spam', user: { id: 'u2', name: 'troll', display: 'Troll' } });
+  const m = r.engine.mainFeed.at(-1);
+  let out = await r.engine.moderate({ action: 'warn', id: m.id });
+  assert.deepEqual([out.warns, out.max, out.escalated], [1, 3, '']);
+  assert.equal(said.at(-1), '@Troll avertissement 1/3.');
+  assert.equal(r.engine.viewerCard({ platform: 'twitch', id: 'u2' }).warns.n, 1);
+  // Par la commande de modo, avec une raison.
+  r.engine.ingest(acc, { type: 'chat', text: '!avertir troll pas de spam', user: { id: 'm1', name: 'marius', display: 'Marius', mod: true } });
+  await new Promise((res) => setTimeout(res, 5));
+  assert.equal(said.at(-1), '@Troll avertissement 2/3 : pas de spam.');
+  // Troisième : exclusion automatique (10 min par défaut), compteur remis à zéro.
+  out = await r.engine.moderate({ action: 'warn', id: m.id });
+  assert.equal(out.escalated, 'timeout');
+  assert.deepEqual(calls.at(-1), ['timeout', 'u2', 600]);
+  assert.equal(said.at(-1), 'Troll est exclu 10 min (Twitch).');
+  assert.ok(r.engine.blockedEntry('twitch', { id: 'u2' }));
+  assert.equal(r.engine.viewerCard({ platform: 'twitch', id: 'u2' }).warns, null);
+  assert.deepEqual(r.engine.viewerCard({ platform: 'twitch', id: 'u2' }).history.slice(0, 4).map((h) => h.action), ['timeout', 'warn', 'warn', 'warn']);
+  // Seuil et sanction réglables ; les avertissements de plus de 24 h ne comptent plus.
+  // L'exclusion a retiré ses messages : on repart d'un nouveau message après le déblocage.
+  await r.engine.unblock({ platform: 'twitch', id: 'u2' });
+  r.engine.ingest(acc, { type: 'chat', text: 'pardon', user: { id: 'u2', name: 'troll', display: 'Troll' } });
+  const m2 = r.engine.mainFeed.at(-1);
+  r.file.data.moderation.commands = { ...r.file.data.moderation.commands, warnLimit: 2, warnAction: 'ban' };
+  await r.engine.moderate({ action: 'warn', id: m2.id });
+  r.file.data.moderation.warns['twitch:u2'].at -= 25 * 3600000;
+  out = await r.engine.moderate({ action: 'warn', id: m2.id });
+  assert.equal(out.warns, 1, 'repart de zéro après 24 h');
+  r.engine.resetWarns({ platform: 'twitch', id: 'u2' });
+  assert.equal(r.engine.warnsOf('twitch', { id: 'u2' }), null);
+  await r.engine.moderate({ action: 'warn', id: m2.id });
+  out = await r.engine.moderate({ action: 'warn', id: m2.id });
+  assert.equal(out.escalated, 'ban');
+  assert.equal(said.at(-1), 'Troll est banni (Twitch).');
+  r.engine.stop();
+});
+
+test('actions de modération : réglages du chat, vider, message à l\'écran', async () => {
+  const r = rig();
+  const set = [];
+  let state = { slow: 0, followers: -1, subs: false, emotes: false, unique: false };
+  r.engine.connectors.set('tw', { ...fakeConn(() => {}), chatCaps: () => ({ slow: true, followers: true, subs: true, emotes: true, unique: true, clear: true, state: true }), chatState: async () => state, setChat: async (p) => { set.push(p); state = { ...state, ...p }; return state; }, clearChat: async () => set.push('clear') });
+  r.engine.connectors.set('tt', { ...fakeConn(() => {}) });
+  const wait = () => new Promise((res) => setTimeout(res, 5));
+  // Bascule : le mode lent s'active (10 s par défaut), puis se coupe.
+  r.engine.runAction({ type: 'chatMode', mode: 'slow' }, { platform: '', user: {} });
+  await wait();
+  assert.deepEqual(set.at(-1), { slow: 10 });
+  r.engine.runAction({ type: 'chatMode', mode: 'slow', value: 30 }, { platform: '', user: {} });
+  await wait();
+  assert.deepEqual(set.at(-1), { slow: 0 });
+  r.engine.runAction({ type: 'chatMode', mode: 'followers', state: 'on', value: 10 }, { platform: '', user: {} });
+  await wait();
+  assert.deepEqual(set.at(-1), { followers: 10 });
+  r.engine.runAction({ type: 'chatMode', mode: 'subs', state: 'off' }, { platform: '', user: {} });
+  await wait();
+  assert.deepEqual(set.at(-1), { subs: false });
+  r.engine.runAction({ type: 'clearChat' }, { platform: '', user: {} });
+  await wait();
+  assert.equal(set.at(-1), 'clear');
+  // Afficher : le message de la commande, sans la commande ; sinon le dernier message du chat.
+  const acc = { id: 'a', platform: 'twitch', label: 'Ch' };
+  r.engine.ingest(acc, { type: 'chat', text: 'premier message', user: { id: 'u1', name: 'lena', display: 'Lena' } });
+  r.engine.runAction({ type: 'spotlight' }, { type: 'custom', platform: 'twitch', user: { display: 'Régie' } });
+  assert.equal(r.engine.spot.text, 'premier message');
+  r.engine.ingest(acc, { type: 'chat', text: '!question on joue à quoi ce soir ?', user: { id: 'u3', name: 'bob', display: 'Bob' } });
+  r.engine.runAction({ type: 'spotlight' }, r.engine.mainFeed.at(-1));
+  assert.equal(r.engine.spot.text, 'on joue à quoi ce soir ?');
+  assert.equal(r.sent.filter((x) => x.m.t === 'spotlight').at(-1).m.item.text, 'on joue à quoi ce soir ?');
+  r.engine.runAction({ type: 'spotlightClear' }, {});
+  assert.equal(r.engine.spot, null);
+  r.engine.stop();
+});

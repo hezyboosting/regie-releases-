@@ -3755,3 +3755,45 @@ Clique sur un pseudo dans le chat multi : sa fiche montre ses messages, pièces,
 Afficher en live (bouton ⋯ d'un message) : le message s'affiche en grand sur ton live dans le nouvel overlay Message à l'écran, avec la photo et le pseudo. Il part tout seul ou reste jusqu'à ce que tu le retires.	Show on stream (a message's ⋯ button): the message shows up big on your live in the new On-screen message overlay, with the photo and username. It leaves on its own or stays until you remove it.
 Réglages du chat dans le dock : mode lent, followers seulement, abonnés seulement, émotes seulement, messages uniques et vider le chat, sur Twitch et Kick. Sur Twitch, reconnecte ta chaîne une fois pour donner la permission.	Chat settings in the dock: slow mode, followers only, subscribers only, emotes only, unique messages and clear chat, on Twitch and Kick. On Twitch, reconnect your channel once to grant the permission.
 Commandes de modo : tes modos tapent !exclure pseudo 10m, !ban pseudo ou !debannir pseudo dans n'importe quel chat. Un modo Twitch peut ainsi faire disparaître un troll TikTok. Les mots se changent dans la page Chat.	Mod commands: your mods type !exclure username 10m, !ban username or !debannir username in any chat. A Twitch mod can make a TikTok troll disappear this way. The words can be changed on the Chat page.
+Régler le chat (mode lent, followers…)	Change chat settings (slow mode, followers…)
+Vider le chat	Clear chat
+Afficher le message à l'écran	Show the message on screen
+Retirer le message à l'écran	Remove the on-screen message
+Mode lent	Slow mode
+Followers seulement	Followers only
+Abonnés seulement	Subscribers only
+Émotes seulement	Emotes only
+Messages uniques (Twitch)	Unique messages (Twitch)
+Activer ou couper	Turn on or off
+Activer	Turn on
+Couper	Turn off
+Secondes entre deux messages	Seconds between two messages
+Suivis depuis (minutes)	Following for (minutes)
+Suivis depuis combien de minutes (0 = tous les followers)	Following for how many minutes (0 = all followers)
+Sur Twitch et Kick.	On Twitch and Kick.
+Secondes. Sur Twitch et Kick.	Seconds. On Twitch and Kick.
+Minutes de suivi (0 = tous). Sur Twitch et Kick.	Minutes of following (0 = all). On Twitch and Kick.
+Le message qui lance l'action, sinon le dernier message du chat.	The message that triggers the action, otherwise the latest chat message.
+Avertir	Warn
+{0} pseudo raison	{0} username reason
+Avertissements	Warnings
+Chaque avertissement est annoncé dans le chat (@pseudo avertissement 1/3). Au dernier, la sanction tombe toute seule. Le compteur repart de zéro 24 h après le dernier avertissement. Tu peux aussi avertir depuis le dock (bouton ⋯).	Each warning is announced in chat (@username warning 1/3). At the last one, the sanction is applied automatically. The count resets 24 h after the last warning. You can also warn from the dock (⋯ button).
+Sanction au bout de	Sanction after
+{0} avertissements	{0} warnings
+Sanction	Sanction
+Durée de l'exclusion (minutes)	Timeout length (minutes)
+Choisis des commandes différentes.	Pick different commands.
+Repères dans le dock	Markers in the dock
+Actifs	On
+Une petite marque à côté du pseudo, sur son premier message du live, pour savoir tout de suite qui accueillir ou remercier.	A small marker next to the username, on their first message of the live, so you know right away who to welcome or thank.
+Premier message	First message
+Gros soutien	Big supporter
+Habitué : venu au moins (jours, sur 2 mois)	Regular: came at least (days, over 2 months)
+Gros soutien : au moins (pièces au total)	Big supporter: at least (coins in total)
+Les bits, abonnements et Super Chats comptent aussi, convertis en pièces.	Bits, subs and Super Chats count too, converted into coins.
+Sur tous leurs messages, pas seulement le premier du live	On all their messages, not just the first of the live
+Repères dans le chat, avertissements, modération en raccourci	Chat markers, warnings, moderation shortcuts
+Le chat multi marque le premier message d'un nouveau venu, les habitués et les gros soutiens, sur leur premier message du live. Seuils et marques se règlent dans la page Chat.	The multichat marks a newcomer's first message, regulars and big supporters, on their first message of the live. Thresholds and markers are set on the Chat page.
+Avertissements : bouton Avertir dans le dock et sur la fiche, ou !avertir pseudo raison dans le chat. Chaque avertissement est annoncé (@pseudo avertissement 1/3) et, au dernier, l'exclusion ou le ban tombe tout seul. Le compteur repart de zéro après 24 h.	Warnings: Warn button in the dock and on the profile, or !avertir username reason in chat. Each warning is announced (@username warning 1/3) and, at the last one, the timeout or ban is applied automatically. The count resets after 24 h.
+Nouvelles actions pour les commandes, automatisations, la télécommande, le Stream Deck et les raccourcis clavier : mode lent, followers, abonnés ou émotes seulement (activer, couper ou basculer), vider le chat, afficher ou retirer le message à l'écran.	New actions for commands, automations, the remote, Stream Deck and keyboard shortcuts: slow mode, followers, subscribers or emotes only (turn on, off or toggle), clear chat, show or remove the on-screen message.
+Une commande comme !question avec l'action Afficher le message à l'écran met la question du spectateur en grand sur ton live, sans le mot de la commande.	A command like !question with the Show the message on screen action puts the viewer's question big on your live, without the command word.

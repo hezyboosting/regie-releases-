@@ -12,8 +12,12 @@ const ACTIONS = [
   { value: 'skipAlert', label: 'Passer l\'alerte' }, { value: 'pauseAlerts', label: 'Pause des alertes' }, { value: 'automation', label: 'Activer ou couper une automatisation' }, { value: 'fire', label: 'Lancer un événement personnalisé' },
   { value: 'pad', label: 'Bouton de manette virtuelle', feature: 'keystrokes' },   { value: 'wheel', label: 'Faire tourner la roue' }, { value: 'likeRace', label: 'Lancer ou arrêter la course aux likes' },
   { value: 'rcon', label: 'Commande serveur de jeu (RCON)', feature: 'rcon' }, { value: 'webhook', label: 'Appeler un webhook', feature: 'webhooks' },
+  { value: 'chatMode', label: 'Régler le chat (mode lent, followers…)' }, { value: 'clearChat', label: 'Vider le chat' },
+  { value: 'spotlight', label: 'Afficher le message à l\'écran' }, { value: 'spotlightClear', label: 'Retirer le message à l\'écran' },
   { value: 'coinjarEmpty', label: 'Vider le pot à cadeaux' }, { value: 'streamerbot', label: 'Lancer une action Streamer.bot', feature: 'webhooks' },
 ];
+
+const CHAT_MODES = [{ value: 'slow', label: 'Mode lent' }, { value: 'followers', label: 'Followers seulement' }, { value: 'subs', label: 'Abonnés seulement' }, { value: 'emotes', label: 'Émotes seulement' }, { value: 'unique', label: 'Messages uniques (Twitch)' }];
 
 export function ActionRow({ a, onChange, onRemove, s, delays }) {
   const up = (patch) => onChange({ ...a, ...patch });
@@ -39,6 +43,12 @@ export function ActionRow({ a, onChange, onRemove, s, delays }) {
     ${a.type === 'pad' && html`<${Select} value=${a.input || 'a'} onChange=${(input) => up({ input })} options=${(s.padInputs || []).map(([value, label]) => ({ value, label }))} />`}
     ${a.type === 'pad' && html`<${Num} value=${a.hold ?? 150} min="30" max="10000" aria-label="Durée d'appui en millisecondes" title="Durée d'appui en millisecondes" onSave=${(hold) => up({ hold })} />`}
     ${a.type === 'pad' && !s.vpadCfg?.enabled && html`<span class="note warn">Active la manette virtuelle dans Mes jeux.</span>`}
+    ${a.type === 'chatMode' && html`<${Select} value=${a.mode || 'slow'} onChange=${(mode) => up({ mode })} options=${CHAT_MODES} />`}
+    ${a.type === 'chatMode' && html`<${Select} value=${a.state || 'toggle'} onChange=${(state) => up({ state })} options=${[{ value: 'toggle', label: 'Activer ou couper' }, { value: 'on', label: 'Activer' }, { value: 'off', label: 'Couper' }]} />`}
+    ${a.type === 'chatMode' && (a.mode || 'slow') === 'slow' && a.state !== 'off' && html`<${Num} value=${a.value ?? 10} min="3" max="120" aria-label="Secondes entre deux messages" title="Secondes entre deux messages" onSave=${(value) => up({ value })} />`}
+    ${a.type === 'chatMode' && a.mode === 'followers' && a.state !== 'off' && html`<${Num} value=${a.value ?? 0} min="0" aria-label="Suivis depuis (minutes)" title="Suivis depuis combien de minutes (0 = tous les followers)" onSave=${(value) => up({ value })} />`}
+    ${['chatMode', 'clearChat'].includes(a.type) && html`<span class="note">${a.type === 'chatMode' && a.state !== 'off' && (a.mode || 'slow') === 'slow' ? 'Secondes. ' : a.type === 'chatMode' && a.state !== 'off' && a.mode === 'followers' ? 'Minutes de suivi (0 = tous). ' : ''}Sur Twitch et Kick.</span>`}
+    ${a.type === 'spotlight' && html`<span class="note">Le message qui lance l'action, sinon le dernier message du chat.</span>`}
     ${a.type === 'likeRace' && html`<${Select} value=${a.action || 'start'} onChange=${(action) => up({ action })} options=${[{ value: 'start', label: 'Nouvelle course' }, { value: 'stop', label: 'Arrêter la course' }]} />`}
     ${a.type === 'key' && !s.keysCfg.enabled && html`<span class="note warn">Active les touches simulées dans Mes jeux.</span>`}
     ${a.type === 'streamerbot' && html`<${Text} value=${a.name} onChange=${(name) => up({ name })} placeholder="Nom de l'action dans Streamer.bot" />`}

@@ -56,6 +56,10 @@ footer { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8
 .bl .p { width: 7px; height: 7px; border-radius: 50%; flex: none; } .bl span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .bl small { color: var(--faint); }
 .bl button { flex: none; height: 24px; padding: 0 9px; border-radius: 7px; background: var(--s2); font-size: 12px; font-weight: 600; }
 .bl .nm { flex: 1; min-width: 0; height: auto; padding: 0; background: none; text-align: left; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .bl .nm:hover { text-decoration: underline; }
+/* Repères : premier message, habitué, gros soutien */
+.m .tg { display: inline-block; margin-right: 5px; padding: 0 6px; border-radius: 5px; font-size: .74em; font-weight: 700; line-height: 1.55; vertical-align: .08em; }
+.m .tg.new { background: var(--ice); color: #211700; } .m .tg.regular { background: rgba(62,220,142,.18); color: #8FE9BC; } .m .tg.fan { background: rgba(255,210,74,.18); color: #FFD979; }
+.m.first { box-shadow: inset 3px 0 0 var(--ice); background: rgba(255,178,36,.06); }
 /* Fiche spectateur */
 .vc-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .vc-av { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: none; background: var(--s2); display: grid; place-items: center; font-size: 18px; font-weight: 800; }
@@ -65,6 +69,8 @@ footer { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8
 .vc-stats { display: grid; grid-template-columns: auto repeat(4, minmax(0, 1fr)); gap: 3px 10px; padding: 8px 10px; border-radius: 10px; background: var(--s1); font-size: 12px; }
 .vc-stats span { color: var(--faint); } .vc-stats b { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; } .vc-stats .hd { color: var(--faint); font-size: 11px; text-align: right; }
 .vc-line { margin: 6px 0 0; color: var(--mute); font-size: 12px; line-height: 1.45; }
+.vc-warns { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; padding: 4px 4px 4px 9px; border-radius: 8px; background: rgba(255,178,36,.12); color: #F5D58A; font-size: 12px; } .vc-warns span { flex: 1; }
+.vc-warns button { height: 24px; padding: 0 9px; border-radius: 7px; background: rgba(255,255,255,.1); color: var(--text); font-size: 12px; font-weight: 600; }
 .vc-warn { margin: 8px 0 0; padding: 5px 9px; border-radius: 8px; background: rgba(255,77,94,.14); color: #FFB3BD; font-size: 12px; }
 .vc h3 { margin: 12px 0 4px; color: var(--faint); font-size: 11.5px; font-weight: 600; }
 .vc-msg { padding: 2px 0; font-size: 12.5px; overflow-wrap: anywhere; } .vc-msg time { margin-right: 6px; color: var(--faint); font-variant-numeric: tabular-nums; }
@@ -132,6 +138,8 @@ const EN = {
   'Kick ne dit pas l\'état actuel : Régie affiche ce que tu as réglé ici.': 'Kick doesn\'t report the current state: Régie shows what you set here.',
   'YouTube et TikTok ne permettent pas de régler le chat depuis une appli.': 'YouTube and TikTok don\'t let apps change chat settings.',
   'Connecte ta chaîne Twitch ou ton compte Kick (Connexions) pour régler le chat d\'ici.': 'Connect your Twitch channel or Kick account (Connections) to change chat settings here.',
+  'Premier message': 'First message', 'Habitué': 'Regular', 'Gros soutien': 'Big supporter', 'Premier message ici': 'First message here', 'Vient souvent': 'Comes often', 'Soutient beaucoup la chaîne': 'Supports the channel a lot',
+  'Avertir': 'Warn', 'Avertir dans le chat (sanction automatique au dernier avertissement)': 'Warn in chat (automatic sanction at the last warning)', 'averti': 'warned', 'Averti': 'Warned', 'Avertissements :': 'Warnings:', 'Effacer': 'Clear', 'Avertissements effacés.': 'Warnings cleared.',
   '1 min': '1 min', '10 min': '10 min', '1 h': '1 h', 'Ses messages ne passent plus chez toi (écran, voix, commandes, jeux).': 'Their messages no longer go through on your side (screen, voice, commands, games).', 'à connecter': 'not connected', 'Connecte une chaîne pour écrire ici': 'Connect a channel to write here', 'Anonyme': 'Anonymous', 'Live': 'Live', 'Modo': 'Mod', 'VIP': 'VIP', 'Abo': 'Sub',
 };
 let lang = 'fr';
@@ -202,6 +210,13 @@ function row(e) {
   n.append(dot);
   const role = e.user?.owner ? 'Live' : e.user?.mod ? 'Modo' : e.user?.vip ? 'VIP' : e.user?.sub ? 'Abo' : '';
   if (isChat && role) { const b = document.createElement('span'); b.className = 'b'; b.textContent = t(role); n.append(b); }
+  for (const tag of (isChat && e.tags) || []) {
+    const lab = TAGS[tag];
+    if (!lab) continue;
+    const g = document.createElement('span'); g.className = `tg ${tag}`; g.textContent = t(lab[0]); g.title = t(lab[1]);
+    n.append(g);
+  }
+  if (isChat && e.tags?.includes('new')) n.classList.add('first');
   const who = document.createElement(isChat ? 'span' : 'b');
   who.className = 'who'; who.textContent = name;
   if (isChat) who.style.color = e.color || COLORS[e.platform] || 'inherit';
@@ -237,6 +252,7 @@ function row(e) {
 }
 
 // ---------- Modération ----------
+const TAGS = { new: ['Premier message', 'Premier message ici'], regular: ['Habitué', 'Vient souvent'], fan: ['Gros soutien', 'Soutient beaucoup la chaîne'] };
 const DUR = [[60, '1 min'], [600, '10 min'], [3600, '1 h']];
 function closeMod() { if (!openRow) return; openRow.querySelector('.modbar')?.remove(); openRow.classList.remove('open'); openRow.querySelector('.mod-btn')?.setAttribute('aria-expanded', 'false'); openRow = null; }
 function toggleMod(n, e) {
@@ -250,6 +266,7 @@ function toggleMod(n, e) {
   btn('Afficher en live', () => spotlight(e), 'live', 'Montrer ce message en grand dans l\'overlay Message à l\'écran');
   btn('Masquer', () => act(e, 'hide'), '', 'Masquer ce message de l\'écran et d\'ici');
   if (caps.delete && e.msgId) btn('Supprimer', () => act(e, 'delete'), '', 'Supprimer aussi le message sur la plateforme');
+  btn('Avertir', () => act(e, 'warn'), '', 'Avertir dans le chat (sanction automatique au dernier avertissement)');
   const l = document.createElement('span'); l.className = 'lbl'; l.textContent = t('Exclure'); bar.append(l);
   for (const [sec, label] of DUR) btn(label, () => act(e, 'timeout', sec));
   btn('Bannir', (b) => { if (!b.classList.contains('sure')) { b.classList.add('sure'); b.textContent = t('Confirmer le ban'); return; } act(e, 'ban'); }, 'danger');
@@ -278,7 +295,13 @@ async function act(e, action, seconds) {
   const dur = DUR.find(([s]) => s === seconds)?.[1] || '';
   const where = r.native === 'ok' ? `${t('sur')} ${plat}` : t('dans Régie');
   const extra = r.native === 'error' ? ` ${plat} : ${r.error}` : (r.native === 'unsupported' && r.error ? ` ${r.error}` : '');
-  if (action === 'hide') say(t('Message masqué.'));
+  if (action === 'warn') {
+    if (!r.escalated) say(`${who} ${t('averti')} (${r.warns}/${r.max}).`);
+    else {
+      const w2 = r.native === 'ok' ? `${t('sur')} ${plat}` : t('dans Régie');
+      say(`${who} ${t('averti')} ${r.max}/${r.max} : ${r.escalated === 'ban' ? t('banni') : `${t('exclu')} ${durLabel(r.seconds || 600)}`} ${w2}.${extra}`, r.native !== 'ok');
+    }
+  } else if (action === 'hide') say(t('Message masqué.'));
   else if (action === 'delete') say(r.native === 'ok' ? `${t('Message supprimé sur')} ${plat}.` : `${t('Message masqué ici.')}${extra}`, r.native !== 'ok');
   else if (action === 'timeout') say(`${who} ${t('exclu')} ${t(dur)} ${where}.${extra}`, r.native !== 'ok');
   else if (action === 'ban') say(`${who} ${t('banni')} ${where}.${extra}`, r.native !== 'ok');
@@ -396,6 +419,14 @@ function viewerSheet(box) {
   if (c.days) lines.push(`${t('Venu')} ${c.days} ${t(c.days > 1 ? 'jours' : 'jour')} ${t('sur les 2 derniers mois')}${c.lastDay ? `, ${t('dernière fois le')} ${dayOf(`${c.lastDay}T12:00:00`)}` : ''}`);
   if (c.first) lines.push(`${t('Vu pour la première fois le')} ${new Date(c.first).toLocaleDateString(loc(), { day: 'numeric', month: 'long', year: 'numeric' })}`);
   for (const l of lines) box.append(mk('p', 'vc-line', l));
+  if (c.warns) {
+    const w = mk('div', 'vc-warns');
+    w.append(mk('span', '', `${t('Avertissements :')} ${c.warns.n}/${c.warns.max}`));
+    const clr = mk('button', '', t('Effacer')); clr.type = 'button';
+    clr.onclick = async () => { const r = await post('/dock/warnreset', { platform: c.platform, id: c.id, name: c.name }); if (!r.ok) { say(r.error || '', true); return; } say(t('Avertissements effacés.')); refreshViewer(); };
+    w.append(clr);
+    box.append(w);
+  }
   if (c.blocked) box.append(mk('p', 'vc-warn', c.blocked.until ? `${t('Bloqué dans Régie jusqu\'à')} ${hm(c.blocked.until)}` : t('Banni dans Régie')));
 
   if (c.recent?.length) {
@@ -405,7 +436,7 @@ function viewerSheet(box) {
   if (c.history?.length) {
     box.append(mk('h3', '', t('Sanctions')));
     for (const h of c.history) {
-      const what = h.action === 'timeout' ? `${t('Exclu')} ${durLabel(h.seconds)}` : h.action === 'ban' ? t('Banni') : t('Débloqué');
+      const what = h.action === 'timeout' ? `${t('Exclu')} ${durLabel(h.seconds)}` : h.action === 'ban' ? t('Banni') : h.action === 'warn' ? t('Averti') : t('Débloqué');
       box.append(mk('div', 'vc-msg', `${what} · ${dayOf(h.at)} ${hm(h.at)}${h.by ? ` · ${t('par')} ${h.by}` : ''}`));
     }
   }
@@ -428,6 +459,7 @@ function viewerSheet(box) {
   if (!c.roles?.owner) {
     if (c.blocked) btn('Débloquer', () => unblock({ platform: c.platform, id: c.id, name: c.name, display: c.display }));
     else if (ev) {
+      btn('Avertir', () => act(ev, 'warn'));
       btn('Exclure 10 min', () => act(ev, 'timeout', 600));
       btn('Bannir', (b) => { if (!b.classList.contains('sure')) { b.classList.add('sure'); b.textContent = t('Confirmer le ban'); return; } act(ev, 'ban'); }, 'danger');
     }

@@ -59,7 +59,7 @@ function createApi(ctx) {
     timers: s().tools.timers.map((t) => engine.timerView(t)), obs: { ...s().obs, password: '', hasPassword: Boolean(s().obs.password), state: obs.state, detail: obs.detail, streaming: obs.streaming },
     settings: s().settings, keys: keyStatus(), feed: engine.feed.slice(-120), gifts: engine.giftsForApp(), giftCacheAt: s().giftCacheAt || 0, port: server.port, quota: { used: engine.quota().used(), max: DAILY_QUOTA }, inputAvailable: input.available,
     media: listMedia(), admin: license.realRole() === 'admin' && license.isAdmin() ? { draft: s().adminDraft, issued: s().issuedKeys } : null,
-    ranks: s().ranks, rewards: s().rewards, chatPlays: s().chatPlays, plinko: s().plinko, webChat: engine.webchat ? engine.webchat.status() : {}, discord: { ...s().discord, hasHook: Boolean(vault.get('key:discordWebhook')) }, arena: s().arena, boss: s().boss, gaming: s().gaming, sounds: s().sounds, deck: s().deck, clips: s().clips, scenes: s().scenes, keysCfg: s().keys, recapCfg: s().recap, chatTranslate: s().chatTranslate, moderation: engine.moderationState(), modCommands: s().moderation.commands, hasDeepl: Boolean(vault.get('key:deeplKey')), vpadCfg: { ...(s().vpad || {}), ...(engine.vpad ? engine.vpad.status() : { state: 'off', error: '' }) }, padInputs: PAD_INPUTS, rconPresets: RCON_PRESETS,
+    ranks: s().ranks, rewards: s().rewards, chatPlays: s().chatPlays, plinko: s().plinko, webChat: engine.webchat ? engine.webchat.status() : {}, discord: { ...s().discord, hasHook: Boolean(vault.get('key:discordWebhook')) }, arena: s().arena, boss: s().boss, gaming: s().gaming, sounds: s().sounds, deck: s().deck, clips: s().clips, scenes: s().scenes, keysCfg: s().keys, recapCfg: s().recap, chatTranslate: s().chatTranslate, moderation: engine.moderationState(), modCommands: s().moderation.commands, chatTags: s().chatTags, hasDeepl: Boolean(vault.get('key:deeplKey')), vpadCfg: { ...(s().vpad || {}), ...(engine.vpad ? engine.vpad.status() : { state: 'off', error: '' }) }, padInputs: PAD_INPUTS, rconPresets: RCON_PRESETS,
     session: viewers.giftView(), boards: viewers.boards(10), vars: engine.liveVars(), templates: allTemplates(), themes: THEMES, bosses: BOSSES, keyNames: keyNames(), overlayToken: s().settings.overlayToken,
     gameCatalog: GAMES, statLabels: STAT_LABEL, gameView: engine.gameView(), gameRunning: hub.running, gameLinks: hub.linked, gameLive: engine.gameLive, goalHistory: s().goalHistory, minigame: engine.minigames.view(), minigames: s().minigames,
     padPacks: s().padPacks || [], packParts: PACK_PARTS.map(({ key, label }) => ({ key, label })), packRights: RIGHTS, pads: input.pads(), colorways: COLORWAYS, finishGroups: FINISH_GROUPS, padZones: PAD_ZONES, padZoneNames: PAD_ZONE_NAMES, modules: MODULES, tiers: TIERS, deckLink: server.deckLink(), spotifyHistory: spotify.history,
@@ -1381,15 +1381,27 @@ function createApi(ctx) {
       const c = { ...(s().moderation.commands || {}) };
       if ('enabled' in patch) c.enabled = Boolean(patch.enabled);
       if ('confirm' in patch) c.confirm = Boolean(patch.confirm);
-      for (const k of ['timeout', 'ban', 'unban']) {
+      for (const k of ['timeout', 'ban', 'unban', 'warn']) {
         if (!(k in patch)) continue;
         const w = String(patch[k] || '').trim().split(/\s+/)[0].slice(0, 30);
         if (!w) throw new Error('Une commande ne peut pas être vide.');
         c[k] = w.startsWith('!') ? w : `!${w}`;
       }
-      if (new Set([c.timeout, c.ban, c.unban].map((w) => String(w).toLowerCase())).size < 3) throw new Error('Choisis trois commandes différentes.');
+      if (new Set([c.timeout, c.ban, c.unban, c.warn || '!avertir'].map((w) => String(w).toLowerCase())).size < 4) throw new Error('Choisis des commandes différentes.');
       if ('minutes' in patch) c.minutes = Math.max(1, Math.min(10080, Math.round(Number(patch.minutes) || 10)));
+      if ('warnLimit' in patch) c.warnLimit = Math.max(1, Math.min(10, Math.round(Number(patch.warnLimit) || 3)));
+      if ('warnAction' in patch) c.warnAction = patch.warnAction === 'ban' ? 'ban' : 'timeout';
+      if ('warnMinutes' in patch) c.warnMinutes = Math.max(1, Math.min(10080, Math.round(Number(patch.warnMinutes) || 10)));
       s().moderation.commands = c;
+      file.save();
+      return c;
+    },
+    updateChatTags(patch = {}) {
+      const c = { ...(s().chatTags || {}) };
+      for (const k of ['enabled', 'newcomer', 'regular', 'fan', 'always']) if (k in patch) c[k] = Boolean(patch[k]);
+      if ('regularDays' in patch) c.regularDays = Math.max(2, Math.min(60, Math.round(Number(patch.regularDays) || 5)));
+      if ('fanCoins' in patch) c.fanCoins = Math.max(1, Math.min(10000000, Math.round(Number(patch.fanCoins) || 1000)));
+      s().chatTags = c;
       file.save();
       return c;
     },

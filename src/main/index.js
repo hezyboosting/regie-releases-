@@ -165,7 +165,7 @@ async function boot() {
       }),
       moderate: async (d) => {
         const en = file.data.settings.uiLang === 'en';
-        const r = await engine.moderate({ action: String(d.action || ''), id: String(d.id || ''), seconds: Number(d.seconds) || 600 }).catch((e) => { throw new Error(en ? dockEnglish(e.message) : e.message); });
+        const r = await engine.moderate({ action: String(d.action || ''), id: String(d.id || ''), seconds: Number(d.seconds) || 600, reason: String(d.reason || '').slice(0, 120) }).catch((e) => { throw new Error(en ? dockEnglish(e.message) : e.message); });
         return { ...r, error: r.error && en ? dockEnglish(r.error) : r.error };
       },
       unblock: async (d) => {
@@ -175,6 +175,7 @@ async function boot() {
       },
       // Fiche spectateur, note, message à l'écran et réglages du chat (erreurs traduites si l'appli est en anglais).
       viewer: (d) => dockCall(() => ({ card: engine.viewerCard({ platform: String(d.platform || ''), id: String(d.id || ''), name: String(d.name || '') }) })),
+      warnReset: (d) => dockCall(() => engine.resetWarns({ platform: String(d.platform || ''), id: String(d.id || ''), name: String(d.name || '') })),
       note: (d) => dockCall(() => engine.setNote({ platform: String(d.platform || ''), id: String(d.id || ''), name: String(d.name || ''), note: String(d.note || '') })),
       spotlight: (d) => dockCall(() => engine.spotlight({ id: String(d.id || ''), clear: Boolean(d.clear) })),
       chatSettings: () => dockCall(async () => ({ channels: await engine.chatSettings() })),

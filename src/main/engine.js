@@ -381,6 +381,7 @@ class Engine {
     else if (action === 'delete') { this.hideEvents([id]); if (ev.msgId) await native('delete', who); else { out.native = 'unsupported'; out.error = c?.modReason?.() || ''; } }
     else if (action === 'timeout') { this.block(ev, Math.max(10, Number(seconds) || 600), by); await native('timeout', who); }
     else if (action === 'ban') { this.block(ev, 0, by); await native('ban', who); }
+    else if (action === 'warn') Object.assign(out, await this.warn(ev, reason, by));
     else throw new Error('Action inconnue.');
     if (out.native === 'error') this.log(`Modération ${ev.platform} : ${out.error}`);
     return out;
@@ -441,6 +442,7 @@ class Engine {
       recent: this.mainFeed.filter((e) => e.type === 'chat' && e.platform === platform && same(e.user)).slice(-8).map((e) => ({ id: e.id, ts: e.ts, text: String(e.text || '').slice(0, 300) })),
       lastEventId: ev?.type === 'chat' ? ev.id : (this.mainFeed.slice().reverse().find((e) => e.type === 'chat' && e.platform === platform && same(e.user))?.id || ''),
       blocked: blocked ? { until: blocked.until, at: blocked.at } : null,
+      warns: (() => { const w = this.warnsOf(platform, { id: uid, name: lname }) || this.warnsOf(platform, { name: lname }); return w ? { n: w.n, at: w.at, max: Math.max(1, Math.min(10, Math.round(Number(m.commands?.warnLimit) || 3))) } : null; })(),
       history: (m.history || []).filter(mine).slice(-6).reverse(),
       note: (m.notes || {})[`${platform}:${uid || lname}`] || (m.notes || {})[`${platform}:${lname}`] || '',
     };
@@ -523,6 +525,111 @@ class Engine {
     return { state: await c.setChat(p) };
   }
 
+  // ---------- Repères dans le dock : premier message, habitué, gros soutien ----------
+  tagChat(ev) {
+    const cfg = this.s.chatTags || {};
+    if (cfg.enabled === false || ev.user?.owner || ev.test) return;
+    const key = Viewers.key(ev);
+    const life = this.viewers.file.data.list[key];
+    const ses = this.viewers.session.viewers[key];
+    if (!life) return;
+    // Par défaut, seulement sur son premier message du live : c'est le moment d'accueillir.
+    if (!cfg.always && (ses?.messages || 0) > 1) return;
+    const tags = [];
+    if (cfg.newcomer !== false && life.messages === 1) tags.push('new');
+    if (cfg.fan !== false && (life.coins || 0) >= Math.max(1, Number(cfg.fanCoins) || 1000)) tags.push('fan');
+    if (cfg.regular !== false && !tags.includes('new')) {
+      const days = Object.values(this.viewers.file.data.days).filter((d) => d[key]).length;
+      if (days >= Math.max(2, Number(cfg.regularDays) || 5)) tags.push('regular');
+    }
+    if (tags.length) ev.tags = tags;
+  }
+
+  // ---------- Avertissements ----------
+  // Chaque avertissement est annoncé dans le chat ; au seuil, la sanction tombe toute seule.
+  // Le compteur repart de zéro 24 h après le dernier avertissement.
+  warnKey(platform, u = {}) { return `${platform}:${u.id || String(u.name || u.display || '').toLowerCase()}`; }
+
+  warnsOf(platform, u = {}) {
+    const w = (this.s.moderation.warns || {})[this.warnKey(platform, u)];
+    return w && Date.now() - w.at < 86400000 ? w : null;
+  }
+
+  async warn(target, reason = '', by = '') {
+    const m = this.s.moderation;
+    if (!m.warns || typeof m.warns !== 'object') m.warns = {};
+    const mc = m.commands || {};
+    const u = target.user || {};
+    const max = Math.max(1, Math.min(10, Math.round(Number(mc.warnLimit) || 3)));
+    const key = this.warnKey(target.platform, u);
+    const w = this.warnsOf(target.platform, u) || { n: 0 };
+    w.n += 1; w.at = Date.now(); w.display = u.display || u.name || '';
+    m.warns[key] = w;
+    this.logMod({ platform: target.platform, id: String(u.id || ''), name: String(u.name || u.display || '').toLowerCase(), display: w.display }, 'warn', 0, by);
+    // La raison est écrite par le modo : elle part telle quelle, seule la phrase du bot suit la langue de l'appli.
+    const why = String(reason || '').trim().slice(0, 120);
+    const en = this.s.settings.uiLang === 'en';
+    const base = en ? `@${w.display} warning ${w.n}/${max}` : `@${w.display} avertissement ${w.n}/${max}`;
+    this.reply(target, why ? `${base}${en ? ':' : ' :'} ${why}.` : `${base}.`, 'origin', true);
+    const out = { warns: w.n, max, escalated: '' };
+    if (w.n >= max) {
+      delete m.warns[key];
+      out.escalated = mc.warnAction === 'ban' ? 'ban' : 'timeout';
+      const seconds = Math.max(1, Math.min(10080, Number(mc.warnMinutes) || 10)) * 60;
+      const r = await this.moderate({ action: out.escalated, id: target.id, seconds, by: by || 'avertissements' });
+      out.native = r.native; out.error = r.error; out.seconds = seconds;
+      const label = PLATFORM_LABEL[target.platform] || (target.platform === 'kick' ? 'Kick' : target.platform);
+      const where = r.native === 'ok' ? label : `${label}, dans Régie`;
+      this.reply(target, out.escalated === 'ban' ? `${w.display} est banni (${where}).` : `${w.display} est exclu ${humanDuration(seconds)} (${where}).`);
+    } else out.native = 'none';
+    this.save();
+    this.push('moderation', this.moderationState());
+    return out;
+  }
+
+  resetWarns({ platform, id = '', name = '' }) {
+    const m = this.s.moderation;
+    if (m.warns) { delete m.warns[this.warnKey(platform, { id, name })]; if (name) delete m.warns[this.warnKey(platform, { name })]; }
+    this.save();
+    return { warns: 0 };
+  }
+
+  // ---------- Actions de modération (commandes, automatisations, télécommande, touches) ----------
+  async chatModeAction(a = {}) {
+    const mode = ['slow', 'followers', 'subs', 'emotes', 'unique'].includes(a.mode) ? a.mode : 'slow';
+    for (const [id, c] of this.connectors) {
+      const caps = c.chatCaps?.();
+      if (!caps?.[mode]) continue;
+      let on = a.state !== 'off';
+      if (!a.state || a.state === 'toggle') {
+        const st = caps.state ? await c.chatState().catch(() => ({})) : (c.chatModes || {});
+        const cur = mode === 'slow' ? (Number(st.slow) || 0) > 0 : mode === 'followers' ? Number(st.followers ?? -1) >= 0 : Boolean(st[mode]);
+        on = !cur;
+      }
+      const patch = mode === 'slow' ? { slow: on ? Math.max(3, Math.min(120, Number(a.value) || 10)) : 0 }
+        : mode === 'followers' ? { followers: on ? Math.max(0, Number(a.value) || 0) : -1 } : { [mode]: on };
+      await this.setChatSettings({ accountId: id, patch }).catch((e) => this.log(`Réglage du chat : ${e.message}`));
+    }
+  }
+
+  async clearAllChats() {
+    for (const [id, c] of this.connectors) if (c.chatCaps?.()?.clear) await this.setChatSettings({ accountId: id, clear: true }).catch((e) => this.log(`Vider le chat : ${e.message}`));
+  }
+
+  // Le message qui a lancé l'action (sans la commande), sinon le dernier message du chat.
+  spotlightFrom(ev) {
+    const own = ev?.type === 'chat' && ev.id && this.mainFeed.find((e) => e.id === ev.id);
+    const src = own || this.mainFeed.slice().reverse().find((e) => e.type === 'chat' && !e.user?.owner);
+    if (!src) return null;
+    const r = this.spotlight({ id: src.id });
+    if (own && /^!\S+\s/.test(own.text || '') && this.spot) {
+      this.spot.text = own.text.replace(/^!\S+\s+/, '');
+      this.spot.emotes = [];
+      this.server.broadcast({ t: 'spotlight', item: this.spot }, 'highlight');
+    }
+    return r;
+  }
+
   // ---------- Commandes de modo dans le chat ----------
   // !exclure pseudo [10m|1h|30s], !ban pseudo, !debannir pseudo. Réservé aux modos et à la chaîne.
   // Le pseudo est cherché dans le chat récent de toutes les plateformes : un modo Twitch peut
@@ -530,14 +637,15 @@ class Engine {
   modCommand(ev, cmd, rest) {
     const mc = this.s.moderation?.commands || {};
     if (mc.enabled === false) return false;
-    const words = { timeout: mc.timeout || '!exclure', ban: mc.ban || '!ban', unban: mc.unban || '!debannir' };
+    const words = { timeout: mc.timeout || '!exclure', ban: mc.ban || '!ban', unban: mc.unban || '!debannir', warn: mc.warn || '!avertir' };
     const action = Object.keys(words).find((a) => String(words[a]).trim().toLowerCase() === cmd);
     if (!action || userRank(ev.user) < RANK.mod) return false;
     const target = String(rest[0] || '').replace(/^@/, '').trim();
     const by = ev.user?.display || ev.user?.name || '';
     const say = (text) => { if (mc.confirm !== false) this.reply(ev, text); };
     if (!target) { say(`Écris le pseudo : ${words[action]} pseudo`); return true; }
-    this.runModCommand(ev, action, target, rest[1], by, say).catch((e) => this.log(`Commande de modo : ${e.message}`));
+    const arg = action === 'warn' ? rest.slice(1).join(' ') : rest[1];
+    this.runModCommand(ev, action, target, arg, by, say).catch((e) => this.log(`Commande de modo : ${e.message}`));
     return true;
   }
 
@@ -566,6 +674,8 @@ class Engine {
     const hit = pool.find((e) => same(e) && e.platform === ev.platform) || pool.find(same);
     if (!hit) { say(`${target} introuvable dans le chat récent.`); return; }
     if (hit.user?.owner || hit.user?.mod) { say('On ne peut pas exclure un modo ni la chaîne.'); return; }
+    // L'avertissement s'annonce lui-même dans le chat (et la sanction au seuil).
+    if (action === 'warn') { await this.moderate({ action: 'warn', id: hit.id, reason: durArg || '', by }); return; }
     let seconds = 0;
     if (action === 'timeout') {
       const m = /^(\d+)\s*(s|sec|m|min|h|j|d)?$/i.exec(String(durArg || '').trim());
@@ -595,6 +705,7 @@ class Engine {
     if (ev.gift) this.safely('image du cadeau', () => this.giftImage(ev.gift));
     if (!ev.test) this.safely('statistiques', () => this.stats.record(ev));
     const result = this.safely('spectateurs', () => this.viewers.record(ev, this.s.rewards)) || null;
+    if (ev.type === 'chat') this.safely('repères', () => this.tagChat(ev));
     this.safely('derniers événements', () => this.trackLast(ev));
     if (ev.type === 'join' || ev.type === 'chat') this.safely('bienvenue', () => this.welcome(ev));
     (this.recentTypes[ev.type] = this.recentTypes[ev.type] || []).push(Date.now());
@@ -1048,10 +1159,10 @@ class Engine {
     this.reply({ accountId: acc, platform: '' }, text, 'all');
   }
 
-  async reply(ev, text, where = 'origin') {
+  async reply(ev, text, where = 'origin', raw = false) {
     if (!text) return;
     // Les phrases du bot suivent la langue de l'appli (les textes écrits par le streamer restent tels quels).
-    if (this.s.settings.uiLang === 'en') text = toEnglish(text);
+    if (this.s.settings.uiLang === 'en' && !raw) text = toEnglish(text);
     const targets = where === 'all' && this.allowed('replyAllChannels') ? [...this.connectors.values()] : [this.connectors.get(ev.accountId)].filter(Boolean);
     for (const c of targets) {
       if (!c.canSend?.()) continue;
@@ -1260,6 +1371,10 @@ class Engine {
       case 'game': this.gameEvent(a.kind || 'win', {}); break;
       case 'wheel': this.fun.wheelRequest(ev, 'action'); break;
       case 'likeRace': if (a.action === 'stop') this.fun.raceStop(); else this.fun.raceStart(); break;
+      case 'chatMode': this.chatModeAction(a).catch((e) => this.log(`Réglage du chat : ${e.message}`)); break;
+      case 'clearChat': this.clearAllChats().catch((e) => this.log(`Vider le chat : ${e.message}`)); break;
+      case 'spotlight': this.safely('message à l\'écran', () => this.spotlightFrom(ev)); break;
+      case 'spotlightClear': this.spotlight({ clear: true }); break;
       default: break;
     }
   }
