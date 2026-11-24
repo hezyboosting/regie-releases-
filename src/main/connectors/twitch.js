@@ -5,7 +5,7 @@ const WebSocket = require('ws');
 const SCOPES = [
   'moderator:read:followers', 'channel:read:subscriptions', 'bits:read', 'channel:read:redemptions',
   'channel:read:hype_train', 'user:read:chat', 'user:write:chat', 'clips:edit', 'channel:read:vips',
-  'moderator:manage:banned_users', 'moderator:manage:chat_messages',
+  'moderator:manage:banned_users', 'moderator:manage:chat_messages', 'moderator:manage:chat_settings',
 ].join(' ');
 
 const ID_URL = 'https://id.twitch.tv/oauth2';
@@ -255,9 +255,12 @@ class TwitchConnector extends EventEmitter {
   // Modération avec l'API officielle : supprimer un message, exclure, bannir, débannir.
   modCaps() { return { delete: true, timeout: true, ban: true, unban: true }; }
 
-  async moderate(action, { userId, msgId, seconds, reason }) {
+  async moderate(action, { userId, name, msgId, seconds, reason }) {
     const ids = `broadcaster_id=${this.userId}&moderator_id=${this.userId}`;
     try {
+      // Débannir par pseudo (commande !debannir) : Twitch veut l'identifiant du compte.
+      if (!userId && name) userId = (await this.helix(`/users?login=${encodeURIComponent(String(name).toLowerCase())}`)).data?.[0]?.id;
+      if (!userId && action !== 'delete') throw new Error('Pseudo Twitch introuvable.');
       if (action === 'delete') return await this.helix(`/moderation/chat?${ids}&message_id=${encodeURIComponent(msgId)}`, { method: 'DELETE' });
       if (action === 'unban') return await this.helix(`/moderation/bans?${ids}&user_id=${encodeURIComponent(userId)}`, { method: 'DELETE' });
       const data = { user_id: String(userId), reason: String(reason || '').slice(0, 500) };
@@ -268,6 +271,42 @@ class TwitchConnector extends EventEmitter {
       throw e;
     }
   }
+
+  // Réglages du chat : mode lent, followers seulement, abonnés seulement, émotes seulement, messages uniques.
+  chatCaps() { return { slow: true, followers: true, subs: true, emotes: true, unique: true, clear: true, state: true }; }
+
+  static chatFrom(d = {}) {
+    return {
+      slow: d.slow_mode ? Number(d.slow_mode_wait_time) || 30 : 0,
+      followers: d.follower_mode ? Number(d.follower_mode_duration) || 0 : -1,
+      subs: Boolean(d.subscriber_mode), emotes: Boolean(d.emote_mode), unique: Boolean(d.unique_chat_mode),
+    };
+  }
+
+  async chatCall(path, opts) {
+    try { return await this.helix(path, opts); } catch (e) {
+      if (/scope|missing|authoriz|unauthorized/i.test(e.message)) throw new Error('Reconnecte ta chaîne Twitch (Connexions) pour régler le chat depuis Régie.');
+      throw e;
+    }
+  }
+
+  async chatState() {
+    const d = await this.chatCall(`/chat/settings?broadcaster_id=${this.userId}&moderator_id=${this.userId}`);
+    return TwitchConnector.chatFrom(d.data?.[0]);
+  }
+
+  async setChat(p) {
+    const body = {};
+    if ('slow' in p) { body.slow_mode = p.slow > 0; if (p.slow > 0) body.slow_mode_wait_time = Math.max(3, Math.min(120, p.slow)); }
+    if ('followers' in p) { body.follower_mode = p.followers >= 0; if (p.followers >= 0) body.follower_mode_duration = Math.min(129600, p.followers); }
+    if ('subs' in p) body.subscriber_mode = Boolean(p.subs);
+    if ('emotes' in p) body.emote_mode = Boolean(p.emotes);
+    if ('unique' in p) body.unique_chat_mode = Boolean(p.unique);
+    const d = await this.chatCall(`/chat/settings?broadcaster_id=${this.userId}&moderator_id=${this.userId}`, { method: 'PATCH', body: JSON.stringify(body) });
+    return TwitchConnector.chatFrom(d.data?.[0]);
+  }
+
+  async clearChat() { await this.chatCall(`/moderation/chat?broadcaster_id=${this.userId}&moderator_id=${this.userId}`, { method: 'DELETE' }); }
 
   async send(text) {
     await this.helix('/chat/messages', { method: 'POST', body: JSON.stringify({ broadcaster_id: this.userId, sender_id: this.userId, message: text.slice(0, 480) }) });

@@ -37,6 +37,14 @@ function duration(ms) {
   return h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`;
 }
 
+// 600 → « 10 min », 3600 → « 1 h », 90 → « 90 s ».
+function humanDuration(sec) {
+  if (sec % 86400 === 0) return `${sec / 86400} j`;
+  if (sec % 3600 === 0) return `${sec / 3600} h`;
+  if (sec % 60 === 0) return `${sec / 60} min`;
+  return `${sec} s`;
+}
+
 // Ce qu'un spectateur bloqué ne peut plus faire apparaître chez toi.
 const BLOCKABLE = new Set(['chat', 'join', 'like', 'share', 'follow']);
 
@@ -335,15 +343,17 @@ class Engine {
     if (!set.size) return;
     this.mainFeed = this.mainFeed.filter((e) => !set.has(e.id));
     this.feed = this.feed.filter((e) => !set.has(e.id));
-    this.server.broadcast({ t: 'evdel', ids: [...set] }, ['chat', 'dock']);
+    this.server.broadcast({ t: 'evdel', ids: [...set] }, ['chat', 'dock', 'highlight']);
     this.push('eventDel', [...set]);
+    if (this.spot && set.has(this.spot.id)) this.spot = null;
   }
 
-  block(ev, seconds = 0) {
+  block(ev, seconds = 0, by = '') {
     const u = ev.user || {};
     const entry = { platform: ev.platform, accountId: ev.accountId, id: String(u.id || ''), name: String(u.name || u.display || '').toLowerCase(), display: u.display || u.name || '', until: seconds ? Date.now() + seconds * 1000 : 0, at: Date.now() };
     const list = (this.s.moderation.blocked || []).filter((b) => !(b.platform === entry.platform && ((entry.id && b.id === entry.id) || b.name === entry.name)));
     this.s.moderation.blocked = [...list, entry].slice(-500);
+    this.logMod(entry, seconds ? 'timeout' : 'ban', seconds, by);
     this.save();
     // Ses messages déjà affichés disparaissent aussi, et la voix ne les lit pas.
     this.hideEvents(this.mainFeed.filter((e) => e.platform === ev.platform && ((entry.id && String(e.user?.id || '') === entry.id) || String(e.user?.name || '').toLowerCase() === entry.name)).map((e) => e.id));
@@ -355,7 +365,7 @@ class Engine {
   // action : hide (masquer le message ici), delete (le supprimer aussi sur la plateforme),
   // timeout (exclure pour seconds), ban (bannir). Régie agit toujours chez toi ; la plateforme
   // suit quand elle le permet (native : ok, unsupported ou error, avec la raison).
-  async moderate({ action, id, seconds = 600, reason = '' }) {
+  async moderate({ action, id, seconds = 600, reason = '', by = '' }) {
     const ev = this.mainFeed.find((e) => e.id === id) || this.feed.find((e) => e.id === id);
     if (!ev) throw new Error('Message introuvable : il est trop ancien.');
     if (ev.user?.owner) throw new Error('C\'est ta propre chaîne.');
@@ -369,24 +379,206 @@ class Engine {
     const who = { userId: ev.user?.id, name: ev.user?.name, display: ev.user?.display, msgId: ev.msgId, seconds, reason };
     if (action === 'hide') this.hideEvents([id]);
     else if (action === 'delete') { this.hideEvents([id]); if (ev.msgId) await native('delete', who); else { out.native = 'unsupported'; out.error = c?.modReason?.() || ''; } }
-    else if (action === 'timeout') { this.block(ev, Math.max(10, Number(seconds) || 600)); await native('timeout', who); }
-    else if (action === 'ban') { this.block(ev, 0); await native('ban', who); }
+    else if (action === 'timeout') { this.block(ev, Math.max(10, Number(seconds) || 600), by); await native('timeout', who); }
+    else if (action === 'ban') { this.block(ev, 0, by); await native('ban', who); }
     else throw new Error('Action inconnue.');
     if (out.native === 'error') this.log(`Modération ${ev.platform} : ${out.error}`);
     return out;
   }
 
   // Débloque dans Régie, et débannit sur la plateforme si elle le permet.
-  async unblock({ platform, id, name }, withPlatform = true) {
+  async unblock({ platform, id, name }, withPlatform = true, by = '') {
     const list = this.s.moderation.blocked || [];
     const entry = list.find((b) => b.platform === platform && ((id && b.id === id) || (name && b.name === String(name).toLowerCase())));
     if (!entry) return { native: 'none' };
     this.s.moderation.blocked = list.filter((b) => b !== entry);
+    this.logMod(entry, 'unban', 0, by);
     this.save();
     this.push('moderation', this.moderationState());
     const c = this.connectors.get(entry.accountId);
     if (!withPlatform || !c?.modCaps?.().unban) return { native: c?.modCaps?.().unban ? 'none' : 'unsupported' };
     try { await c.moderate('unban', { userId: entry.id, name: entry.name, display: entry.display }); return { native: 'ok' }; } catch (e) { return { native: 'error', error: e.message }; }
+  }
+
+  // Historique des sanctions, pour la fiche spectateur.
+  logMod(entry, action, seconds = 0, by = '') {
+    const m = this.s.moderation;
+    if (!Array.isArray(m.history)) m.history = [];
+    m.history.push({ platform: entry.platform, id: entry.id, name: entry.name, display: entry.display, action, seconds, by: String(by || ''), at: Date.now() });
+    if (m.history.length > 500) m.history.splice(0, m.history.length - 500);
+  }
+
+  // Le dernier message (ou événement) de cette personne encore en mémoire.
+  lastOf(platform, id, name) {
+    const lname = String(name || '').replace(/^@/, '').toLowerCase();
+    const same = (u = {}) => (id && String(u.id || '') === String(id)) || (lname && (String(u.name || '').toLowerCase() === lname || String(u.display || '').toLowerCase() === lname));
+    const pick = (list, chat) => { for (let i = list.length - 1; i >= 0; i -= 1) if (list[i].platform === platform && (!chat || list[i].type === 'chat') && same(list[i].user)) return list[i]; return null; };
+    // Le dernier message d'abord : il porte les badges (modo, abonné…), pas toujours les événements.
+    return { ev: pick(this.mainFeed, true) || pick(this.mainFeed) || pick(this.feed), same };
+  }
+
+  // ---------- Fiche spectateur ----------
+  viewerCard({ platform, id = '', name = '' }) {
+    platform = String(platform || '');
+    const { ev, same } = this.lastOf(platform, id, name);
+    const u = ev?.user || {};
+    const uid = String(u.id || id || '');
+    const lname = String(u.name || name || '').replace(/^@/, '').toLowerCase();
+    const found = this.viewers.find(platform, uid, lname, u.display);
+    const life = found.life || {};
+    const ses = found.session;
+    const pts = Number(life.points ?? ses?.points ?? 0);
+    const m = this.s.moderation || {};
+    const mine = (b) => b.platform === platform && ((uid && b.id === uid) || (lname && b.name === lname));
+    const blocked = this.blockedEntry(platform, { id: uid, name: lname });
+    const pick = (r, keys) => (r ? Object.fromEntries(keys.map((k) => [k, Math.floor(r[k] || 0)])) : null);
+    const KEYS = ['messages', 'coins', 'gifts', 'likes', 'follows', 'shares', 'subs'];
+    return {
+      platform, id: uid, name: lname, display: u.display || life.name || ses?.name || name, avatar: u.avatar || life.avatar || ses?.avatar || '', color: ev?.color || '',
+      roles: { owner: Boolean(u.owner), mod: Boolean(u.mod), vip: Boolean(u.vip), sub: Boolean(u.sub) },
+      life: pick(found.life, KEYS), session: pick(ses, KEYS), points: Math.floor(pts), level: Math.floor(Math.sqrt(Math.max(0, pts) / 50)) + 1,
+      first: life.first || ses?.first || 0, days: found.days, lastDay: found.lastDay,
+      recent: this.mainFeed.filter((e) => e.type === 'chat' && e.platform === platform && same(e.user)).slice(-8).map((e) => ({ id: e.id, ts: e.ts, text: String(e.text || '').slice(0, 300) })),
+      lastEventId: ev?.type === 'chat' ? ev.id : (this.mainFeed.slice().reverse().find((e) => e.type === 'chat' && e.platform === platform && same(e.user))?.id || ''),
+      blocked: blocked ? { until: blocked.until, at: blocked.at } : null,
+      history: (m.history || []).filter(mine).slice(-6).reverse(),
+      note: (m.notes || {})[`${platform}:${uid || lname}`] || (m.notes || {})[`${platform}:${lname}`] || '',
+    };
+  }
+
+  setNote({ platform, id = '', name = '', note = '' }) {
+    const m = this.s.moderation;
+    if (!m.notes || typeof m.notes !== 'object') m.notes = {};
+    const key = `${String(platform || '')}:${String(id || '') || String(name || '').toLowerCase()}`;
+    const text = String(note || '').trim().slice(0, 300);
+    if (text) m.notes[key] = text; else delete m.notes[key];
+    const keys = Object.keys(m.notes);
+    if (keys.length > 2000) for (const k of keys.slice(0, keys.length - 2000)) delete m.notes[k];
+    this.save();
+    return { note: text };
+  }
+
+  // ---------- Message à l'écran ----------
+  spotSettings() { return this.s.overlays.find((o) => o.type === 'highlight' && o.enabled !== false)?.settings || null; }
+
+  spotView() {
+    const sp = this.spot;
+    if (!sp) return null;
+    const st = this.spotSettings() || {};
+    const until = st.mode === 'fixe' ? 0 : sp.at + Math.max(3, Number(st.stay) || 12) * 1000;
+    if (until && until <= Date.now()) { this.spot = null; return null; }
+    return { ...sp, until };
+  }
+
+  spotlight({ id = '', clear = false } = {}) {
+    if (clear) {
+      this.spot = null;
+      this.server.broadcast({ t: 'spotlight', item: null }, 'highlight');
+      return { spot: null };
+    }
+    const ev = this.mainFeed.find((e) => e.id === id) || this.feed.find((e) => e.id === id);
+    if (!ev) throw new Error('Message introuvable : il est trop ancien.');
+    const u = ev.user || {};
+    this.spot = {
+      id: ev.id, at: Date.now(), platform: ev.platform, text: String(ev.text || ''), emotes: ev.emotes || [], translation: ev.translation || null, color: ev.color || '',
+      user: { display: u.display || u.name || '', name: u.name || '', avatar: u.avatar || '', owner: Boolean(u.owner), mod: Boolean(u.mod), vip: Boolean(u.vip), sub: Boolean(u.sub) },
+    };
+    this.server.broadcast({ t: 'spotlight', item: this.spot }, 'highlight');
+    const has = this.s.overlays.some((o) => o.type === 'highlight' && o.enabled !== false);
+    const open = this.server.hasClient?.('highlight');
+    const warn = !has ? 'Ajoute l\'overlay « Message à l\'écran » (Overlays) et mets son lien dans OBS.'
+      : open === false ? 'L\'overlay « Message à l\'écran » n\'est ouvert nulle part : mets son lien dans OBS.' : '';
+    return { spot: this.spotView(), warn };
+  }
+
+  // ---------- Réglages du chat (mode lent, followers, abonnés, émotes) ----------
+  async chatSettings() {
+    const out = [];
+    for (const ch of this.channels()) {
+      const c = this.connectors.get(ch.id);
+      const caps = c?.chatCaps?.();
+      if (!ch.enabled || !caps) continue;
+      let state = null;
+      let error = '';
+      if (caps.state) { try { state = await c.chatState(); } catch (e) { error = e.message; } } else state = { ...(c.chatModes || {}) };
+      out.push({ accountId: ch.id, platform: ch.platform, label: ch.label, caps, state, error });
+    }
+    return out;
+  }
+
+  async setChatSettings({ accountId, patch = {}, clear = false }) {
+    const c = this.connectors.get(String(accountId || ''));
+    const caps = c?.chatCaps?.();
+    if (!caps) throw new Error('Cette chaîne ne permet pas de régler le chat depuis Régie.');
+    if (clear) {
+      if (!caps.clear) throw new Error('Cette chaîne ne permet pas de vider le chat depuis Régie.');
+      await c.clearChat();
+      return { cleared: true };
+    }
+    const p = {};
+    if ('slow' in patch && caps.slow) p.slow = Math.max(0, Math.min(120, Math.round(Number(patch.slow) || 0)));
+    if ('followers' in patch && caps.followers) p.followers = Number(patch.followers) < 0 ? -1 : Math.max(0, Math.min(129600, Math.round(Number(patch.followers) || 0)));
+    for (const k of ['subs', 'emotes', 'unique']) if (k in patch && caps[k]) p[k] = Boolean(patch[k]);
+    if (!Object.keys(p).length) throw new Error('Rien à changer.');
+    return { state: await c.setChat(p) };
+  }
+
+  // ---------- Commandes de modo dans le chat ----------
+  // !exclure pseudo [10m|1h|30s], !ban pseudo, !debannir pseudo. Réservé aux modos et à la chaîne.
+  // Le pseudo est cherché dans le chat récent de toutes les plateformes : un modo Twitch peut
+  // exclure un troll TikTok (masqué dans Régie, TikTok n'ayant pas d'API).
+  modCommand(ev, cmd, rest) {
+    const mc = this.s.moderation?.commands || {};
+    if (mc.enabled === false) return false;
+    const words = { timeout: mc.timeout || '!exclure', ban: mc.ban || '!ban', unban: mc.unban || '!debannir' };
+    const action = Object.keys(words).find((a) => String(words[a]).trim().toLowerCase() === cmd);
+    if (!action || userRank(ev.user) < RANK.mod) return false;
+    const target = String(rest[0] || '').replace(/^@/, '').trim();
+    const by = ev.user?.display || ev.user?.name || '';
+    const say = (text) => { if (mc.confirm !== false) this.reply(ev, text); };
+    if (!target) { say(`Écris le pseudo : ${words[action]} pseudo`); return true; }
+    this.runModCommand(ev, action, target, rest[1], by, say).catch((e) => this.log(`Commande de modo : ${e.message}`));
+    return true;
+  }
+
+  async runModCommand(ev, action, target, durArg, by, say) {
+    const mc = this.s.moderation?.commands || {};
+    const lname = target.toLowerCase();
+    const label = (p) => PLATFORM_LABEL[p] || (p === 'kick' ? 'Kick' : p);
+    if (action === 'unban') {
+      const hits = (this.s.moderation.blocked || []).filter((b) => b.name === lname || String(b.display || '').toLowerCase() === lname);
+      if (hits.length) {
+        for (const b of hits) await this.unblock(b, true, by);
+        say(`${hits[0].display || target} est débloqué (${[...new Set(hits.map((b) => label(b.platform)))].join(', ')}).`);
+        return;
+      }
+      const c = this.connectors.get(ev.accountId);
+      if (c?.modCaps?.().unban) {
+        try { await c.moderate('unban', { name: lname, display: target }); say(`${target} est débanni sur ${label(ev.platform)}.`); } catch (e) { say(`${target} : ${e.message}`); }
+        return;
+      }
+      say(`${target} n'est pas bloqué.`);
+      return;
+    }
+    // La cible : son dernier message, sur la plateforme du modo d'abord, puis ailleurs.
+    const same = (e) => e.type === 'chat' && (String(e.user?.name || '').toLowerCase() === lname || String(e.user?.display || '').toLowerCase() === lname);
+    const pool = this.mainFeed.slice().reverse();
+    const hit = pool.find((e) => same(e) && e.platform === ev.platform) || pool.find(same);
+    if (!hit) { say(`${target} introuvable dans le chat récent.`); return; }
+    if (hit.user?.owner || hit.user?.mod) { say('On ne peut pas exclure un modo ni la chaîne.'); return; }
+    let seconds = 0;
+    if (action === 'timeout') {
+      const m = /^(\d+)\s*(s|sec|m|min|h|j|d)?$/i.exec(String(durArg || '').trim());
+      const n = m ? Number(m[1]) : Math.max(1, Number(mc.minutes) || 10);
+      const unit = m ? (m[2] || 'm').toLowerCase() : 'm';
+      seconds = n * ({ s: 1, sec: 1, m: 60, min: 60, h: 3600, j: 86400, d: 86400 }[unit] || 60);
+      seconds = Math.max(10, Math.min(1209600, seconds));
+    }
+    const r = await this.moderate({ action, id: hit.id, seconds, by });
+    const who = hit.user?.display || target;
+    const where = r.native === 'ok' ? label(hit.platform) : `${label(hit.platform)}, dans Régie`;
+    if (action === 'timeout') say(`${who} est exclu ${humanDuration(seconds)} (${where}).`);
+    else say(`${who} est banni (${where}).`);
   }
 
   // Une erreur dans un module (statistiques, points, bienvenue…) ne doit jamais faire perdre le message.
@@ -899,6 +1091,7 @@ class Engine {
     const cmd = head.toLowerCase();
     const args = rest.join(' ');
 
+    if (this.modCommand(ev, cmd, rest)) return;
     this.voteOrEnter(ev, text, cmd);
     this.queueChat(ev, cmd);
     if (this.modOn('interactive') && this.fun.onChat(ev, cmd)) return;
@@ -1548,6 +1741,7 @@ class Engine {
       case 'prediction': return { view: this.play.predictionView() };
       case 'plinko': return { view: this.plinko.view() };
       case 'lastx': return { last: this.s.lastEvents || {} };
+      case 'highlight': return { spot: this.spotView() };
       case 'coinjar': case 'firework': case 'giftcannon': case 'alerts': return { catalog: this.giftSample(36) };
       case 'likerace': return { race: this.fun.raceView() };
       case 'pointshop': return { shop: this.games.shopView() };

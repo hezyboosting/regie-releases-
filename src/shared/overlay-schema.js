@@ -404,6 +404,20 @@ SCALE, CSS,
       C('accent', 'Accent', '#FFD24A'), C('bg', 'Fond', '#10131A'), C('text', 'Texte', '#F2F5F9'), FONT, SCALE, CSS,
     ],
   },
+  highlight: {
+    name: 'Message à l\'écran', size: [960, 300], group: 'Direct', blurb: 'Le message que tu choisis dans le chat unifié (bouton ⋯, Afficher en live) s\'affiche en grand, avec la photo et le pseudo.',
+    fields: [
+      S('mode', 'Combien de temps', 'auto', [{ value: 'auto', label: 'Part tout seul' }, { value: 'fixe', label: 'Reste jusqu\'à ce que tu le retires' }]),
+      R('stay', 'Durée à l\'écran', 12, 3, 120, 1, ' s', { when: { mode: 'auto' } }),
+      TX('label', 'Titre au-dessus du pseudo', '', { hint: 'Vide pour ne rien mettre. Exemple : Question du chat' }),
+      T('avatars', 'Afficher la photo', true), T('platform', 'Afficher la plateforme', true), T('badges', 'Badge (modo, VIP, abonné)', true),
+      T('showTr', 'Afficher la traduction quand il y en a une', true), R('maxLines', 'Lignes du message (au plus)', 4, 1, 10),
+      S('enter', 'Apparition', 'pop', [{ value: 'pop', label: 'Rebond' }, { value: 'glisse', label: 'Glisse du bas' }, { value: 'fondu', label: 'Fondu' }], { tab: 'anim' }),
+      R('volume', 'Volume', 0, 0, 100, 5, ' %'),
+      S('style', 'Style', 'bulle', [{ value: 'bulle', label: 'Bulle' }, { value: 'carte', label: 'Carte' }, { value: 'bandeau', label: 'Bandeau bas d\'écran' }, { value: 'neon', label: 'Néon' }]),
+      C('accent', 'Accent', '#FFB224'), C('bg', 'Fond', '#14151A'), C('text', 'Texte', '#F4F2EC'), FONT, SCALE, CSS,
+    ],
+  },
   plinko: {
     name: 'Plinko', size: [720, 860], group: 'Interactions', blurb: 'Chaque cadeau tombe avec sa vraie image et rebondit jusqu\'à une case : points, son ou action dans le jeu. Les spectateurs peuvent aussi miser leurs points.',
     fields: [
@@ -498,7 +512,7 @@ const OVERLAY_EVENTS = {
   likefountain: ['like', 'follow', 'gift'],
   emojify: ['chat', 'gift'],
   // Un seul type d'événement (ou des réglages à eux) : seulement le choix des plateformes.
-  giftfeed: null, giftcannon: null, avatars: null, welcome: null, coinmenu: null,
+  giftfeed: null, giftcannon: null, avatars: null, welcome: null, coinmenu: null, highlight: null,
 };
 // Un événement passe-t-il les filtres de cet overlay ? (les alertes d'automatisation passent toujours)
 function passesFilter(st = {}, platform, type) {
@@ -615,6 +629,7 @@ const PARTS = {
   ticker: P('.tk-item', [['icone', '.gx-ico', 'Icône', 'box'], ['plateforme', '.pf', 'Plateforme', 'box'], ['pseudo', 'b', 'Pseudo'], ['quoi', '.tk-what', 'Événement']]),
   tts: P('.tb', [['egaliseur', '.tb2-eq', 'Égaliseur', 'box'], ['pseudo', '.tb2-head b', 'Pseudo'], ['texte', '.tb2-txt', 'Message lu']], { grow: true }),
   welcome: P('.wc-banner', [['photo', '.wc-av', 'Photo', 'box'], ['ligne', '.wc-line', 'Bienvenue et pseudo'], ['badge', '.wc-sub', 'Badge et plateforme']]),
+  highlight: P('.hl-card', [['photo', '.hl-av', 'Photo', 'box'], ['titre', '.hl-label', 'Titre'], ['pseudo', '.hl-name', 'Pseudo'], ['badge', '.hl-meta', 'Badge et plateforme'], ['texte', '.hl-text', 'Message']], { grow: true }),
   brb: P('.brb', [['icone', '.brb-icon', 'Icône'], ['titre', '.brb-title', 'Titre'], ['sous', '.brb-sub', 'Sous-titre'], ['minuteur', '.brb-timer', 'Minuteur']], { keepPos: true, noSize: true }),
   socials: P('.so-item', [['logo', '.so-logo', 'Logo', 'box'], ['texte', '.so-text', 'Texte']]),
   webcam: P('.cam', [['direct', '.cam-live', 'Badge LIVE'], ['plaque', '.cam-plate', 'Plaque'], ['annonce', '.cam-toast', 'Annonce (suivi, cadeau…)']], { keepPos: true, noSize: true }),
@@ -684,7 +699,7 @@ const SKIN = {
   alerts: '.al', chat: '.msg', ticker: '.tick', giftfeed: '.gf-row', goal: '.goal', timer: '.tm', counter: '.ct', viewers: '.big',
   leaderboard: '.panel', gifttracker: '.panel', poll: '.panel', giveaway: '.panel', prediction: '.panel', chatplays: '.panel', plinko: '.panel',
   topgift: '.tg', topstreak: '.tg', tts: '.tb', battle: '.battle', arena: '.ar', boss: '.bs', gamecard: '.gc', gamelive: '.gl', minigame: '.mg', rankcard: '.rc',
-  lastx: '.lx-card', welcome: '.wc-banner', queue: '.qu', pointshop: '.ps-item', socials: '.so-item', coinmenu: '.cm-row',
+  lastx: '.lx-card', welcome: '.wc-banner', highlight: '.hl-card', queue: '.qu', pointshop: '.ps-item', socials: '.so-item', coinmenu: '.cm-row',
 };
 const sk = { tab: 'style' };
 const SKIN_FIELDS = [

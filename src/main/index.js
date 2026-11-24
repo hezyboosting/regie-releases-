@@ -129,6 +129,18 @@ async function boot() {
 
   let engine;
   let api;
+  // Appel du dock : erreurs et messages (warn, error) en anglais si l'appli est en anglais.
+  const dockCall = async (fn) => {
+    const en = () => file.data.settings.uiLang === 'en';
+    const tr = (x) => (x && en() ? dockEnglish(x) : x);
+    try {
+      const r = await fn();
+      if (r?.warn) r.warn = tr(r.warn);
+      if (r?.error) r.error = tr(r.error);
+      if (Array.isArray(r?.channels)) for (const c of r.channels) c.error = tr(c.error);
+      return r;
+    } catch (e) { throw new Error(tr(e.message)); }
+  };
   const server = new OverlayServer({
     overlaysDir: path.join(__dirname, '../overlays'), mediaDir, giftsDir, port: file.data.settings.port || brand.defaultPort, lan: file.data.settings.lan, token: file.data.settings.overlayToken,
     getOverlay: (id) => file.data.overlays.find((o) => o.id === id),
@@ -144,6 +156,7 @@ async function boot() {
         // Sans compte TikTok connecté, TikTok garde les messages de certains spectateurs : on le dit dans le dock.
         notice: engine.channels().some((c) => c.enabled && c.platform === 'tiktok' && (!c.fullChat || c.reader?.state === 'login'))
           ? 'Des messages TikTok peuvent manquer : connecte ton compte TikTok dans Régie (Connexions).' : '',
+        spot: engine.spotView(),
         mod: (() => {
           const m = engine.moderationState();
           if (file.data.settings.uiLang === 'en') for (const c of Object.values(m.caps)) c.reason = c.reason ? dockEnglish(c.reason) : '';
@@ -160,6 +173,12 @@ async function boot() {
         const r = await engine.unblock({ platform: String(d.platform || ''), id: String(d.id || ''), name: String(d.name || '') }, d.platform !== false);
         return { ...r, error: r.error && en ? dockEnglish(r.error) : r.error };
       },
+      // Fiche spectateur, note, message à l'écran et réglages du chat (erreurs traduites si l'appli est en anglais).
+      viewer: (d) => dockCall(() => ({ card: engine.viewerCard({ platform: String(d.platform || ''), id: String(d.id || ''), name: String(d.name || '') }) })),
+      note: (d) => dockCall(() => engine.setNote({ platform: String(d.platform || ''), id: String(d.id || ''), name: String(d.name || ''), note: String(d.note || '') })),
+      spotlight: (d) => dockCall(() => engine.spotlight({ id: String(d.id || ''), clear: Boolean(d.clear) })),
+      chatSettings: () => dockCall(async () => ({ channels: await engine.chatSettings() })),
+      setChat: (d) => dockCall(() => engine.setChatSettings({ accountId: String(d.accountId || ''), patch: d.patch && typeof d.patch === 'object' ? d.patch : {}, clear: Boolean(d.clear) })),
       send: async (text, target) => {
         const en = file.data.settings.uiLang === 'en';
         try {

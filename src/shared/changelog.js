@@ -1,6 +1,16 @@
 // Nouveautés montrées dans « Quoi de neuf » après une mise à jour. La plus récente en premier.
 const CHANGELOG = [
   {
+    version: '2.23.0',
+    title: 'Fiche spectateur, message à l\'écran, réglages du chat et commandes de modo',
+    items: [
+      'Clique sur un pseudo dans le chat multi : sa fiche montre ses messages, pièces, cadeaux et likes (ce live et au total), ses points, combien de jours il est venu, ses derniers messages, ses sanctions passées et ta note perso.',
+      'Afficher en live (bouton ⋯ d\'un message) : le message s\'affiche en grand sur ton live dans le nouvel overlay Message à l\'écran, avec la photo et le pseudo. Il part tout seul ou reste jusqu\'à ce que tu le retires.',
+      'Réglages du chat dans le dock : mode lent, followers seulement, abonnés seulement, émotes seulement, messages uniques et vider le chat, sur Twitch et Kick. Sur Twitch, reconnecte ta chaîne une fois pour donner la permission.',
+      'Commandes de modo : tes modos tapent !exclure pseudo 10m, !ban pseudo ou !debannir pseudo dans n\'importe quel chat. Un modo Twitch peut ainsi faire disparaître un troll TikTok. Les mots se changent dans la page Chat.',
+    ],
+  },
+  {
     version: '2.22.0',
     title: 'Modère ton chat depuis le chat multi',
     items: [

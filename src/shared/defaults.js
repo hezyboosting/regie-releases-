@@ -120,7 +120,8 @@ const defaultState = () => {
     vpad: { enabled: false },
     chatTranslate: { enabled: false, target: 'auto', engine: 'google', mode: 'below', showLang: true },
     // Spectateurs bloqués dans Régie : leurs messages ne passent plus (overlays, voix, commandes, jeux).
-    moderation: { blocked: [] },
+    // Modération : bloqués, historique des sanctions, notes par spectateur, commandes de modo dans le chat.
+    moderation: { blocked: [], history: [], notes: {}, commands: { enabled: true, timeout: '!exclure', ban: '!ban', unban: '!debannir', minutes: 10, confirm: true } },
     recap: { open: true, thanks: false, thanksText: 'Merci {top} pour ce live ❤️ À très vite !' },
     tts: {
       enabled: false, provider: 'system', voice: '', rate: 1, pitch: 1, volume: 80,

@@ -799,6 +799,36 @@ img.ej-i { height: auto; object-fit: contain; }
 .wc[data-style="neon"] .wc-banner { background: rgba(8,9,14,.82); box-shadow: 0 0 0 2px var(--accent), 0 0 30px var(--accent), inset 0 0 22px color-mix(in srgb, var(--accent) 35%, transparent); }
 .wc[data-style="neon"] .wc-line { text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 70%, transparent); }
 
+/* Message à l'écran (préfixe hl-) */
+.hl { position: absolute; left: 0; top: 0; width: 960px; height: 300px; display: flex; align-items: center; justify-content: center; color: var(--text); font-family: var(--font); }
+.hl-card { position: relative; display: flex; align-items: flex-start; gap: 22px; max-width: 930px; padding: 22px 32px 24px 22px; border-radius: 30px 30px 30px 8px; background: var(--bg); box-shadow: 0 20px 48px rgba(0,0,0,.45), inset 0 0 0 2px color-mix(in srgb, var(--accent) 50%, transparent); }
+.hl-card[data-enter="pop"] { animation: hlPop .6s cubic-bezier(.2,1.4,.4,1) both; }
+.hl-card[data-enter="glisse"] { animation: hlSlide .55s cubic-bezier(.2,.9,.3,1) both; }
+.hl-card[data-enter="fondu"] { animation: hlFade .5s ease-out both; }
+.hl-card.out { animation: hlOut .42s ease-in forwards; }
+@keyframes hlPop { from { opacity: 0; transform: scale(.82); } }
+@keyframes hlSlide { from { opacity: 0; transform: translateY(60px); } }
+@keyframes hlFade { from { opacity: 0; } }
+@keyframes hlOut { to { opacity: 0; transform: translateY(-14px) scale(.97); } }
+.hl-av { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; flex: none; box-shadow: 0 0 0 4px var(--accent), 0 0 26px color-mix(in srgb, var(--accent) 55%, transparent); }
+.hl-av.av-txt { display: grid; place-items: center; background: rgba(255,255,255,.12); font-size: 40px; font-weight: 800; }
+.hl-body { min-width: 0; display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+.hl-label { font-size: 16px; font-weight: 800; letter-spacing: .02em; color: var(--accent); }
+.hl-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.hl-name { font-size: 27px; font-weight: 900; color: var(--name, var(--accent)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hl-meta { display: flex; align-items: center; gap: 7px; flex: none; }
+.hl-badge { padding: 3px 11px; border-radius: 999px; font-size: 14px; font-weight: 800; background: rgba(255,255,255,.14); }
+.hl-badge.mod { background: #3BBF7C; color: #08140D; } .hl-badge.sub { background: #8B5CF6; color: #fff; } .hl-badge.vip { background: #E85DBA; color: #fff; }
+.hl-text { font-size: 34px; font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--lines, 4); overflow: hidden; }
+.hl-text .emo { height: 1.3em; width: auto; vertical-align: -.28em; margin: 0 2px; }
+.hl-orig { font-size: 17px; font-style: italic; opacity: .6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hl[data-style="carte"] .hl-card { border-radius: 22px; padding-left: 30px; }
+.hl[data-style="carte"] .hl-card::before { content: ""; position: absolute; left: 0; top: 18px; bottom: 18px; width: 6px; border-radius: 0 6px 6px 0; background: var(--accent); }
+.hl[data-style="bandeau"] { align-items: flex-end; justify-content: flex-start; padding-bottom: 18px; }
+.hl[data-style="bandeau"] .hl-card { width: 940px; max-width: none; border-radius: 0 22px 22px 0; background: var(--bg); box-shadow: inset 8px 0 0 var(--accent), 0 16px 40px rgba(0,0,0,.45); padding-left: 34px; backdrop-filter: none; }
+.hl[data-style="neon"] .hl-card { border-radius: 24px; background: rgba(8,9,14,.84); box-shadow: 0 0 0 2px var(--accent), 0 0 32px var(--accent), inset 0 0 24px color-mix(in srgb, var(--accent) 32%, transparent); backdrop-filter: none; }
+.hl[data-style="neon"] .hl-name { text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 70%, transparent); }
+
 /* =====================================================================
    Premium verre (2.12)
    Le verre tient à sa propre lumière (OBS ne floute pas le jeu derrière) :
@@ -815,7 +845,7 @@ img.ej-i { height: auto; object-fit: contain; }
   --gx-glass: var(--gx-noise), var(--gx-spec), var(--gx-sheen), var(--gx-tint);
 }
 .panel, .tg, .gf-row, .rc, .tb, .battle, .gc, .gl, .mg, .tick, .goal, .ar, .bs, .big, .tm, .ct, .sp.capsule, .sp.vu, .sp.platine, .sp.bandeau,
-.al.verre, .al.carte, .verre .msg, .lx-card, .wc-banner, .cs-stage, .cs-head, .gx {
+.al.verre, .al.carte, .verre .msg, .lx-card, .wc-banner, .hl[data-style="bulle"] .hl-card, .hl[data-style="carte"] .hl-card, .cs-stage, .cs-head, .gx {
   background: var(--gx-glass);
   box-shadow: var(--gx-edge), var(--gx-drop);
   backdrop-filter: blur(20px) saturate(1.6);

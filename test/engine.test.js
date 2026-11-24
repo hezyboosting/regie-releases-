@@ -888,3 +888,176 @@ test('modération : connecteurs Twitch, YouTube et Kick', async () => {
   assert.deepEqual(typed, ['/timeout Troll 10', '/ban Troll', '/unban Troll']);
   assert.equal(kick.modCaps().delete, undefined, 'Kick : pas de suppression de message');
 });
+
+test('fiche spectateur : statistiques, derniers messages, sanctions et note', async () => {
+  const r = rig();
+  const acc = { id: 'a', platform: 'twitch', label: 'Ch' };
+  r.engine.connectors.set('a', { ...fakeConn(() => {}), modCaps: () => ({ timeout: true, ban: true, unban: true }), modReason: () => '', moderate: async () => {} });
+  r.engine.ingest(acc, { type: 'chat', text: 'salut', user: { id: 'u7', name: 'kenza', display: 'Kenza', sub: true } });
+  r.engine.ingest(acc, { type: 'chat', text: 'ça va ?', user: { id: 'u7', name: 'kenza', display: 'Kenza', sub: true } });
+  r.engine.ingest(acc, { type: 'bits', amount: 100, user: { id: 'u7', name: 'kenza', display: 'Kenza' } });
+  let c = r.engine.viewerCard({ platform: 'twitch', id: 'u7', name: 'kenza' });
+  assert.equal(c.display, 'Kenza');
+  assert.equal(c.session.messages, 2);
+  assert.equal(c.life.coins, 100);
+  assert.equal(c.days, 1);
+  assert.deepEqual(c.recent.map((m) => m.text), ['salut', 'ça va ?']);
+  assert.ok(c.lastEventId, 'de quoi exclure ou afficher depuis la fiche');
+  assert.equal(c.roles.sub, true, 'les badges viennent du dernier message, pas des bits arrivés après');
+  // Le pseudo seul suffit (ouverture depuis la liste des bloqués).
+  assert.equal(r.engine.viewerCard({ platform: 'twitch', name: 'KENZA' }).session.messages, 2);
+  // Note perso, gardée et retirée quand elle est vide.
+  r.engine.setNote({ platform: 'twitch', id: 'u7', name: 'kenza', note: '  amie de la chaîne ' });
+  assert.equal(r.engine.viewerCard({ platform: 'twitch', id: 'u7' }).note, 'amie de la chaîne');
+  // Sanctions : l'exclusion et le déblocage restent dans l'historique, avec qui l'a fait.
+  await r.engine.moderate({ action: 'timeout', id: c.lastEventId, seconds: 300, by: 'Marius' });
+  c = r.engine.viewerCard({ platform: 'twitch', id: 'u7', name: 'kenza' });
+  assert.ok(c.blocked.until > Date.now());
+  assert.deepEqual([c.history[0].action, c.history[0].seconds, c.history[0].by], ['timeout', 300, 'Marius']);
+  await r.engine.unblock({ platform: 'twitch', id: 'u7' });
+  c = r.engine.viewerCard({ platform: 'twitch', id: 'u7', name: 'kenza' });
+  assert.equal(c.blocked, null);
+  assert.deepEqual(c.history.map((h) => h.action), ['unban', 'timeout']);
+  r.engine.setNote({ platform: 'twitch', id: 'u7', note: '' });
+  assert.equal(r.file.data.moderation.notes['twitch:u7'], undefined);
+  r.engine.stop();
+});
+
+test('message à l\'écran : envoyé à l\'overlay, retiré, durée et message masqué', () => {
+  const r = rig();
+  const acc = { id: 'a', platform: 'twitch', label: 'Ch' };
+  r.engine.ingest(acc, { type: 'chat', text: 'Question : quel jeu après ?', color: '#ff0', user: { id: 'u1', name: 'lena', display: 'Lena', mod: true } });
+  const m = r.engine.mainFeed.at(-1);
+  // Sans overlay : le message part quand même, et le dock dit quoi faire.
+  let out = r.engine.spotlight({ id: m.id });
+  assert.match(out.warn, /Message à l'écran/);
+  const sent = r.sent.filter((x) => x.m.t === 'spotlight').at(-1);
+  assert.equal(sent.t, 'highlight');
+  assert.equal(sent.m.item.text, 'Question : quel jeu après ?');
+  assert.equal(sent.m.item.user.mod, true);
+  // Avec l'overlay : durée réglée, l'overlay rechargé retrouve le message tant qu'il est à l'écran.
+  r.engine.addOverlay('highlight');
+  const o = r.file.data.overlays.find((x) => x.type === 'highlight');
+  o.settings.stay = 20;
+  out = r.engine.spotlight({ id: m.id });
+  assert.equal(out.warn, 'L\'overlay « Message à l\'écran » n\'est ouvert nulle part : mets son lien dans OBS.');
+  assert.ok(Math.abs(out.spot.until - Date.now() - 20000) < 1000);
+  assert.equal(r.engine.overlayData(o).spot.id, m.id);
+  r.engine.spot.at -= 21000;
+  assert.equal(r.engine.overlayData(o).spot, null, 'passé la durée, plus rien à remettre');
+  // « Reste jusqu'à ce que tu le retires » : pas de fin, puis Retirer.
+  o.settings.mode = 'fixe';
+  r.engine.spotlight({ id: m.id });
+  assert.equal(r.engine.spotView().until, 0);
+  r.engine.spotlight({ clear: true });
+  assert.equal(r.sent.at(-1).m.item, null);
+  assert.equal(r.engine.spotView(), null);
+  // Un message masqué depuis le dock quitte aussi l'écran.
+  r.engine.spotlight({ id: m.id });
+  r.engine.hideEvents([m.id]);
+  assert.equal(r.engine.spot, null);
+  assert.ok(r.sent.some((x) => x.m.t === 'evdel' && x.t.includes('highlight')));
+  assert.throws(() => r.engine.spotlight({ id: 'nope' }), /trop ancien/);
+  r.engine.stop();
+});
+
+test('réglages du chat : Twitch par l\'API, Kick par ses commandes', async () => {
+  const { TwitchConnector, SCOPES } = require('../src/main/connectors/twitch');
+  assert.match(SCOPES, /moderator:manage:chat_settings/);
+  const tw = Object.create(TwitchConnector.prototype);
+  tw.userId = '99';
+  const reqs = [];
+  tw.helix = async (path, opts = {}) => {
+    reqs.push([opts.method || 'GET', path, opts.body && JSON.parse(opts.body)]);
+    return { data: [{ slow_mode: true, slow_mode_wait_time: 10, follower_mode: true, follower_mode_duration: 0, subscriber_mode: false, emote_mode: true, unique_chat_mode: false }] };
+  };
+  assert.deepEqual(await tw.chatState(), { slow: 10, followers: 0, subs: false, emotes: true, unique: false });
+  await tw.setChat({ slow: 30, followers: -1, subs: true });
+  assert.deepEqual(reqs[1], ['PATCH', '/chat/settings?broadcaster_id=99&moderator_id=99', { slow_mode: true, slow_mode_wait_time: 30, follower_mode: false, subscriber_mode: true }]);
+  await tw.setChat({ slow: 0 });
+  assert.deepEqual(reqs[2][2], { slow_mode: false });
+  await tw.clearChat();
+  assert.deepEqual(reqs[3].slice(0, 2), ['DELETE', '/moderation/chat?broadcaster_id=99&moderator_id=99']);
+  tw.helix = async () => { throw new Error('Missing scope: moderator:manage:chat_settings'); };
+  await assert.rejects(tw.chatState(), /Reconnecte ta chaîne Twitch/);
+  // Débannir par pseudo : Twitch veut l'identifiant, Régie le cherche.
+  const calls = [];
+  tw.helix = async (path, opts = {}) => { calls.push([opts.method || 'GET', path]); return { data: [{ id: '42' }] }; };
+  await tw.moderate('unban', { name: 'Troll' });
+  assert.deepEqual(calls, [['GET', '/users?login=troll'], ['DELETE', '/moderation/bans?broadcaster_id=99&moderator_id=99&user_id=42']]);
+
+  const { KickConnector } = require('../src/main/connectors/kick');
+  const typed = [];
+  const kick = new KickConnector({ username: 'moi' }, { webchat: { logged: { kick: true }, send: async (site, user, text) => typed.push(text) } });
+  assert.equal(kick.chatCaps().state, false);
+  await kick.setChat({ slow: 10, followers: 60, subs: true, emotes: false });
+  await kick.setChat({ slow: 0, followers: -1 });
+  await kick.clearChat();
+  assert.deepEqual(typed, ['/slow on 10', '/followonly on 60', '/subonly on', '/emoteonly off', '/slow off', '/followonly off', '/clear']);
+
+  // Le moteur : seules les chaînes qui savent régler le chat, valeurs bornées.
+  const r = rig();
+  r.file.data.accounts.push({ id: 'tw', platform: 'twitch', label: 'moi', enabled: true }, { id: 'tt', platform: 'tiktok', label: 'moi', enabled: true });
+  const set = [];
+  r.engine.connectors.set('tw', { ...fakeConn(() => {}), chatCaps: () => ({ slow: true, followers: true, subs: true, emotes: true, unique: true, clear: true, state: true }), chatState: async () => ({ slow: 0, followers: -1, subs: false, emotes: false, unique: false }), setChat: async (p) => { set.push(p); return { slow: p.slow ?? 0 }; }, clearChat: async () => set.push('clear') });
+  r.engine.connectors.set('tt', { ...fakeConn(() => {}) });
+  const list = await r.engine.chatSettings();
+  assert.deepEqual(list.map((c) => c.accountId), ['tw']);
+  assert.deepEqual((await r.engine.setChatSettings({ accountId: 'tw', patch: { slow: 500, nope: 1 } })).state, { slow: 120 });
+  await r.engine.setChatSettings({ accountId: 'tw', clear: true });
+  assert.equal(set.at(-1), 'clear');
+  await assert.rejects(r.engine.setChatSettings({ accountId: 'tt', patch: { slow: 5 } }), /ne permet pas/);
+  r.engine.stop();
+});
+
+test('commandes de modo : !exclure, !ban et !debannir depuis le chat', async () => {
+  const r = rig();
+  const tw = { id: 'a', platform: 'twitch', label: 'Ch' };
+  const tk = { id: 't', platform: 'tiktok', label: 'tt' };
+  const replies = [];
+  const calls = [];
+  r.engine.connectors.set('a', { ...fakeConn((x) => replies.push(x)), modCaps: () => ({ timeout: true, ban: true, unban: true }), modReason: () => '', moderate: async (act, w) => calls.push([act, w.userId, w.seconds]) });
+  r.engine.connectors.set('t', { ...fakeConn(() => {}), modCaps: () => ({}), modReason: () => 'TikTok ne laisse pas les applis exclure ou bannir.' });
+  r.engine.ingest(tw, { type: 'chat', text: 'spam', user: { id: 'u2', name: 'troll', display: 'Troll' } });
+  r.engine.ingest(tk, { type: 'chat', text: 'insulte', user: { id: '77', name: 'mechant', display: 'Méchant' } });
+  r.engine.ingest(tw, { type: 'chat', text: 'je suis modo', user: { id: 'm1', name: 'marius', display: 'Marius', mod: true } });
+  const wait = () => new Promise((res) => setTimeout(res, 5));
+  // Un spectateur sans badge ne peut rien faire.
+  r.engine.ingest(tw, { type: 'chat', text: '!ban troll', user: { id: 'u9', name: 'lambda', display: 'Lambda' } });
+  await wait();
+  assert.equal(r.file.data.moderation.blocked.length, 0);
+  // Un modo exclut 5 min, avec ou sans @.
+  r.engine.ingest(tw, { type: 'chat', text: '!exclure @Troll 5m', user: { id: 'm1', name: 'marius', display: 'Marius', mod: true } });
+  await wait();
+  assert.deepEqual(calls.at(-1), ['timeout', 'u2', 300]);
+  assert.equal(r.file.data.moderation.history.at(-1).by, 'Marius');
+  assert.equal(replies.at(-1), 'Troll est exclu 5 min (Twitch).');
+  // Un modo Twitch bannit un troll TikTok : masqué dans Régie.
+  r.engine.ingest(tw, { type: 'chat', text: '!ban mechant', user: { id: 'm1', name: 'marius', display: 'Marius', mod: true } });
+  await wait();
+  assert.ok(r.engine.blockedEntry('tiktok', { name: 'mechant' }));
+  assert.equal(replies.at(-1), 'Méchant est banni (TikTok, dans Régie).');
+  // On ne vise pas un modo, et un pseudo absent est signalé.
+  r.engine.ingest(tw, { type: 'chat', text: '!ban marius', user: { id: 'own', name: 'moi', display: 'Moi', owner: true } });
+  await wait();
+  assert.equal(replies.at(-1), 'On ne peut pas exclure un modo ni la chaîne.');
+  r.engine.ingest(tw, { type: 'chat', text: '!exclure fantome', user: { id: 'own', name: 'moi', display: 'Moi', owner: true } });
+  await wait();
+  assert.equal(replies.at(-1), 'fantome introuvable dans le chat récent.');
+  // Sans durée : la durée par défaut (10 min).
+  r.engine.ingest(tw, { type: 'chat', text: 'de retour', user: { id: 'u3', name: 'bob', display: 'Bob' } });
+  r.engine.ingest(tw, { type: 'chat', text: '!exclure bob', user: { id: 'm1', name: 'marius', display: 'Marius', mod: true } });
+  await wait();
+  assert.deepEqual(calls.at(-1), ['timeout', 'u3', 600]);
+  // !debannir : débloque partout où le pseudo est bloqué.
+  r.engine.ingest(tw, { type: 'chat', text: '!debannir mechant', user: { id: 'm1', name: 'marius', display: 'Marius', mod: true } });
+  await wait();
+  assert.equal(r.engine.blockedEntry('tiktok', { name: 'mechant' }), null);
+  assert.equal(replies.at(-1), 'Méchant est débloqué (TikTok).');
+  // Commandes renommées ou coupées.
+  r.file.data.moderation.commands = { ...r.file.data.moderation.commands, enabled: false };
+  r.engine.ingest(tw, { type: 'chat', text: '!ban bob', user: { id: 'm1', name: 'marius', display: 'Marius', mod: true } });
+  await wait();
+  assert.notEqual(calls.at(-1)[0], 'ban');
+  r.engine.stop();
+});

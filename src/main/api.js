@@ -59,7 +59,7 @@ function createApi(ctx) {
     timers: s().tools.timers.map((t) => engine.timerView(t)), obs: { ...s().obs, password: '', hasPassword: Boolean(s().obs.password), state: obs.state, detail: obs.detail, streaming: obs.streaming },
     settings: s().settings, keys: keyStatus(), feed: engine.feed.slice(-120), gifts: engine.giftsForApp(), giftCacheAt: s().giftCacheAt || 0, port: server.port, quota: { used: engine.quota().used(), max: DAILY_QUOTA }, inputAvailable: input.available,
     media: listMedia(), admin: license.realRole() === 'admin' && license.isAdmin() ? { draft: s().adminDraft, issued: s().issuedKeys } : null,
-    ranks: s().ranks, rewards: s().rewards, chatPlays: s().chatPlays, plinko: s().plinko, webChat: engine.webchat ? engine.webchat.status() : {}, discord: { ...s().discord, hasHook: Boolean(vault.get('key:discordWebhook')) }, arena: s().arena, boss: s().boss, gaming: s().gaming, sounds: s().sounds, deck: s().deck, clips: s().clips, scenes: s().scenes, keysCfg: s().keys, recapCfg: s().recap, chatTranslate: s().chatTranslate, moderation: engine.moderationState(), hasDeepl: Boolean(vault.get('key:deeplKey')), vpadCfg: { ...(s().vpad || {}), ...(engine.vpad ? engine.vpad.status() : { state: 'off', error: '' }) }, padInputs: PAD_INPUTS, rconPresets: RCON_PRESETS,
+    ranks: s().ranks, rewards: s().rewards, chatPlays: s().chatPlays, plinko: s().plinko, webChat: engine.webchat ? engine.webchat.status() : {}, discord: { ...s().discord, hasHook: Boolean(vault.get('key:discordWebhook')) }, arena: s().arena, boss: s().boss, gaming: s().gaming, sounds: s().sounds, deck: s().deck, clips: s().clips, scenes: s().scenes, keysCfg: s().keys, recapCfg: s().recap, chatTranslate: s().chatTranslate, moderation: engine.moderationState(), modCommands: s().moderation.commands, hasDeepl: Boolean(vault.get('key:deeplKey')), vpadCfg: { ...(s().vpad || {}), ...(engine.vpad ? engine.vpad.status() : { state: 'off', error: '' }) }, padInputs: PAD_INPUTS, rconPresets: RCON_PRESETS,
     session: viewers.giftView(), boards: viewers.boards(10), vars: engine.liveVars(), templates: allTemplates(), themes: THEMES, bosses: BOSSES, keyNames: keyNames(), overlayToken: s().settings.overlayToken,
     gameCatalog: GAMES, statLabels: STAT_LABEL, gameView: engine.gameView(), gameRunning: hub.running, gameLinks: hub.linked, gameLive: engine.gameLive, goalHistory: s().goalHistory, minigame: engine.minigames.view(), minigames: s().minigames,
     padPacks: s().padPacks || [], packParts: PACK_PARTS.map(({ key, label }) => ({ key, label })), packRights: RIGHTS, pads: input.pads(), colorways: COLORWAYS, finishGroups: FINISH_GROUPS, padZones: PAD_ZONES, padZoneNames: PAD_ZONE_NAMES, modules: MODULES, tiers: TIERS, deckLink: server.deckLink(), spotifyHistory: spotify.history,
@@ -479,6 +479,10 @@ function createApi(ctx) {
         server.broadcast({ t: 'prediction', view: demo }, 'prediction');
         setTimeout(() => server.broadcast({ t: 'prediction', view: { ...demo, status: 'done', winner: 0 } }, 'prediction'), 4000);
         setTimeout(() => engine.play.pushPrediction(), 10000);
+      }
+      if (type === 'highlight') {
+        const item = { id: uid('t'), at: Date.now(), platform: 'twitch', text: 'Tu peux expliquer comment tu as passé le boss tout à l\'heure ? J\'ai essayé dix fois 😅', emotes: [], color: '', user: { display: 'Kenza', name: 'kenza', avatar: '', sub: true } };
+        server.broadcast({ t: 'spotlight', item }, 'highlight');
       }
       if (type === 'welcome') {
         const names = ['Kenza', 'Marius', 'Lena'];
@@ -1372,6 +1376,25 @@ function createApi(ctx) {
       return true;
     },
     recapNow() { return engine.buildRecap(); },
+    // Commandes de modo dans le chat (!exclure, !ban, !debannir) : mots et durée par défaut.
+    updateModCommands(patch = {}) {
+      const c = { ...(s().moderation.commands || {}) };
+      if ('enabled' in patch) c.enabled = Boolean(patch.enabled);
+      if ('confirm' in patch) c.confirm = Boolean(patch.confirm);
+      for (const k of ['timeout', 'ban', 'unban']) {
+        if (!(k in patch)) continue;
+        const w = String(patch[k] || '').trim().split(/\s+/)[0].slice(0, 30);
+        if (!w) throw new Error('Une commande ne peut pas être vide.');
+        c[k] = w.startsWith('!') ? w : `!${w}`;
+      }
+      if (new Set([c.timeout, c.ban, c.unban].map((w) => String(w).toLowerCase())).size < 3) throw new Error('Choisis trois commandes différentes.');
+      if ('minutes' in patch) c.minutes = Math.max(1, Math.min(10080, Math.round(Number(patch.minutes) || 10)));
+      s().moderation.commands = c;
+      file.save();
+      return c;
+    },
+    async chatModes() { return engine.chatSettings(); },
+    setChatModes(d) { return engine.setChatSettings(d); },
     updateChatTranslate(patch) { s().chatTranslate = { ...(s().chatTranslate || {}), ...patch }; file.save(); return s().chatTranslate; },
     async testTranslate(text) { const c = s().chatTranslate || {}; const target = !c.target || c.target === 'auto' ? (s().settings.uiLang === 'en' ? 'en' : 'fr') : c.target; const r = await engine.translator.translate(text || (target === 'fr' ? 'Hello everyone, how are you today?' : 'Bonjour tout le monde, ça va ?'), target, c.engine); if (!r) throw new Error('Pas de traduction : vérifie ta connexion ou ta clé.'); return r; },
     simulateLive(on, seconds) { return engine.simulateLive(on, seconds); },

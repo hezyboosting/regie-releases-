@@ -3706,3 +3706,52 @@ Twitch : supprimer, exclure, bannir et débannir se font vraiment sur Twitch. Re
 YouTube (mode API) : supprimer, exclure et bannir sur YouTube. Kick (compte connecté) : exclure, bannir et débannir avec les commandes du chat.	YouTube (API mode): delete, time out and ban on YouTube. Kick (account connected): time out, ban and unban with chat commands.
 TikTok ne laisse aucune appli exclure ou bannir : Régie masque la personne chez toi, et le dock te rappelle de la bannir dans TikTok LIVE Studio.	TikTok doesn't let any app time out or ban: Régie hides the person on your side, and the dock reminds you to ban them in TikTok LIVE Studio.
 Partout, une personne exclue ou bannie disparaît de tes overlays, de la voix, des commandes et des jeux. Ses cadeaux et abonnements comptent toujours. La liste des bloqués (icône en haut du dock) permet de débloquer.	Everywhere, a timed-out or banned person disappears from your overlays, voice, commands and games. Their gifts and subs still count. The blocked list (icon at the top of the dock) lets you unblock.
+Dans le dock, le bouton ⋯ d'un message puis Afficher en live le montre en grand sur ton live, avec la photo et le pseudo. Le style se règle dans Overlays, comme les autres.	In the dock, a message's ⋯ button then Show on stream puts it big on your live, with the photo and username. Its style is set in Overlays, like the others.
+Copier le lien de l'overlay	Copy the overlay link
+Lien de l'overlay copié	Overlay link copied
+Overlay Message à l'écran créé	On-screen message overlay created
+Commandes de modo dans le chat	Mod commands in chat
+Actives	On
+Tes modérateurs (et toi) tapent ces commandes dans n'importe quel chat. Régie cherche le pseudo dans le chat récent de toutes tes plateformes : la personne est bloquée dans Régie, et sanctionnée sur sa plateforme quand c'est possible (pas sur TikTok).	Your moderators (and you) type these commands in any chat. Régie looks for the username in the recent chat of all your platforms: the person is blocked in Régie, and sanctioned on their platform when possible (not on TikTok).
+Exclure	Time out
+Bannir	Ban
+Débloquer	Unblock
+{0} pseudo 10m (ou 30s, 1h, 1j)	{0} username 10m (or 30s, 1h, 1d)
+{0} pseudo	{0} username
+Exclusion sans durée (minutes)	Timeout with no duration (minutes)
+Confirmer dans le chat	Confirm in chat
+Ajoute l'overlay « Message à l'écran » (Overlays) et mets son lien dans OBS.	Add the "On-screen message" overlay (Overlays) and put its link in OBS.
+L'overlay « Message à l'écran » n'est ouvert nulle part : mets son lien dans OBS.	The "On-screen message" overlay isn't open anywhere: put its link in OBS.
+Cette chaîne ne permet pas de régler le chat depuis Régie.	This channel doesn't let Régie change chat settings.
+Cette chaîne ne permet pas de vider le chat depuis Régie.	This channel doesn't let Régie clear the chat.
+Rien à changer.	Nothing to change.
+Écris le pseudo : {cmd} pseudo	Write the username: {cmd} username
+{user} est débloqué ({where}).	{user} is unblocked ({where}).
+{user} est débanni sur {where}.	{user} is unbanned on {where}.
+{user} n'est pas bloqué.	{user} isn't blocked.
+{user} introuvable dans le chat récent.	{user} not found in recent chat.
+On ne peut pas exclure un modo ni la chaîne.	You can't time out a mod or the channel.
+{user} est exclu {dur} ({where}).	{user} is timed out for {dur} ({where}).
+{user} est banni ({where}).	{user} is banned ({where}).
+{where}, dans Régie	{where}, in Régie
+Reconnecte ta chaîne Twitch (Connexions) pour régler le chat depuis Régie.	Reconnect your Twitch channel (Connections) to change chat settings from Régie.
+Pseudo Twitch introuvable.	Twitch username not found.
+Une commande ne peut pas être vide.	A command can't be empty.
+Choisis trois commandes différentes.	Pick three different commands.
+Le message que tu choisis dans le chat unifié (bouton ⋯, Afficher en live) s'affiche en grand, avec la photo et le pseudo.	The message you pick in the unified chat (⋯ button, Show on stream) shows up big, with the photo and username.
+Combien de temps	How long
+Part tout seul	Leaves on its own
+Reste jusqu'à ce que tu le retires	Stays until you remove it
+Titre au-dessus du pseudo	Title above the username
+Vide pour ne rien mettre. Exemple : Question du chat	Leave empty for none. Example: Chat question
+Afficher la photo	Show the photo
+Badge (modo, VIP, abonné)	Badge (mod, VIP, subscriber)
+Afficher la traduction quand il y en a une	Show the translation when there is one
+Lignes du message (au plus)	Message lines (at most)
+Glisse du bas	Slides up
+Bandeau bas d'écran	Lower third
+Fiche spectateur, message à l'écran, réglages du chat et commandes de modo	Viewer profile, on-screen message, chat settings and mod commands
+Clique sur un pseudo dans le chat multi : sa fiche montre ses messages, pièces, cadeaux et likes (ce live et au total), ses points, combien de jours il est venu, ses derniers messages, ses sanctions passées et ta note perso.	Click a username in the multichat: their profile shows their messages, coins, gifts and likes (this live and all time), their points, how many days they came, their latest messages, past sanctions and your personal note.
+Afficher en live (bouton ⋯ d'un message) : le message s'affiche en grand sur ton live dans le nouvel overlay Message à l'écran, avec la photo et le pseudo. Il part tout seul ou reste jusqu'à ce que tu le retires.	Show on stream (a message's ⋯ button): the message shows up big on your live in the new On-screen message overlay, with the photo and username. It leaves on its own or stays until you remove it.
+Réglages du chat dans le dock : mode lent, followers seulement, abonnés seulement, émotes seulement, messages uniques et vider le chat, sur Twitch et Kick. Sur Twitch, reconnecte ta chaîne une fois pour donner la permission.	Chat settings in the dock: slow mode, followers only, subscribers only, emotes only, unique messages and clear chat, on Twitch and Kick. On Twitch, reconnect your channel once to grant the permission.
+Commandes de modo : tes modos tapent !exclure pseudo 10m, !ban pseudo ou !debannir pseudo dans n'importe quel chat. Un modo Twitch peut ainsi faire disparaître un troll TikTok. Les mots se changent dans la page Chat.	Mod commands: your mods type !exclure username 10m, !ban username or !debannir username in any chat. A Twitch mod can make a TikTok troll disappear this way. The words can be changed on the Chat page.

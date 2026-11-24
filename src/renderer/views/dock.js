@@ -1,6 +1,6 @@
 // Chat unifié : le même chat dans un dock OBS, une fenêtre flottante ou un navigateur.
-import { html, useState, useEffect, act, copy, toast } from '../store.js';
-import { ICONS, Btn, Bay, PageHead } from '../ui.js';
+import { html, useState, useEffect, act, copy, toast, setState, reload } from '../store.js';
+import { ICONS, Btn, Bay, PageHead, Field, Lazy, Num, Lamp } from '../ui.js';
 import { TranslateBay } from './interactive.js';
 
 export function DockView({ s }) {
@@ -28,8 +28,41 @@ export function DockView({ s }) {
         <${Bay} title="Sur un autre écran">
           <p class="note">Le lien marche aussi dans un navigateur sur ce PC. Garde-le pour toi : il donne accès à ton chat.</p>
         <//>
+        <${SpotBay} s=${s} />
+        <${ModBay} s=${s} />
         <${TranslateBay} s=${s} />
       </div>
     </div>
   </div>`;
+}
+
+// Message à l'écran : le bouton ⋯ › Afficher en live du dock l'envoie dans cet overlay.
+function SpotBay({ s }) {
+  const o = s.overlays.find((x) => x.type === 'highlight');
+  return html`<${Bay} title="Message à l'écran">
+    <p class="note">Dans le dock, le bouton ⋯ d'un message puis Afficher en live le montre en grand sur ton live, avec la photo et le pseudo. Le style se règle dans Overlays, comme les autres.</p>
+    <div class="row tight">
+      ${o ? html`<${Btn} icon=${ICONS.copy} onClick=${() => copy(o.link, 'Lien de l\'overlay copié')}>Copier le lien de l'overlay<//>
+        <${Btn} onClick=${() => act('testOverlay', 'highlight')}>Tester<//>`
+    : html`<${Btn} kind="primary" onClick=${async () => { if (await act('addOverlay', 'highlight')) { await reload(); toast('Overlay Message à l\'écran créé'); } }}>Créer l'overlay<//>`}
+    </div>
+  <//>`;
+}
+
+// Commandes de modo : tes modos excluent ou bannissent depuis n'importe quel chat, TikTok compris.
+function ModBay({ s }) {
+  const c = s.modCommands || {};
+  const save = async (patch) => { const r = await act('updateModCommands', patch); if (r) setState({ modCommands: r }); };
+  return html`<${Bay} title="Commandes de modo dans le chat" aside=${html`<${Lamp} on=${c.enabled !== false} label="Actives" onChange=${(enabled) => save({ enabled })} />`}>
+    <p class="note">Tes modérateurs (et toi) tapent ces commandes dans n'importe quel chat. Régie cherche le pseudo dans le chat récent de toutes tes plateformes : la personne est bloquée dans Régie, et sanctionnée sur sa plateforme quand c'est possible (pas sur TikTok).</p>
+    <div class="form-grid">
+      <${Field} label="Exclure" hint=${`${c.timeout || '!exclure'} pseudo 10m (ou 30s, 1h, 1j)`}><${Lazy} value=${c.timeout || '!exclure'} onSave=${(timeout) => save({ timeout })} /><//>
+      <${Field} label="Bannir" hint=${`${c.ban || '!ban'} pseudo`}><${Lazy} value=${c.ban || '!ban'} onSave=${(ban) => save({ ban })} /><//>
+      <${Field} label="Débloquer" hint=${`${c.unban || '!debannir'} pseudo`}><${Lazy} value=${c.unban || '!debannir'} onSave=${(unban) => save({ unban })} /><//>
+      <${Field} label="Exclusion sans durée (minutes)"><${Num} value=${c.minutes || 10} min=${1} max=${10080} onSave=${(minutes) => save({ minutes })} /><//>
+    </div>
+    <div class="row wrap tight">
+      <${Lamp} on=${c.confirm !== false} label="Confirmer dans le chat" onChange=${(confirm) => save({ confirm })} />
+    </div>
+  <//>`;
 }

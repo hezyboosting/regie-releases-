@@ -84,6 +84,21 @@ class KickConnector extends EventEmitter {
     await this.send(cmd);
   }
 
+  // Réglages du chat par les commandes de Kick. Kick ne dit pas l'état actuel : Régie retient ce qu'il a réglé.
+  chatCaps() { return this.canSend() ? { slow: true, followers: true, subs: true, emotes: true, clear: true, state: false } : null; }
+
+  async setChat(p) {
+    this.chatModes = this.chatModes || {};
+    if ('slow' in p) await this.send(p.slow > 0 ? `/slow on ${p.slow}` : '/slow off');
+    if ('followers' in p) await this.send(p.followers >= 0 ? `/followonly on ${p.followers}` : '/followonly off');
+    if ('subs' in p) await this.send(`/subonly ${p.subs ? 'on' : 'off'}`);
+    if ('emotes' in p) await this.send(`/emoteonly ${p.emotes ? 'on' : 'off'}`);
+    Object.assign(this.chatModes, p);
+    return { ...this.chatModes };
+  }
+
+  async clearChat() { await this.send('/clear'); }
+
   async send(text) {
     if (!this.canSend()) throw new Error('Pour écrire sur Kick, connecte ton compte dans Régie : Connexions › Écrire dans le chat.');
     await this.webchat.send('kick', String(this.account.username || '').replace(/^@/, ''), text);

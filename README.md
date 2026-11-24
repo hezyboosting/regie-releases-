@@ -66,6 +66,14 @@ Sur la plateforme :
 - Kick : commandes `/timeout` (en minutes), `/ban` et `/unban` envoyées avec le compte connecté. Pas de suppression de message.
 - TikTok : aucune API ne permet d'exclure ou de bannir. Le blocage reste dans Régie, et le dock rappelle de le faire dans TikTok LIVE Studio ou l'appli.
 
+Fiche spectateur : un clic sur un pseudo appelle `POST /dock/viewer` (`engine.viewerCard`, avec `viewers.find`) : cumul et session, jours de présence sur les 62 jours gardés, derniers messages, historique des sanctions (`moderation.history`, 500 entrées) et note (`moderation.notes`, `POST /dock/note`).
+
+Message à l'écran : `POST /dock/spotlight` (`{id}` ou `{clear:true}`) envoie `{t:'spotlight', item}` à l'overlay `highlight`. `engine.spotView()` rend le message en cours tant que la durée de l'overlay n'est pas passée (mode `fixe` : jusqu'au retrait), pour un overlay rechargé. Un message masqué quitte aussi l'écran.
+
+Réglages du chat : `POST /dock/chatsettings` et `POST /dock/chatset` (`{accountId, patch:{slow, followers, subs, emotes, unique}}` ou `{clear:true}`). Twitch passe par `/chat/settings` (scope `moderator:manage:chat_settings`), Kick par `/slow on N`, `/followonly on N`, `/subonly`, `/emoteonly` et `/clear` ; Kick ne donne pas l'état, Régie garde ce qu'il a réglé.
+
+Commandes de modo (`moderation.commands`, page Chat) : `!exclure pseudo [30s|10m|1h|1j]`, `!ban pseudo`, `!debannir pseudo`, réservées aux modos et à la chaîne. Le pseudo est cherché dans le chat récent, sur la plateforme du modo puis sur les autres ; un modo ou la chaîne ne peuvent pas être visés. La confirmation part dans le chat d'origine.
+
 Routes du dock : `POST /dock/mod` (`{action: hide|delete|timeout|ban, id, seconds}`) et `POST /dock/unblock` (`{platform, id, name}`). Les overlays reçoivent `{t:'evdel', ids}` pour retirer les messages masqués.
 
 ## Images de rang et manette

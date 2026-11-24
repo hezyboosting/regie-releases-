@@ -100,6 +100,22 @@ class Viewers {
     if (!s.topStreak || count > s.topStreak.count) s.topStreak = { user, avatar: avatar || '', platform, name, image, count };
   }
 
+  // Fiche spectateur : cumul, session, et jours où la personne est venue (62 derniers jours gardés).
+  find(platform, id = '', name = '', display = '') {
+    const lname = String(name || '').toLowerCase();
+    const ldisp = String(display || '').toLowerCase();
+    const keys = [id && `${platform}:${id}`, lname && `${platform}:${lname}`].filter(Boolean);
+    const pick = (box) => {
+      for (const k of keys) if (box[k]) return box[k];
+      return Object.values(box).find((r) => r.platform === platform && [lname, ldisp].filter(Boolean).includes(String(r.name || '').toLowerCase())) || null;
+    };
+    const life = pick(this.file.data.list);
+    const session = pick(this.session.viewers);
+    const key = life?.key || session?.key || keys[0] || '';
+    const days = Object.keys(this.file.data.days).filter((d) => key && this.file.data.days[d][key]).sort();
+    return { life, session, key, days: days.length, lastDay: days[days.length - 1] || '' };
+  }
+
   points(ev) { return Math.floor(this.file.data.list[Viewers.key(ev)]?.points ?? this.session.viewers[Viewers.key(ev)]?.points ?? 0); }
 
   spend(ev, cost) {

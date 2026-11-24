@@ -76,14 +76,17 @@ class OverlayServer {
     if (url.searchParams.get('k') !== this.token) return this.send(res, 403, 'Lien invalide. Copie à nouveau le lien depuis Régie.');
     if (p === '/dock' && req.method === 'GET') return this.sendFile(res, this.overlaysDir, 'dock.html', req);
     if (p === '/dock/state' && req.method === 'GET') return this.send(res, 200, JSON.stringify(this.dock.state()), 'application/json');
-    // Modération depuis le chat unifié : masquer, supprimer, exclure, bannir, débloquer.
-    if ((p === '/dock/mod' || p === '/dock/unblock') && req.method === 'POST') {
+    // Actions du chat unifié : modération, fiche spectateur, note, message à l'écran, réglages du chat.
+    const DOCK_POST = { '/dock/mod': 'moderate', '/dock/unblock': 'unblock', '/dock/viewer': 'viewer', '/dock/note': 'note', '/dock/spotlight': 'spotlight', '/dock/chatsettings': 'chatSettings', '/dock/chatset': 'setChat' };
+    if (DOCK_POST[p] && req.method === 'POST') {
       let body = '';
       req.on('data', (d) => { if (body.length < 4000) body += d; });
       req.on('end', async () => {
         try {
-          const d = JSON.parse(body);
-          const r = p === '/dock/mod' ? await this.dock.moderate(d) : await this.dock.unblock(d);
+          const d = JSON.parse(body || '{}');
+          const fn = this.dock[DOCK_POST[p]];
+          if (!fn) throw new Error('Introuvable');
+          const r = await fn(d);
           this.send(res, 200, JSON.stringify({ ok: true, ...r }), 'application/json');
         } catch (e) { this.send(res, 200, JSON.stringify({ ok: false, error: e.message }), 'application/json'); }
       });

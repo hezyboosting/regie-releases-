@@ -14,9 +14,9 @@ button, input, select { font: inherit; color: inherit; }
 button { border: 0; background: none; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--ice); outline-offset: 1px; }
 header { display: flex; align-items: center; gap: 4px; padding: 7px 8px; flex: none; }
-.tabs { flex: 1; min-width: 0; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.tabs { flex: 1; min-width: 0; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent); }
 .tools { flex: none; display: flex; gap: 2px; }
-.tab { flex: none; height: 28px; padding: 0 11px; border-radius: 14px; color: var(--mute); font-size: 12.5px; }
+.tab { flex: none; height: 28px; padding: 0 9px; border-radius: 14px; color: var(--mute); font-size: 12.5px; }
 .tab:hover { color: var(--text); } .tab.on { background: var(--s2); color: var(--text); box-shadow: inset 0 1px 0 rgba(255,255,255,.12); }
 .tool { flex: none; width: 28px; height: 28px; border-radius: 50%; color: var(--mute); font-size: 12px; } .tool:hover { background: var(--s1); color: var(--text); } .tool.on { color: var(--ice); }
 #feed { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 8px 8px; display: flex; flex-direction: column; gap: 1px; user-select: text; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.15) transparent; }
@@ -49,11 +49,41 @@ footer { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8
 .modbar .danger { background: rgba(255,77,94,.16); color: #FF9AA8; } .modbar .danger.sure { background: var(--red); color: #fff; }
 .modnote { flex-basis: 100%; margin-top: 2px; color: var(--faint); font-size: 11.5px; line-height: 1.35; }
 #status { flex: none; margin: 0 8px 6px; padding: 6px 10px; border-radius: 10px; background: rgba(62,220,142,.12); color: #A8F0C9; font-size: 12px; line-height: 1.35; } #status.warn { background: rgba(255,178,36,.13); color: #F5D58A; } #status:empty { display: none; }
-#blocked { position: absolute; inset: 44px 8px auto 8px; max-height: 60%; overflow-y: auto; z-index: 5; padding: 10px; border-radius: 12px; background: #26282E; box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 18px 40px rgba(0,0,0,.5); }
-#blocked h2 { margin: 0 0 8px; font-size: 13px; font-weight: 700; } #blocked p { margin: 0; color: var(--faint); font-size: 12px; }
+#sheet { position: absolute; inset: 44px 8px auto 8px; max-height: calc(100% - 130px); overflow-y: auto; z-index: 5; padding: 10px 12px 12px; border-radius: 12px; background: #26282E; box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 18px 40px rgba(0,0,0,.5); scrollbar-width: thin; }
+#sheet h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 13px; font-weight: 700; } #sheet p { margin: 0; color: var(--faint); font-size: 12px; line-height: 1.4; }
+.x { flex: none; margin-left: auto; width: 26px; height: 26px; border-radius: 50%; color: var(--mute); font-size: 17px; line-height: 1; } .x:hover { background: var(--s2); color: var(--text); }
 .bl { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid rgba(255,255,255,.06); font-size: 12.5px; } .bl:first-of-type { border-top: 0; }
 .bl .p { width: 7px; height: 7px; border-radius: 50%; flex: none; } .bl span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .bl small { color: var(--faint); }
 .bl button { flex: none; height: 24px; padding: 0 9px; border-radius: 7px; background: var(--s2); font-size: 12px; font-weight: 600; }
+.bl .nm { flex: 1; min-width: 0; height: auto; padding: 0; background: none; text-align: left; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .bl .nm:hover { text-decoration: underline; }
+/* Fiche spectateur */
+.vc-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.vc-av { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: none; background: var(--s2); display: grid; place-items: center; font-size: 18px; font-weight: 800; }
+.vc-id { min-width: 0; flex: 1; } .vc-name { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--mute); font-size: 12px; } .vc-sub i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; }
+.vc-role { padding: 0 6px; border-radius: 5px; background: var(--s2); color: var(--text); font-size: 11px; font-weight: 700; }
+.vc-stats { display: grid; grid-template-columns: auto repeat(4, minmax(0, 1fr)); gap: 3px 10px; padding: 8px 10px; border-radius: 10px; background: var(--s1); font-size: 12px; }
+.vc-stats span { color: var(--faint); } .vc-stats b { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; } .vc-stats .hd { color: var(--faint); font-size: 11px; text-align: right; }
+.vc-line { margin: 6px 0 0; color: var(--mute); font-size: 12px; line-height: 1.45; }
+.vc-warn { margin: 8px 0 0; padding: 5px 9px; border-radius: 8px; background: rgba(255,77,94,.14); color: #FFB3BD; font-size: 12px; }
+.vc h3 { margin: 12px 0 4px; color: var(--faint); font-size: 11.5px; font-weight: 600; }
+.vc-msg { padding: 2px 0; font-size: 12.5px; overflow-wrap: anywhere; } .vc-msg time { margin-right: 6px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.vc textarea { display: block; width: 100%; min-height: 46px; resize: vertical; padding: 6px 9px; border: 0; border-radius: 8px; background: var(--s1); color: var(--text); font: inherit; font-size: 12.5px; outline: 0; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); } .vc textarea:focus { box-shadow: inset 0 0 0 1.5px var(--ice); }
+.vc .modbar { margin-top: 12px; }
+.modbar .live { background: var(--ice); color: #211700; } .modbar .live:hover { background: #FFC24F; }
+/* Réglages du chat */
+.cs-ch { padding: 8px 0 4px; border-top: 1px solid rgba(255,255,255,.07); } .cs-ch:first-of-type { border-top: 0; padding-top: 0; }
+.cs-ch h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font-size: 12.5px; font-weight: 700; } .cs-ch h3 i { width: 7px; height: 7px; border-radius: 50%; }
+.cs-row { display: flex; align-items: center; gap: 10px; min-height: 32px; font-size: 12.5px; } .cs-row > span { flex: 1; min-width: 0; }
+.cs-row select { height: 28px; max-width: 58%; padding: 0 6px; border: 0; border-radius: 8px; background: var(--s2); font-size: 12px; }
+.sw { flex: none; position: relative; width: 36px; height: 20px; border-radius: 10px; background: var(--s2); } .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--mute); transition: transform .15s; }
+.sw[aria-pressed="true"] { background: var(--ice); } .sw[aria-pressed="true"]::after { transform: translateX(16px); background: #211700; }
+.cs-clear { margin-top: 6px; height: 28px; padding: 0 12px; border-radius: 8px; background: rgba(255,77,94,.16); color: #FF9AA8; font-size: 12px; font-weight: 600; } .cs-clear.sure { background: var(--red); color: #fff; }
+.cs-err { color: #FF9AA8 !important; }
+/* Message à l'écran */
+#spot { flex: none; display: flex; align-items: center; gap: 8px; margin: 0 8px 6px; padding: 4px 4px 4px 10px; border-radius: 10px; background: rgba(255,178,36,.13); color: #F5D58A; font-size: 12px; } #spot[hidden] { display: none; }
+#spot span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } #spot b { color: var(--text); font-weight: 700; }
+#spot button { flex: none; height: 26px; padding: 0 10px; border-radius: 7px; background: rgba(255,255,255,.1); color: var(--text); font-size: 12px; font-weight: 600; } #spot button:hover { background: rgba(255,255,255,.16); }
 .tool { position: relative; display: grid; place-items: center; } .tool svg { width: 15px; height: 15px; }
 .tool .n { position: absolute; top: 0; right: -2px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: var(--red, #E5484D); color: #fff; font-size: 9.5px; font-weight: 700; line-height: 14px; text-align: center; }
 </style>
@@ -62,7 +92,8 @@ footer { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8
 <header id="tabs"></header>
 <div id="notice" role="status"></div>
 <div id="status" role="status" aria-live="polite"></div>
-<section id="blocked" hidden aria-label="Spectateurs bloqués"></section>
+<div id="spot" hidden></div>
+<section id="sheet" hidden></section>
 <main id="feed" aria-live="polite"></main>
 <button type="button" id="more" hidden data-i="Nouveaux messages">Nouveaux messages</button>
 <footer>
@@ -90,6 +121,17 @@ const EN = {
   'Spectateurs bloqués': 'Blocked viewers', 'Personne n\'est bloqué.': 'Nobody is blocked.', 'Débloquer': 'Unblock', 'pour toujours': 'forever', 'jusqu\'à': 'until',
   'Message masqué.': 'Message hidden.', 'Message supprimé sur': 'Message deleted on', 'Message masqué ici.': 'Message hidden here.',
   'exclu': 'timed out', 'banni': 'banned', 'sur': 'on', 'dans Régie': 'in Régie', 'débloqué': 'unblocked', 'débanni sur': 'unbanned on',
+  'Afficher en live': 'Show on stream', 'Montrer ce message en grand dans l\'overlay Message à l\'écran': 'Show this message big in the On-screen message overlay', 'à l\'écran.': 'on screen.', 'À l\'écran :': 'On screen:', 'Retirer': 'Remove', 'Fermer': 'Close',
+  'Fiche de': 'Profile of', 'Ce live': 'This live', 'Au total': 'All time', 'Messages': 'Messages', 'Pièces': 'Coins', 'Cadeaux': 'Gifts', 'Likes': 'Likes', 'Points': 'Points', 'niveau': 'level',
+  'Pas encore de statistiques pour cette personne.': 'No stats for this person yet.', 'Venu': 'Came', 'jour': 'day', 'jours': 'days', 'sur les 2 derniers mois': 'over the last 2 months', 'dernière fois le': 'last time on', 'Vu pour la première fois le': 'First seen on',
+  'Derniers messages': 'Latest messages', 'Sanctions': 'Sanctions', 'Note': 'Note', 'Note visible seulement par toi': 'Note only you can see', 'Note enregistrée.': 'Note saved.',
+  'Bloqué dans Régie jusqu\'à': 'Blocked in Régie until', 'Banni dans Régie': 'Banned in Régie', 'Exclu': 'Timed out', 'Banni': 'Banned', 'Débloqué': 'Unblocked', 'par': 'by', 'Exclure 10 min': 'Time out 10 min', 'Abonné': 'Subscriber',
+  'Réglages du chat': 'Chat settings', 'Chargement…': 'Loading…', 'Mode lent': 'Slow mode', 'Followers seulement': 'Followers only', 'Abonnés seulement': 'Subscribers only', 'Émotes seulement': 'Emotes only', 'Messages uniques': 'Unique messages',
+  'Non': 'Off', 'Tous les followers': 'All followers', 'Suivis depuis 10 min': 'Following for 10 min', 'Suivis depuis 1 h': 'Following for 1 h', 'Suivis depuis 1 jour': 'Following for 1 day', 'Suivis depuis 1 semaine': 'Following for 1 week',
+  'Vider le chat': 'Clear chat', 'Confirmer : vider le chat': 'Confirm: clear chat', 'Chat vidé.': 'Chat cleared.', 'Réglage du chat appliqué.': 'Chat setting applied.',
+  'Kick ne dit pas l\'état actuel : Régie affiche ce que tu as réglé ici.': 'Kick doesn\'t report the current state: Régie shows what you set here.',
+  'YouTube et TikTok ne permettent pas de régler le chat depuis une appli.': 'YouTube and TikTok don\'t let apps change chat settings.',
+  'Connecte ta chaîne Twitch ou ton compte Kick (Connexions) pour régler le chat d\'ici.': 'Connect your Twitch channel or Kick account (Connections) to change chat settings here.',
   '1 min': '1 min', '10 min': '10 min', '1 h': '1 h', 'Ses messages ne passent plus chez toi (écran, voix, commandes, jeux).': 'Their messages no longer go through on your side (screen, voice, commands, games).', 'à connecter': 'not connected', 'Connecte une chaîne pour écrire ici': 'Connect a channel to write here', 'Anonyme': 'Anonymous', 'Live': 'Live', 'Modo': 'Mod', 'VIP': 'VIP', 'Abo': 'Sub',
 };
 let lang = 'fr';
@@ -163,7 +205,8 @@ function row(e) {
   const who = document.createElement(isChat ? 'span' : 'b');
   who.className = 'who'; who.textContent = name;
   if (isChat) who.style.color = e.color || COLORS[e.platform] || 'inherit';
-  who.onclick = () => { const t = $('text'); t.value = `@${e.user?.name || name} ${t.value}`; t.focus(); };
+  who.title = t('Fiche de') + ' ' + name;
+  who.onclick = (x) => { x.stopPropagation(); openViewer(e); };
   n.append(who);
   const x = isChat && showTr && e.translation?.text ? e.translation : null;
   if (x && tr.mode === 'replace') {
@@ -204,6 +247,7 @@ function toggleMod(n, e) {
   const bar = document.createElement('div');
   bar.className = 'modbar';
   const btn = (label, fn, cls = '', title = '') => { const b = document.createElement('button'); b.type = 'button'; b.textContent = t(label); if (cls) b.className = cls; if (title) b.title = t(title); b.onclick = (x) => { x.stopPropagation(); fn(b); }; bar.append(b); return b; };
+  btn('Afficher en live', () => spotlight(e), 'live', 'Montrer ce message en grand dans l\'overlay Message à l\'écran');
   btn('Masquer', () => act(e, 'hide'), '', 'Masquer ce message de l\'écran et d\'ici');
   if (caps.delete && e.msgId) btn('Supprimer', () => act(e, 'delete'), '', 'Supprimer aussi le message sur la plateforme');
   const l = document.createElement('span'); l.className = 'lbl'; l.textContent = t('Exclure'); bar.append(l);
@@ -238,7 +282,8 @@ async function act(e, action, seconds) {
   else if (action === 'delete') say(r.native === 'ok' ? `${t('Message supprimé sur')} ${plat}.` : `${t('Message masqué ici.')}${extra}`, r.native !== 'ok');
   else if (action === 'timeout') say(`${who} ${t('exclu')} ${t(dur)} ${where}.${extra}`, r.native !== 'ok');
   else if (action === 'ban') say(`${who} ${t('banni')} ${where}.${extra}`, r.native !== 'ok');
-  state(false);
+  await state(false);
+  if (sheet === 'viewer' && card) refreshViewer();
 }
 // Retire des messages masqués (ici, et à l'écran par Régie).
 function drop(ids) {
@@ -247,33 +292,232 @@ function drop(ids) {
   for (const id of set) $('feed').querySelector(`.m[data-id="${CSS.escape(id)}"]`)?.remove();
   if (openRow && !openRow.isConnected) openRow = null;
 }
-function blockedPanel(show) {
-  const box = $('blocked');
-  if (show === undefined) show = box.hidden;
-  box.hidden = !show;
-  if (!show) return;
+// ---------- Panneau (bloqués, fiche spectateur, réglages du chat) ----------
+let sheet = '';
+let card = null;
+let chatCh = null;
+let spot = null;
+const post = (path, body) => fetch(q(path), { method: 'POST', body: JSON.stringify(body || {}) }).then((x) => x.json()).catch(() => ({ ok: false, error: t('Régie ne répond pas.') }));
+const loc = () => (lang === 'en' ? 'en-GB' : 'fr-FR');
+const fmt = (n) => Number(n || 0).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR');
+const hm = (ts) => new Date(ts).toLocaleTimeString(loc(), { hour: '2-digit', minute: '2-digit' });
+const dayOf = (ts) => new Date(ts).toLocaleDateString(loc(), { day: 'numeric', month: 'short' });
+const mk = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
+const durLabel = (sec) => (sec % 86400 === 0 ? `${sec / 86400} j` : sec % 3600 === 0 ? `${sec / 3600} h` : sec % 60 === 0 ? `${sec / 60} min` : `${sec} s`);
+
+function openSheet(kind) { sheet = kind; renderSheet(); tabs(); }
+function closeSheet() { sheet = ''; card = null; renderSheet(); tabs(); }
+function renderSheet() {
+  const box = $('sheet');
+  box.hidden = !sheet;
   box.textContent = '';
-  const h = document.createElement('h2'); h.textContent = t('Spectateurs bloqués'); box.append(h);
+  box.className = sheet === 'viewer' ? 'vc' : '';
+  if (!sheet) return;
+  box.setAttribute('aria-label', sheet === 'blocked' ? t('Spectateurs bloqués') : sheet === 'chat' ? t('Réglages du chat') : `${t('Fiche de')} ${card?.display || ''}`);
+  if (sheet === 'blocked') blockedSheet(box);
+  else if (sheet === 'viewer') viewerSheet(box);
+  else if (sheet === 'chat') chatSheet(box);
+}
+function sheetHead(box, title) {
+  const h = mk('h2');
+  h.append(mk('span', '', title));
+  const x = mk('button', 'x', '×'); x.type = 'button'; x.setAttribute('aria-label', t('Fermer')); x.onclick = closeSheet;
+  h.append(x);
+  box.append(h);
+}
+
+function blockedSheet(box) {
+  sheetHead(box, t('Spectateurs bloqués'));
   const list = (mod.blocked || []).slice().reverse();
-  if (!list.length) { const p = document.createElement('p'); p.textContent = t('Personne n\'est bloqué.'); box.append(p); return; }
+  if (!list.length) { box.append(mk('p', '', t('Personne n\'est bloqué.'))); return; }
   for (const b of list) {
-    const row = document.createElement('div'); row.className = 'bl';
-    const dot = document.createElement('i'); dot.className = 'p'; dot.style.background = COLORS[b.platform] || '#fff';
-    const name = document.createElement('span'); name.textContent = b.display || b.name;
-    const when = document.createElement('small');
-    when.textContent = b.until ? `${t('jusqu\'à')} ${new Date(b.until).toLocaleTimeString(lang === 'en' ? 'en-GB' : 'fr-FR', { hour: '2-digit', minute: '2-digit' })}` : t('pour toujours');
-    const un = document.createElement('button'); un.type = 'button'; un.textContent = t('Débloquer');
-    un.onclick = async () => {
-      const r = await fetch(q('/dock/unblock'), { method: 'POST', body: JSON.stringify({ platform: b.platform, id: b.id, name: b.name }) }).then((x) => x.json()).catch(() => ({ ok: false, error: t('Régie ne répond pas.') }));
-      if (!r.ok) { say(r.error || '', true); return; }
-      const plat = NAMES[b.platform] || b.platform;
-      say(r.native === 'ok' ? `${b.display || b.name} ${t('débanni sur')} ${plat}.` : `${b.display || b.name} ${t('débloqué')}.${r.native === 'error' ? ` ${plat} : ${r.error}` : ''}`, r.native === 'error');
-      await state(false);
-      blockedPanel(true);
-    };
+    const row = mk('div', 'bl');
+    const dot = mk('i', 'p'); dot.style.background = COLORS[b.platform] || '#fff';
+    const name = mk('button', 'nm', b.display || b.name); name.type = 'button'; name.title = `${t('Fiche de')} ${b.display || b.name}`;
+    name.onclick = () => openViewer({ platform: b.platform, user: { id: b.id, name: b.name, display: b.display } });
+    const when = mk('small', '', b.until ? `${t('jusqu\'à')} ${hm(b.until)}` : t('pour toujours'));
+    const un = mk('button', '', t('Débloquer')); un.type = 'button';
+    un.onclick = () => unblock(b);
     row.append(dot, name, when, un);
     box.append(row);
   }
+}
+async function unblock(b) {
+  const r = await post('/dock/unblock', { platform: b.platform, id: b.id, name: b.name });
+  if (!r.ok) { say(r.error || '', true); return; }
+  const plat = NAMES[b.platform] || b.platform;
+  say(r.native === 'ok' ? `${b.display || b.name} ${t('débanni sur')} ${plat}.` : `${b.display || b.name} ${t('débloqué')}.${r.native === 'error' ? ` ${plat} : ${r.error}` : ''}`, r.native === 'error');
+  await state(false);
+  if (sheet === 'viewer') refreshViewer(); else renderSheet();
+}
+
+// ---------- Fiche spectateur ----------
+async function openViewer(e) {
+  closeMod();
+  const r = await post('/dock/viewer', { platform: e.platform, id: e.user?.id || '', name: e.user?.name || e.user?.display || '' });
+  if (!r.ok) { say(r.error || '', true); return; }
+  card = r.card;
+  openSheet('viewer');
+}
+async function refreshViewer() {
+  if (!card) return;
+  const r = await post('/dock/viewer', { platform: card.platform, id: card.id, name: card.name });
+  if (r.ok && sheet === 'viewer') { card = r.card; renderSheet(); }
+}
+function viewerSheet(box) {
+  const c = card;
+  if (!c) return;
+  const top = mk('div', 'vc-top');
+  let av;
+  if (c.avatar) { av = mk('img', 'vc-av'); av.src = c.avatar; av.alt = ''; av.referrerPolicy = 'no-referrer'; av.onerror = () => av.replaceWith(mk('span', 'vc-av', (c.display || '?').slice(0, 1).toUpperCase())); } else av = mk('span', 'vc-av', (c.display || '?').slice(0, 1).toUpperCase());
+  const id = mk('div', 'vc-id');
+  const nm = mk('div', 'vc-name', c.display || c.name);
+  if (c.color) nm.style.color = c.color;
+  const sub = mk('div', 'vc-sub');
+  const pf = mk('span'); const dot = mk('i'); dot.style.background = COLORS[c.platform] || '#fff'; pf.append(dot, document.createTextNode(NAMES[c.platform] || c.platform));
+  sub.append(pf);
+  for (const [k, label] of [['owner', 'Live'], ['mod', 'Modo'], ['vip', 'VIP'], ['sub', 'Abonné']]) if (c.roles?.[k]) sub.append(mk('span', 'vc-role', t(label)));
+  id.append(nm, sub);
+  const x = mk('button', 'x', '×'); x.type = 'button'; x.setAttribute('aria-label', t('Fermer')); x.onclick = closeSheet;
+  top.append(av, id, x);
+  box.append(top);
+
+  if (c.session || c.life) {
+    const g = mk('div', 'vc-stats');
+    g.append(mk('span'), ...['Messages', 'Pièces', 'Cadeaux', 'Likes'].map((h) => mk('span', 'hd', t(h))));
+    for (const [label, r] of [['Ce live', c.session], ['Au total', c.life]]) {
+      if (!r) continue;
+      g.append(mk('span', '', t(label)), ...['messages', 'coins', 'gifts', 'likes'].map((k) => mk('b', '', fmt(r[k]))));
+    }
+    box.append(g);
+  } else box.append(mk('p', '', t('Pas encore de statistiques pour cette personne.')));
+  const lines = [];
+  if (c.points || c.life) lines.push(`${t('Points')} ${fmt(c.points)} · ${t('niveau')} ${c.level}`);
+  if (c.days) lines.push(`${t('Venu')} ${c.days} ${t(c.days > 1 ? 'jours' : 'jour')} ${t('sur les 2 derniers mois')}${c.lastDay ? `, ${t('dernière fois le')} ${dayOf(`${c.lastDay}T12:00:00`)}` : ''}`);
+  if (c.first) lines.push(`${t('Vu pour la première fois le')} ${new Date(c.first).toLocaleDateString(loc(), { day: 'numeric', month: 'long', year: 'numeric' })}`);
+  for (const l of lines) box.append(mk('p', 'vc-line', l));
+  if (c.blocked) box.append(mk('p', 'vc-warn', c.blocked.until ? `${t('Bloqué dans Régie jusqu\'à')} ${hm(c.blocked.until)}` : t('Banni dans Régie')));
+
+  if (c.recent?.length) {
+    box.append(mk('h3', '', t('Derniers messages')));
+    for (const m of c.recent.slice().reverse()) { const r = mk('div', 'vc-msg'); r.append(mk('time', '', hm(m.ts)), document.createTextNode(m.text)); box.append(r); }
+  }
+  if (c.history?.length) {
+    box.append(mk('h3', '', t('Sanctions')));
+    for (const h of c.history) {
+      const what = h.action === 'timeout' ? `${t('Exclu')} ${durLabel(h.seconds)}` : h.action === 'ban' ? t('Banni') : t('Débloqué');
+      box.append(mk('div', 'vc-msg', `${what} · ${dayOf(h.at)} ${hm(h.at)}${h.by ? ` · ${t('par')} ${h.by}` : ''}`));
+    }
+  }
+  box.append(mk('h3', '', t('Note')));
+  const note = mk('textarea'); note.value = c.note || ''; note.placeholder = t('Note visible seulement par toi'); note.maxLength = 300; note.setAttribute('aria-label', t('Note'));
+  let saved = c.note || '';
+  const save = async () => {
+    if (note.value.trim() === saved) return;
+    const r = await post('/dock/note', { platform: c.platform, id: c.id, name: c.name, note: note.value });
+    if (r.ok) { saved = r.note; c.note = r.note; say(t('Note enregistrée.')); } else say(r.error || '', true);
+  };
+  note.onblur = save;
+  box.append(note);
+
+  const bar = mk('div', 'modbar');
+  const btn = (label, fn, cls = '') => { const b = mk('button', cls, t(label)); b.type = 'button'; b.onclick = () => fn(b); bar.append(b); return b; };
+  btn('Répondre', () => { closeSheet(); const tx = $('text'); tx.value = `@${c.name || c.display} ${tx.value}`; tx.focus(); });
+  const ev = c.lastEventId ? { id: c.lastEventId, platform: c.platform, accountId: '', user: { display: c.display, name: c.name, id: c.id } } : null;
+  if (ev) btn('Afficher en live', () => spotlight(ev), 'live');
+  if (!c.roles?.owner) {
+    if (c.blocked) btn('Débloquer', () => unblock({ platform: c.platform, id: c.id, name: c.name, display: c.display }));
+    else if (ev) {
+      btn('Exclure 10 min', () => act(ev, 'timeout', 600));
+      btn('Bannir', (b) => { if (!b.classList.contains('sure')) { b.classList.add('sure'); b.textContent = t('Confirmer le ban'); return; } act(ev, 'ban'); }, 'danger');
+    }
+  }
+  box.append(bar);
+}
+
+// ---------- Réglages du chat ----------
+const SLOW = [[0, 'Non'], [3, '3 s'], [5, '5 s'], [10, '10 s'], [30, '30 s'], [60, '1 min'], [120, '2 min']];
+const FOLLOW = [[-1, 'Non'], [0, 'Tous les followers'], [10, 'Suivis depuis 10 min'], [60, 'Suivis depuis 1 h'], [1440, 'Suivis depuis 1 jour'], [10080, 'Suivis depuis 1 semaine']];
+async function openChat() {
+  chatCh = null;
+  openSheet('chat');
+  const r = await post('/dock/chatsettings');
+  chatCh = r.ok ? r.channels || [] : [];
+  if (!r.ok) say(r.error || '', true);
+  if (sheet === 'chat') renderSheet();
+}
+function chatSheet(box) {
+  sheetHead(box, t('Réglages du chat'));
+  if (!chatCh) { box.append(mk('p', '', t('Chargement…'))); return; }
+  if (!chatCh.length) box.append(mk('p', '', t('Connecte ta chaîne Twitch ou ton compte Kick (Connexions) pour régler le chat d\'ici.')));
+  for (const ch of chatCh) {
+    const sec = mk('div', 'cs-ch');
+    const h = mk('h3'); const dot = mk('i'); dot.style.background = COLORS[ch.platform] || '#fff';
+    h.append(dot, document.createTextNode(`${NAMES[ch.platform] || ch.platform} : ${ch.label}`));
+    sec.append(h);
+    if (ch.error) sec.append(mk('p', 'cs-err', ch.error));
+    const st = ch.state || {};
+    const select = (label, list, value, key) => {
+      const row = mk('label', 'cs-row'); row.append(mk('span', '', t(label)));
+      const sel = mk('select');
+      const opts = list.slice();
+      if (value !== undefined && !opts.some(([v]) => v === value)) opts.push([value, key === 'slow' ? `${value} s` : `${value} min`]);
+      for (const [v, l] of opts) sel.append(new Option(t(l), String(v)));
+      sel.value = String(value ?? list[0][0]);
+      sel.onchange = () => setChat(ch, { [key]: Number(sel.value) });
+      row.append(sel); sec.append(row);
+    };
+    const toggle = (label, key) => {
+      const row = mk('div', 'cs-row'); const lab = mk('span', '', t(label)); row.append(lab);
+      const b = mk('button', 'sw'); b.type = 'button'; b.setAttribute('aria-pressed', String(Boolean(st[key]))); b.setAttribute('aria-label', t(label));
+      b.onclick = () => setChat(ch, { [key]: !st[key] });
+      row.append(b); sec.append(row);
+    };
+    if (ch.caps.slow) select('Mode lent', SLOW, Number(st.slow) || 0, 'slow');
+    if (ch.caps.followers) select('Followers seulement', FOLLOW, st.followers === undefined ? -1 : Number(st.followers), 'followers');
+    if (ch.caps.subs) toggle('Abonnés seulement', 'subs');
+    if (ch.caps.emotes) toggle('Émotes seulement', 'emotes');
+    if (ch.caps.unique) toggle('Messages uniques', 'unique');
+    if (ch.caps.clear) {
+      const b = mk('button', 'cs-clear', t('Vider le chat')); b.type = 'button';
+      b.onclick = () => { if (!b.classList.contains('sure')) { b.classList.add('sure'); b.textContent = t('Confirmer : vider le chat'); return; } setChat(ch, null, true); };
+      sec.append(b);
+    }
+    if (!ch.caps.state) sec.append(mk('p', '', t('Kick ne dit pas l\'état actuel : Régie affiche ce que tu as réglé ici.')));
+    box.append(sec);
+  }
+  if (targets.some((c) => c.platform === 'youtube' || c.platform === 'tiktok')) { const p = mk('p', '', t('YouTube et TikTok ne permettent pas de régler le chat depuis une appli.')); p.style.marginTop = '8px'; box.append(p); }
+}
+async function setChat(ch, patch, clear = false) {
+  const r = await post('/dock/chatset', { accountId: ch.accountId, patch: patch || {}, clear });
+  if (!r.ok) { say(r.error || '', true); renderSheet(); return; }
+  if (r.state) { ch.state = r.state; ch.error = ''; }
+  say(t(clear ? 'Chat vidé.' : 'Réglage du chat appliqué.'));
+  if (sheet === 'chat') renderSheet();
+}
+
+// ---------- Message à l'écran ----------
+async function spotlight(e) {
+  closeMod();
+  const r = await post('/dock/spotlight', { id: e.id });
+  if (!r.ok) { say(r.error || '', true); return; }
+  spot = r.spot;
+  spotBar();
+  if (r.warn) say(r.warn, true); else say(`${e.user?.display || e.user?.name || ''} ${t('à l\'écran.')}`);
+}
+function spotBar() {
+  const b = $('spot');
+  clearTimeout(spotBar.t);
+  if (spot && spot.until && spot.until <= Date.now()) spot = null;
+  b.hidden = !spot;
+  b.textContent = '';
+  if (!spot) return;
+  const txt = mk('span');
+  txt.append(document.createTextNode(`${t('À l\'écran :')} `), mk('b', '', spot.user?.display || ''), document.createTextNode(` ${spot.text || ''}`));
+  const x = mk('button', '', t('Retirer')); x.type = 'button';
+  x.onclick = async () => { const r = await post('/dock/spotlight', { clear: true }); if (!r.ok) { say(r.error || '', true); return; } spot = null; spotBar(); };
+  b.append(txt, x);
+  if (spot.until) spotBar.t = setTimeout(spotBar, spot.until - Date.now() + 50);
 }
 const showable = (e) => (e.type === 'chat' || (events && TEXT[e.type])) && (filter === 'all' || e.platform === filter);
 
@@ -332,8 +576,10 @@ function tabs() {
   const tool = (txt, label, on, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = `tool${on ? ' on' : ''}`; b.textContent = txt; b.title = label; b.setAttribute('aria-label', label); b.onclick = fn; box.append(b); };
   tool(lang === 'en' ? 'E' : 'É', t(events ? 'Masquer les événements' : 'Afficher les événements'), events, () => { events = !events; try { localStorage.setItem('dockEvents', events ? '1' : '0'); } catch { /* facultatif */ } tabs(); redraw(); });
   if (tr.enabled) tool('文', t(showTr ? 'Masquer les traductions' : 'Afficher les traductions'), showTr, () => { showTr = !showTr; try { localStorage.setItem('dockTr', showTr ? '1' : '0'); } catch { /* facultatif */ } tabs(); redraw(); });
+  tool('', t('Réglages du chat'), sheet === 'chat', () => { if (sheet === 'chat') closeSheet(); else openChat(); });
+  box.lastChild.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4.5h6M12 4.5h1.5M2.5 11.5H4M7.5 11.5h6"/><circle cx="10.2" cy="4.5" r="1.7"/><circle cx="5.8" cy="11.5" r="1.7"/></svg>';
   const nb = (mod.blocked || []).length;
-  tool('', t('Spectateurs bloqués') + (nb ? ` (${nb})` : ''), !$('blocked').hidden, () => { blockedPanel(); tabs(); });
+  tool('', t('Spectateurs bloqués') + (nb ? ` (${nb})` : ''), sheet === 'blocked', () => { if (sheet === 'blocked') closeSheet(); else openSheet('blocked'); });
   const bb = box.lastChild; bb.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M3.7 12.3l8.6-8.6"/></svg>';
   if (nb) { const n = document.createElement('span'); n.className = 'n'; n.textContent = nb > 99 ? '99+' : String(nb); bb.append(n); }
   tool('A−', t('Réduire le texte'), false, () => zoom(-1));
@@ -375,7 +621,8 @@ async function state(first) {
     if (d.tr) tr = d.tr;
     if (first || relang) staticLabels();
     $('notice').textContent = d.notice ? t(d.notice) : '';
-    if (d.mod) { mod = d.mod; if (!$('blocked').hidden) blockedPanel(true); }
+    if (d.mod) { mod = d.mod; if (sheet === 'blocked') renderSheet(); }
+    if ('spot' in d && (d.spot?.id !== spot?.id || !d.spot)) { spot = d.spot; spotBar(); }
     // Rattrapage : les messages que Régie a reçus mais que le dock n'a pas eus (coupure de quelques
     // secondes, OBS qui recharge le dock) sont remis à leur place, dans l'ordre.
     const have = new Set(items.map((e) => e.id));
@@ -397,7 +644,7 @@ function connect() {
 
 $('feed').addEventListener('scroll', () => { if (stuck()) $('more').hidden = true; });
 $('more').onclick = toEnd;
-addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMod(); if (!$('blocked').hidden) { blockedPanel(false); tabs(); } } });
+addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMod(); if (sheet) closeSheet(); } });
 $('form').onsubmit = async (e) => {
   e.preventDefault();
   const box = $('text');
