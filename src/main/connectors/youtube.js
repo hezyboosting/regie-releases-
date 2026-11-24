@@ -60,7 +60,7 @@ function normalizeApi(item) {
   };
   const micros = (d) => (Number(d?.amountMicros) || 0) / 1e6;
   switch (s.type) {
-    case 'textMessageEvent': return { type: 'chat', user, text: s.textMessageDetails?.messageText ?? s.displayMessage ?? '' };
+    case 'textMessageEvent': return { type: 'chat', user, msgId: item.id || '', text: s.textMessageDetails?.messageText ?? s.displayMessage ?? '' };
     case 'superChatEvent': return { type: 'superchat', user, value: micros(s.superChatDetails), currency: s.superChatDetails?.currency, money: s.superChatDetails?.amountDisplayString, text: s.superChatDetails?.userComment || '' };
     case 'superStickerEvent': return { type: 'supersticker', user, value: micros(s.superStickerDetails), currency: s.superStickerDetails?.currency, money: s.superStickerDetails?.amountDisplayString };
     case 'newSponsorEvent': return { type: 'member', user, tier: s.newSponsorDetails?.memberLevelName || '' };
@@ -323,6 +323,29 @@ class YouTubeConnector extends EventEmitter {
   }
 
   canSend() { return this.mode === 'api'; }
+
+  // Modération par l'API officielle (mode API seulement) : supprimer, exclure, bannir, débannir.
+  modCaps() { return this.mode === 'api' ? { delete: true, timeout: true, ban: true, unban: true } : {}; }
+
+  modReason() { return 'Connecte YouTube avec Google (mode API, dans Connexions) pour modérer.'; }
+
+  async moderate(action, { userId, msgId, seconds }) {
+    if (this.mode !== 'api') throw new Error(this.modReason());
+    if (!this.chatId) throw new Error('Aucun live YouTube actif.');
+    this.bans = this.bans || new Map();
+    if (action === 'delete') { await this.call(`/liveChat/messages?id=${encodeURIComponent(msgId)}`, 50, { method: 'DELETE' }); return; }
+    if (action === 'unban') {
+      const banId = this.bans.get(userId);
+      if (!banId) throw new Error('Ce spectateur n\'a pas été banni depuis Régie pendant ce live : débannis-le dans YouTube Studio.');
+      await this.call(`/liveChat/bans?id=${encodeURIComponent(banId)}`, 50, { method: 'DELETE' });
+      this.bans.delete(userId);
+      return;
+    }
+    const snippet = { liveChatId: this.chatId, type: action === 'timeout' ? 'temporary' : 'permanent', bannedUserDetails: { channelId: userId } };
+    if (action === 'timeout') snippet.banDurationSeconds = Math.max(10, Math.round(seconds || 600));
+    const d = await this.call('/liveChat/bans?part=snippet', 50, { method: 'POST', body: JSON.stringify({ snippet }) });
+    if (d.id) this.bans.set(userId, d.id);
+  }
 
   sendHint() { return this.canSend() ? '' : 'Le chat public se lit sans compte, mais pour écrire, connecte-toi avec Google dans Connexions.'; }
 

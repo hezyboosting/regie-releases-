@@ -797,3 +797,94 @@ test('Disposition libre sur tous les overlays : relevé, réglages par élément
   assert.doesNotMatch(cam.split('\n')[0], /position: relative|width: 100px/, 'le cadre webcam garde sa place et sa taille');
   engine.stop();
 });
+
+test('modération : masquer, exclure, bannir, débloquer, et ce que fait la plateforme', async () => {
+  const r = rig();
+  const calls = [];
+  const acc = { id: 'a', platform: 'twitch', label: 'Ch' };
+  r.engine.connectors.set('a', { ...fakeConn(() => {}), modCaps: () => ({ delete: true, timeout: true, ban: true, unban: true }), modReason: () => '', moderate: async (act, w) => calls.push([act, w.userId, w.msgId, w.seconds]) });
+  r.engine.connectors.set('t', { ...fakeConn(() => {}), modCaps: () => ({}), modReason: () => 'TikTok ne laisse pas les applis exclure.' });
+  r.engine.ingest(acc, { type: 'chat', text: 'salut', msgId: 'm1', user: { id: 'u1', name: 'lena', display: 'Lena' } });
+  r.engine.ingest(acc, { type: 'chat', text: 'spam', msgId: 'm2', user: { id: 'u2', name: 'troll', display: 'Troll' } });
+  r.engine.ingest(acc, { type: 'chat', text: 'spam encore', msgId: 'm3', user: { id: 'u2', name: 'troll', display: 'Troll' } });
+  const [m1, m2] = r.engine.mainFeed;
+  // Masquer : le message disparaît de l'écran et du chat unifié, rien n'est envoyé à Twitch.
+  let out = await r.engine.moderate({ action: 'hide', id: m1.id });
+  assert.equal(out.native, 'none');
+  assert.ok(r.sent.some((x) => x.m.t === 'evdel' && x.m.ids.includes(m1.id) && x.t.includes('chat') && x.t.includes('dock')));
+  assert.ok(!r.engine.mainFeed.some((e) => e.id === m1.id));
+  // Exclure 10 min : Twitch exclut, Régie bloque et retire ses deux messages.
+  out = await r.engine.moderate({ action: 'timeout', id: m2.id, seconds: 600 });
+  assert.equal(out.native, 'ok');
+  assert.deepEqual(calls.at(-1), ['timeout', 'u2', 'm2', 600]);
+  assert.equal(r.engine.mainFeed.filter((e) => e.user.id === 'u2').length, 0);
+  assert.ok(r.file.data.moderation.blocked[0].until > Date.now());
+  // Ses nouveaux messages ne passent plus, ses cadeaux si.
+  const before = r.engine.mainFeed.length;
+  r.engine.ingest(acc, { type: 'chat', text: 're', user: { id: 'u2', name: 'troll', display: 'Troll' } });
+  assert.equal(r.engine.mainFeed.length, before);
+  r.engine.ingest(acc, { type: 'bits', amount: 100, user: { id: 'u2', name: 'troll', display: 'Troll' } });
+  assert.equal(r.engine.mainFeed.length, before + 1);
+  // Débloquer : retiré de la liste et débanni sur Twitch.
+  const un = await r.engine.unblock({ platform: 'twitch', id: 'u2' });
+  assert.equal(un.native, 'ok');
+  assert.equal(calls.at(-1)[0], 'unban');
+  assert.equal(r.file.data.moderation.blocked.length, 0);
+  // TikTok : bloqué dans Régie, la raison de la plateforme est rendue au chat unifié.
+  r.engine.ingest({ id: 't', platform: 'tiktok', label: 'tt' }, { type: 'chat', text: 'insulte', user: { id: '77', name: 'mechant', display: 'Méchant' } });
+  const tk = r.engine.mainFeed.at(-1);
+  out = await r.engine.moderate({ action: 'ban', id: tk.id });
+  assert.equal(out.native, 'unsupported');
+  assert.match(out.error, /TikTok/);
+  assert.equal(r.file.data.moderation.blocked[0].until, 0, 'bannir = pour toujours');
+  assert.ok(r.engine.blockedEntry('tiktok', { name: 'MECHANT' }), 'le pseudo suffit, sans tenir compte des majuscules');
+  // On ne se modère pas soi-même ; la liste est exposée avec ce que chaque chaîne sait faire.
+  r.engine.ingest(acc, { type: 'chat', text: 'moi', user: { id: 'me', name: 'moi', display: 'Moi', owner: true } });
+  await assert.rejects(r.engine.moderate({ action: 'ban', id: r.engine.mainFeed.at(-1).id }), /propre chaîne/);
+  const st = r.engine.moderationState();
+  assert.equal(st.caps.a.ban, true);
+  assert.match(st.caps.t.reason, /TikTok/);
+  r.engine.stop();
+});
+
+test('modération : connecteurs Twitch, YouTube et Kick', async () => {
+  const { TwitchConnector, normalize, SCOPES } = require('../src/main/connectors/twitch');
+  assert.match(SCOPES, /moderator:manage:banned_users/);
+  assert.match(SCOPES, /moderator:manage:chat_messages/);
+  assert.equal(normalize('channel.chat.message', { message_id: 'abc', chatter_user_id: '1', chatter_user_login: 'a', chatter_user_name: 'A', message: { text: 'x' } }).msgId, 'abc');
+  const tw = Object.create(TwitchConnector.prototype);
+  tw.userId = '99';
+  const reqs = [];
+  tw.helix = async (path, opts = {}) => { reqs.push([opts.method, path, opts.body && JSON.parse(opts.body)]); return {}; };
+  await tw.moderate('timeout', { userId: '5', seconds: 600, reason: '' });
+  await tw.moderate('delete', { msgId: 'm9' });
+  await tw.moderate('unban', { userId: '5' });
+  assert.deepEqual(reqs[0], ['POST', '/moderation/bans?broadcaster_id=99&moderator_id=99', { data: { user_id: '5', reason: '', duration: 600 } }]);
+  assert.deepEqual(reqs[1].slice(0, 2), ['DELETE', '/moderation/chat?broadcaster_id=99&moderator_id=99&message_id=m9']);
+  assert.deepEqual(reqs[2].slice(0, 2), ['DELETE', '/moderation/bans?broadcaster_id=99&moderator_id=99&user_id=5']);
+  tw.helix = async () => { throw new Error('Missing scope: moderator:manage:banned_users'); };
+  await assert.rejects(tw.moderate('ban', { userId: '5' }), /Reconnecte ta chaîne Twitch/);
+
+  const { YouTubeConnector, normalizeApi } = require('../src/main/connectors/youtube');
+  assert.equal(normalizeApi({ id: 'yt1', snippet: { type: 'textMessageEvent', textMessageDetails: { messageText: 'x' } }, authorDetails: { channelId: 'UC1' } }).msgId, 'yt1');
+  const yt = Object.create(YouTubeConnector.prototype);
+  yt.account = { mode: 'api' }; yt.chatId = 'chat1';
+  const yreq = [];
+  yt.call = async (path, cost, opts) => { yreq.push([opts.method, path, opts.body && JSON.parse(opts.body)]); return { id: 'ban1' }; };
+  await yt.moderate('timeout', { userId: 'UC1', seconds: 300 });
+  assert.deepEqual(yreq[0], ['POST', '/liveChat/bans?part=snippet', { snippet: { liveChatId: 'chat1', type: 'temporary', bannedUserDetails: { channelId: 'UC1' }, banDurationSeconds: 300 } }]);
+  await yt.moderate('unban', { userId: 'UC1' });
+  assert.deepEqual(yreq[1].slice(0, 2), ['DELETE', '/liveChat/bans?id=ban1']);
+  yt.account = { mode: 'simple' };
+  assert.deepEqual(yt.modCaps(), {});
+
+  const { KickConnector, normalize: kn } = require('../src/main/connectors/kick');
+  assert.equal(kn('App\\Events\\ChatMessageEvent', { id: 'k1', content: 'x', sender: { id: 3, username: 'Troll', slug: 'troll' } }).msgId, 'k1');
+  const typed = [];
+  const kick = new KickConnector({ username: 'moi' }, { webchat: { logged: { kick: true }, send: async (site, user, text) => typed.push(text) } });
+  await kick.moderate('timeout', { display: 'Troll', seconds: 600 });
+  await kick.moderate('ban', { display: 'Troll' });
+  await kick.moderate('unban', { display: 'Troll' });
+  assert.deepEqual(typed, ['/timeout Troll 10', '/ban Troll', '/unban Troll']);
+  assert.equal(kick.modCaps().delete, undefined, 'Kick : pas de suppression de message');
+});

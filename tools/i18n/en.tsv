@@ -3688,3 +3688,21 @@ Beaucoup plus de réglages par élément : fond et dégradé, bordure, arrondi, 
 Ajoute tes formes, textes et images directement dans la carte : ils se répètent sur chaque message ou chaque alerte, et un texte peut reprendre le pseudo de la carte. L'onglet Décor disparaît.	Add your own shapes, text and images right inside the card: they repeat on every message or alert, and a text can reuse the card's username. The Decor tab is gone.
 Nouveau logo	New logo
 Nouvelle icône : une touche de pupitre rétroéclairée, avec le R allumé et le voyant rouge du direct, sur fond transparent. Elle remplace le bouton rouge dans la barre des tâches, l'installateur et en haut du menu.	New icon: a backlit console key with a lit R and the red live light, on a transparent background. It replaces the red button in the taskbar, the installer and at the top of the menu.
+Message introuvable : il est trop ancien.	Message not found: it's too old.
+C'est ta propre chaîne.	That's your own channel.
+Action inconnue.	Unknown action.
+Reconnecte ta chaîne Twitch (Connexions) pour autoriser la modération.	Reconnect your Twitch channel (Connections) to allow moderation.
+Connecte ton compte Twitch (Connexions) pour modérer.	Connect your Twitch account (Connections) to moderate.
+Connecte YouTube avec Google (mode API, dans Connexions) pour modérer.	Connect YouTube with Google (API mode, in Connections) to moderate.
+Aucun live YouTube actif.	No active YouTube live.
+Ce spectateur n'a pas été banni depuis Régie pendant ce live : débannis-le dans YouTube Studio.	This viewer wasn't banned from Régie during this live: unban them in YouTube Studio.
+Kick ne permet pas de supprimer un message depuis Régie.	Kick doesn't let Régie delete a message.
+Connecte ton compte Kick (Connexions › Écrire dans le chat) pour modérer.	Connect your Kick account (Connections › Write in chat) to moderate.
+Pseudo Kick introuvable.	Kick username not found.
+TikTok ne laisse pas les applis exclure ou bannir : fais-le dans TikTok LIVE Studio ou l'appli TikTok. Dans Régie, la personne est masquée partout.	TikTok doesn't let apps time out or ban: do it in TikTok LIVE Studio or the TikTok app. In Régie, the person is hidden everywhere.
+Modère ton chat depuis le chat multi	Moderate your chat from the multichat
+Dans le chat multi (dock OBS, fenêtre flottante, page Chat), le bouton ⋯ d'un message ouvre la modération : masquer, supprimer, exclure 1 min, 10 min ou 1 h, bannir (deux clics pour confirmer), répondre.	In the multichat (OBS dock, floating window, Chat page), a message's ⋯ button opens moderation: hide, delete, time out for 1 min, 10 min or 1 h, ban (two clicks to confirm), reply.
+Twitch : supprimer, exclure, bannir et débannir se font vraiment sur Twitch. Reconnecte ta chaîne une fois dans Connexions pour donner la permission.	Twitch: delete, time out, ban and unban really happen on Twitch. Reconnect your channel once in Connections to grant the permission.
+YouTube (mode API) : supprimer, exclure et bannir sur YouTube. Kick (compte connecté) : exclure, bannir et débannir avec les commandes du chat.	YouTube (API mode): delete, time out and ban on YouTube. Kick (account connected): time out, ban and unban with chat commands.
+TikTok ne laisse aucune appli exclure ou bannir : Régie masque la personne chez toi, et le dock te rappelle de la bannir dans TikTok LIVE Studio.	TikTok doesn't let any app time out or ban: Régie hides the person on your side, and the dock reminds you to ban them in TikTok LIVE Studio.
+Partout, une personne exclue ou bannie disparaît de tes overlays, de la voix, des commandes et des jeux. Ses cadeaux et abonnements comptent toujours. La liste des bloqués (icône en haut du dock) permet de débloquer.	Everywhere, a timed-out or banned person disappears from your overlays, voice, commands and games. Their gifts and subs still count. The blocked list (icon at the top of the dock) lets you unblock.

@@ -37,6 +37,9 @@ function duration(ms) {
   return h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`;
 }
 
+// Ce qu'un spectateur bloqué ne peut plus faire apparaître chez toi.
+const BLOCKABLE = new Set(['chat', 'join', 'like', 'share', 'follow']);
+
 class Engine {
   constructor({ file, vault, server, spotify, tts, stats, obs, license, push, log, viewers, input, audio }) {
     Object.assign(this, { file, vault, server, spotify, tts, stats, obs, license, push, log, viewers, input, audio });
@@ -303,7 +306,87 @@ class Engine {
     }
     if (raw.type === 'battle') { this.onNativeBattle(account, raw); return; }
     if (account.muted) return;
+    if (BLOCKABLE.has(raw.type) && this.blockedEntry(account.platform, raw.user)) return;
     this.handle({ id: uid('e'), ts: Date.now(), platform: account.platform, accountId: account.id, channel: account.label, user: {}, ...raw });
+  }
+
+  // ---------- Modération ----------
+  // Bloqué dans Régie : ses messages (et arrivées, likes, partages) ne passent plus nulle part chez toi.
+  // Ses cadeaux, abonnements et dons continuent d'être comptés.
+  blockedEntry(platform, user = {}) {
+    const list = this.s.moderation?.blocked || [];
+    if (!list.length) return null;
+    const now = Date.now();
+    if (list.some((b) => b.until && b.until <= now)) { this.s.moderation.blocked = list.filter((b) => !b.until || b.until > now); this.save(); this.push('moderation', this.moderationState()); }
+    const id = String(user.id || '');
+    const name = String(user.name || user.display || '').toLowerCase();
+    return this.s.moderation.blocked.find((b) => b.platform === platform && ((id && b.id === id) || (name && b.name === name))) || null;
+  }
+
+  moderationState() {
+    const caps = {};
+    for (const [id, c] of this.connectors) caps[id] = { ...(c.modCaps?.() || {}), reason: c.modReason?.() || '' };
+    return { blocked: this.s.moderation?.blocked || [], caps };
+  }
+
+  // Retire des messages déjà affichés : chat à l'écran, chat unifié, journal.
+  hideEvents(ids) {
+    const set = new Set(ids.filter(Boolean));
+    if (!set.size) return;
+    this.mainFeed = this.mainFeed.filter((e) => !set.has(e.id));
+    this.feed = this.feed.filter((e) => !set.has(e.id));
+    this.server.broadcast({ t: 'evdel', ids: [...set] }, ['chat', 'dock']);
+    this.push('eventDel', [...set]);
+  }
+
+  block(ev, seconds = 0) {
+    const u = ev.user || {};
+    const entry = { platform: ev.platform, accountId: ev.accountId, id: String(u.id || ''), name: String(u.name || u.display || '').toLowerCase(), display: u.display || u.name || '', until: seconds ? Date.now() + seconds * 1000 : 0, at: Date.now() };
+    const list = (this.s.moderation.blocked || []).filter((b) => !(b.platform === entry.platform && ((entry.id && b.id === entry.id) || b.name === entry.name)));
+    this.s.moderation.blocked = [...list, entry].slice(-500);
+    this.save();
+    // Ses messages déjà affichés disparaissent aussi, et la voix ne les lit pas.
+    this.hideEvents(this.mainFeed.filter((e) => e.platform === ev.platform && ((entry.id && String(e.user?.id || '') === entry.id) || String(e.user?.name || '').toLowerCase() === entry.name)).map((e) => e.id));
+    this.safely('voix', () => this.tts?.forgetUser?.(entry.display));
+    this.push('moderation', this.moderationState());
+    return entry;
+  }
+
+  // action : hide (masquer le message ici), delete (le supprimer aussi sur la plateforme),
+  // timeout (exclure pour seconds), ban (bannir). Régie agit toujours chez toi ; la plateforme
+  // suit quand elle le permet (native : ok, unsupported ou error, avec la raison).
+  async moderate({ action, id, seconds = 600, reason = '' }) {
+    const ev = this.mainFeed.find((e) => e.id === id) || this.feed.find((e) => e.id === id);
+    if (!ev) throw new Error('Message introuvable : il est trop ancien.');
+    if (ev.user?.owner) throw new Error('C\'est ta propre chaîne.');
+    const c = this.connectors.get(ev.accountId);
+    const caps = c?.modCaps?.() || {};
+    const out = { action, platform: ev.platform, native: 'none', error: '' };
+    const native = async (act, args) => {
+      if (!caps[act]) { out.native = 'unsupported'; out.error = c?.modReason?.() || ''; return; }
+      try { await c.moderate(act, args); out.native = 'ok'; } catch (e) { out.native = 'error'; out.error = e.message; }
+    };
+    const who = { userId: ev.user?.id, name: ev.user?.name, display: ev.user?.display, msgId: ev.msgId, seconds, reason };
+    if (action === 'hide') this.hideEvents([id]);
+    else if (action === 'delete') { this.hideEvents([id]); if (ev.msgId) await native('delete', who); else { out.native = 'unsupported'; out.error = c?.modReason?.() || ''; } }
+    else if (action === 'timeout') { this.block(ev, Math.max(10, Number(seconds) || 600)); await native('timeout', who); }
+    else if (action === 'ban') { this.block(ev, 0); await native('ban', who); }
+    else throw new Error('Action inconnue.');
+    if (out.native === 'error') this.log(`Modération ${ev.platform} : ${out.error}`);
+    return out;
+  }
+
+  // Débloque dans Régie, et débannit sur la plateforme si elle le permet.
+  async unblock({ platform, id, name }, withPlatform = true) {
+    const list = this.s.moderation.blocked || [];
+    const entry = list.find((b) => b.platform === platform && ((id && b.id === id) || (name && b.name === String(name).toLowerCase())));
+    if (!entry) return { native: 'none' };
+    this.s.moderation.blocked = list.filter((b) => b !== entry);
+    this.save();
+    this.push('moderation', this.moderationState());
+    const c = this.connectors.get(entry.accountId);
+    if (!withPlatform || !c?.modCaps?.().unban) return { native: c?.modCaps?.().unban ? 'none' : 'unsupported' };
+    try { await c.moderate('unban', { userId: entry.id, name: entry.name, display: entry.display }); return { native: 'ok' }; } catch (e) { return { native: 'error', error: e.message }; }
   }
 
   // Une erreur dans un module (statistiques, points, bienvenue…) ne doit jamais faire perdre le message.

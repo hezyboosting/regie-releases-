@@ -119,6 +119,8 @@ const defaultState = () => {
     keys: { enabled: false },
     vpad: { enabled: false },
     chatTranslate: { enabled: false, target: 'auto', engine: 'google', mode: 'below', showLang: true },
+    // Spectateurs bloqués dans Régie : leurs messages ne passent plus (overlays, voix, commandes, jeux).
+    moderation: { blocked: [] },
     recap: { open: true, thanks: false, thanksText: 'Merci {top} pour ce live ❤️ À très vite !' },
     tts: {
       enabled: false, provider: 'system', voice: '', rate: 1, pitch: 1, volume: 80,

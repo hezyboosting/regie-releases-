@@ -88,6 +88,8 @@ class TwitchIrc extends EventEmitter {
   sendHint() { return 'Avec le pseudo seul, Régie lit le chat Twitch sans pouvoir y écrire : connecte ton compte Twitch dans Connexions.'; }
 
   async send() { throw new Error('Connecte-toi avec Twitch pour répondre dans le chat.'); }
+
+  modReason() { return 'Connecte ton compte Twitch (Connexions) pour modérer.'; }
 }
 
 module.exports = { TwitchIrc, parseIrc, normalizeIrc };

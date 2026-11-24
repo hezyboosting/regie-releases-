@@ -367,6 +367,9 @@ class TikTokConnector extends EventEmitter {
 
   sendHint() { return this.canSend() ? '' : 'Connecte ton compte TikTok pour écrire (Connexions › Écrire dans le chat).'; }
 
+  // TikTok n'ouvre pas la modération aux applis : Régie masque la personne chez toi, la sanction TikTok se fait dans LIVE Studio ou l'appli.
+  modReason() { return 'TikTok ne laisse pas les applis exclure ou bannir : fais-le dans TikTok LIVE Studio ou l\'appli TikTok. Dans Régie, la personne est masquée partout.'; }
+
   async send(text) {
     if (this.viaEuler && this.conn) {
       try { await this.conn.sendMessage(text); return; } catch (e) { if (!this.webchat?.logged?.tiktok) throw e; }

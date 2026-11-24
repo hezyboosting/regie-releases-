@@ -301,6 +301,8 @@ async function start() {
   on('simulating', (simulating) => setState({ simulating }));
   on('shop', (shop) => setState({ shop }));
   on('eventPatch', (p) => setState({ feed: getState().feed.map((e) => (e.id === p.id ? { ...e, translation: p.translation } : e)) }));
+  on('eventDel', (ids) => { const set = new Set(ids || []); setState({ feed: getState().feed.filter((e) => !set.has(e.id)) }); });
+  on('moderation', (moderation) => setState({ moderation }));
   on('liveRecap', (liveRecap) => { if (getState().recapCfg?.open !== false) setState({ liveRecap }); });
   on('likeRace', (likeRace) => setState({ likeRace }));
   on('spotify', (st) => setState({ spotify: { ...getState().spotify, state: st } }));

@@ -13,7 +13,7 @@ function normalize(event, raw) {
     return { id: String(u.id || u.username || ''), name: u.slug || u.username || 'anonyme', display: u.username || 'Anonyme', avatar: '', color: u.identity?.color || '', mod: badges.includes('moderator'), sub: badges.includes('subscriber') || badges.includes('founder'), vip: badges.includes('vip'), owner: badges.includes('broadcaster') };
   };
   switch (short) {
-    case 'ChatMessageEvent': return { type: 'chat', text: String(d.content || '').replace(/\[emote:\d+:(\w+)\]/g, ':$1:'), user: user(d.sender) };
+    case 'ChatMessageEvent': return { type: 'chat', msgId: String(d.id || ''), text: String(d.content || '').replace(/\[emote:\d+:(\w+)\]/g, ':$1:'), user: user(d.sender) };
     case 'SubscriptionEvent': return { type: 'sub', months: d.months || 1, user: { id: d.username, name: d.username, display: d.username, avatar: '' } };
     case 'GiftedSubscriptionsEvent': return { type: 'giftsub', amount: (d.gifted_usernames || []).length || 1, user: { id: d.gifter_username, name: d.gifter_username, display: d.gifter_username, avatar: '' } };
     case 'StreamHostEvent': return { type: 'raid', amount: d.number_viewers || 0, user: { id: d.host_username, name: d.host_username, display: d.host_username, avatar: '' } };
@@ -69,6 +69,20 @@ class KickConnector extends EventEmitter {
   canSend() { return Boolean(this.webchat?.logged?.kick); }
 
   sendHint() { return this.canSend() ? '' : 'Connecte ton compte Kick pour écrire (Connexions › Écrire dans le chat).'; }
+
+  // Modération : les commandes /ban, /timeout et /unban de Kick, tapées avec ton compte connecté.
+  modCaps() { return this.canSend() ? { timeout: true, ban: true, unban: true } : {}; }
+
+  modReason() { return this.canSend() ? 'Kick ne permet pas de supprimer un message depuis Régie.' : 'Connecte ton compte Kick (Connexions › Écrire dans le chat) pour modérer.'; }
+
+  async moderate(action, { display, name, seconds }) {
+    const who = String(display || name || '').replace(/^@/, '').replace(/\s+/g, '');
+    if (!who) throw new Error('Pseudo Kick introuvable.');
+    // Kick compte la durée d'exclusion en minutes (1 à 10 080).
+    const cmd = action === 'ban' ? `/ban ${who}` : action === 'unban' ? `/unban ${who}` : action === 'timeout' ? `/timeout ${who} ${Math.max(1, Math.min(10080, Math.round((seconds || 600) / 60)))}` : '';
+    if (!cmd) throw new Error(this.modReason());
+    await this.send(cmd);
+  }
 
   async send(text) {
     if (!this.canSend()) throw new Error('Pour écrire sur Kick, connecte ton compte dans Régie : Connexions › Écrire dans le chat.');

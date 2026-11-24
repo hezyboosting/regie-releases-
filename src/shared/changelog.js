@@ -1,6 +1,17 @@
 // Nouveautés montrées dans « Quoi de neuf » après une mise à jour. La plus récente en premier.
 const CHANGELOG = [
   {
+    version: '2.22.0',
+    title: 'Modère ton chat depuis le chat multi',
+    items: [
+      'Dans le chat multi (dock OBS, fenêtre flottante, page Chat), le bouton ⋯ d\'un message ouvre la modération : masquer, supprimer, exclure 1 min, 10 min ou 1 h, bannir (deux clics pour confirmer), répondre.',
+      'Twitch : supprimer, exclure, bannir et débannir se font vraiment sur Twitch. Reconnecte ta chaîne une fois dans Connexions pour donner la permission.',
+      'YouTube (mode API) : supprimer, exclure et bannir sur YouTube. Kick (compte connecté) : exclure, bannir et débannir avec les commandes du chat.',
+      'TikTok ne laisse aucune appli exclure ou bannir : Régie masque la personne chez toi, et le dock te rappelle de la bannir dans TikTok LIVE Studio.',
+      'Partout, une personne exclue ou bannie disparaît de tes overlays, de la voix, des commandes et des jeux. Ses cadeaux et abonnements comptent toujours. La liste des bloqués (icône en haut du dock) permet de débloquer.',
+    ],
+  },
+  {
     version: '2.21.1',
     title: 'Nouveau logo',
     items: [

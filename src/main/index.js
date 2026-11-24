@@ -144,7 +144,22 @@ async function boot() {
         // Sans compte TikTok connecté, TikTok garde les messages de certains spectateurs : on le dit dans le dock.
         notice: engine.channels().some((c) => c.enabled && c.platform === 'tiktok' && (!c.fullChat || c.reader?.state === 'login'))
           ? 'Des messages TikTok peuvent manquer : connecte ton compte TikTok dans Régie (Connexions).' : '',
+        mod: (() => {
+          const m = engine.moderationState();
+          if (file.data.settings.uiLang === 'en') for (const c of Object.values(m.caps)) c.reason = c.reason ? dockEnglish(c.reason) : '';
+          return m;
+        })(),
       }),
+      moderate: async (d) => {
+        const en = file.data.settings.uiLang === 'en';
+        const r = await engine.moderate({ action: String(d.action || ''), id: String(d.id || ''), seconds: Number(d.seconds) || 600 }).catch((e) => { throw new Error(en ? dockEnglish(e.message) : e.message); });
+        return { ...r, error: r.error && en ? dockEnglish(r.error) : r.error };
+      },
+      unblock: async (d) => {
+        const en = file.data.settings.uiLang === 'en';
+        const r = await engine.unblock({ platform: String(d.platform || ''), id: String(d.id || ''), name: String(d.name || '') }, d.platform !== false);
+        return { ...r, error: r.error && en ? dockEnglish(r.error) : r.error };
+      },
       send: async (text, target) => {
         const en = file.data.settings.uiLang === 'en';
         try {

@@ -55,6 +55,19 @@ La page `/dock` se colle dans un dock personnalisé d'OBS. Pour les autres logic
 
 Le dock suit la langue de l'appli (français ou anglais). Quand la traduction du chat est activée, la traduction s'affiche sous chaque message, ou à sa place avec le texte d'origine au survol, selon le réglage choisi. Le bouton 文 masque ou affiche les traductions dans le dock seulement.
 
+## Modération depuis le chat
+
+Dans le dock, le bouton ⋯ d'un message ouvre : Masquer, Supprimer, Exclure (1 min, 10 min, 1 h), Bannir (deux clics), Répondre. Régie bloque toujours la personne chez toi : ses messages, arrivées, likes, partages et suivis ne passent plus (overlays, voix, commandes, jeux). Ses cadeaux, abonnements et dons comptent toujours. La liste des bloqués (icône rond barré en haut du dock) affiche la fin de l'exclusion et permet de débloquer.
+
+Sur la plateforme :
+
+- Twitch : API Helix (`moderator:manage:banned_users`, `moderator:manage:chat_messages`). Une chaîne connectée avant la 2.22 doit être reconnectée une fois.
+- YouTube : mode API uniquement (`liveChat/messages` et `liveChat/bans`). Le débannissement ne marche que pour un ban fait depuis Régie pendant ce live.
+- Kick : commandes `/timeout` (en minutes), `/ban` et `/unban` envoyées avec le compte connecté. Pas de suppression de message.
+- TikTok : aucune API ne permet d'exclure ou de bannir. Le blocage reste dans Régie, et le dock rappelle de le faire dans TikTok LIVE Studio ou l'appli.
+
+Routes du dock : `POST /dock/mod` (`{action: hide|delete|timeout|ban, id, seconds}`) et `POST /dock/unblock` (`{platform, id, name}`). Les overlays reçoivent `{t:'evdel', ids}` pour retirer les messages masqués.
+
 ## Images de rang et manette
 
 Les blasons dessinés dans Régie sont des créations originales. Les manettes de l'overlay sont des rendus 3D faits à partir des modèles de 3D Controller Overlay (Larf, licence MIT, voir `src/overlays/pads/CREDITS.txt`). Aucun logo de marque n'y figure sur les manettes. Les souris (formes des modèles les plus connus) et les touches du clavier sont modélisées de zéro et rendues de la même façon (voir `src/overlays/devices/CREDITS.txt` et `tools/devices`). Les logos TikTok, Twitch, YouTube et Kick affichés à côté des pseudos viennent de Simple Icons (CC0, voir `src/overlays/BRANDS-CREDITS.txt`). Le streamer peut importer ses propres images : il lui revient de vérifier qu'il a le droit de les utiliser.

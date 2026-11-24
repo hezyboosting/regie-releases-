@@ -136,6 +136,9 @@ class Tts {
 
   clear() { this.queue = []; this.pushState(); }
 
+  // Spectateur bloqué : ses messages en attente ne sont pas lus.
+  forgetUser(display) { const n = this.queue.length; this.queue = this.queue.filter((j) => j.user !== display); if (n !== this.queue.length) this.pushState(); }
+
   pushState() { this.push('ttsQueue', { current: this.current, queue: this.queue.map((j) => ({ id: j.id, user: j.user, text: j.display })) }); }
 }
 

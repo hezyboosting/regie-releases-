@@ -6,7 +6,7 @@
 <title>Chat unifié</title>
 <style>
 @font-face { font-family: "Onest"; src: url("/assets/fonts/onest.woff2") format("woff2"); font-weight: 100 900; }
-:root { color-scheme: dark; --bg: #14161B; --s1: rgba(255,255,255,.06); --s2: rgba(255,255,255,.1); --text: #F2F5F9; --mute: #AEB7C4; --faint: #868F9E; --ice: #8FD3FF; --size: 14px; }
+:root { color-scheme: dark; --bg: #1C1D22; --s1: rgba(255,255,255,.055); --s2: rgba(255,255,255,.1); --text: #F2F0EA; --mute: #AFACA4; --faint: #86837C; --ice: #FFB224; --red: #FF4D5E; --size: 14px; }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body { display: flex; flex-direction: column; background: var(--bg); color: var(--text); font: 400 var(--size)/1.4 "Onest", system-ui, sans-serif; overflow: hidden; }
@@ -34,15 +34,35 @@ header { display: flex; align-items: center; gap: 4px; padding: 7px 8px; flex: n
 footer { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8px; background: rgba(255,255,255,.03); }
 #target { height: 28px; padding: 0 8px; border: 0; border-radius: 10px; background: var(--s1); color: var(--mute); font-size: 12.5px; max-width: 100%; }
 #form { display: flex; gap: 6px; } #text { flex: 1; min-width: 0; height: 36px; padding: 0 12px; border: 0; border-radius: 18px; background: var(--s1); outline: 0; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); } #text:focus { box-shadow: inset 0 0 0 1.5px var(--ice); }
-#send { flex: none; height: 36px; padding: 0 14px; border-radius: 18px; background: var(--text); color: #101216; font-weight: 600; font-size: 13px; } #send:disabled { opacity: .4; cursor: default; }
+#send { flex: none; height: 36px; padding: 0 14px; border-radius: 18px; background: var(--ice); color: #211700; font-weight: 700; font-size: 13px; } #send:disabled { opacity: .4; cursor: default; }
 #err { color: #FF9AA8; font-size: 12.5px; } #err:empty { display: none; }
 #notice { flex: none; margin: 0 8px 6px; padding: 6px 10px; border-radius: 10px; background: rgba(240,180,41,.12); color: #F5D58A; font-size: 12px; line-height: 1.35; } #notice:empty { display: none; }
 .empty { margin: auto; padding: 20px; text-align: center; color: var(--faint); }
+/* Modération : bouton ⋯ au survol d'un message, barre d'actions dessous. */
+.m { position: relative; padding-right: 30px; }
+.mod-btn { position: absolute; right: 3px; top: 2px; width: 26px; height: 22px; border-radius: 6px; color: var(--mute); font-weight: 800; letter-spacing: 1px; line-height: 1; opacity: 0; }
+.m:hover .mod-btn, .m:focus-within .mod-btn, .m.open .mod-btn { opacity: 1; } .mod-btn:hover, .m.open .mod-btn { background: var(--s2); color: var(--text); }
+.modbar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 6px 0 3px; }
+.modbar button { height: 26px; padding: 0 9px; border-radius: 7px; background: var(--s2); color: var(--text); font-size: 12px; font-weight: 600; }
+.modbar button:hover { background: rgba(255,255,255,.16); }
+.modbar .lbl { color: var(--faint); font-size: 11.5px; margin: 0 2px 0 4px; }
+.modbar .danger { background: rgba(255,77,94,.16); color: #FF9AA8; } .modbar .danger.sure { background: var(--red); color: #fff; }
+.modnote { flex-basis: 100%; margin-top: 2px; color: var(--faint); font-size: 11.5px; line-height: 1.35; }
+#status { flex: none; margin: 0 8px 6px; padding: 6px 10px; border-radius: 10px; background: rgba(62,220,142,.12); color: #A8F0C9; font-size: 12px; line-height: 1.35; } #status.warn { background: rgba(255,178,36,.13); color: #F5D58A; } #status:empty { display: none; }
+#blocked { position: absolute; inset: 44px 8px auto 8px; max-height: 60%; overflow-y: auto; z-index: 5; padding: 10px; border-radius: 12px; background: #26282E; box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 18px 40px rgba(0,0,0,.5); }
+#blocked h2 { margin: 0 0 8px; font-size: 13px; font-weight: 700; } #blocked p { margin: 0; color: var(--faint); font-size: 12px; }
+.bl { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid rgba(255,255,255,.06); font-size: 12.5px; } .bl:first-of-type { border-top: 0; }
+.bl .p { width: 7px; height: 7px; border-radius: 50%; flex: none; } .bl span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .bl small { color: var(--faint); }
+.bl button { flex: none; height: 24px; padding: 0 9px; border-radius: 7px; background: var(--s2); font-size: 12px; font-weight: 600; }
+.tool { position: relative; display: grid; place-items: center; } .tool svg { width: 15px; height: 15px; }
+.tool .n { position: absolute; top: 0; right: -2px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: var(--red, #E5484D); color: #fff; font-size: 9.5px; font-weight: 700; line-height: 14px; text-align: center; }
 </style>
 </head>
 <body>
 <header id="tabs"></header>
 <div id="notice" role="status"></div>
+<div id="status" role="status" aria-live="polite"></div>
+<section id="blocked" hidden aria-label="Spectateurs bloqués"></section>
 <main id="feed" aria-live="polite"></main>
 <button type="button" id="more" hidden data-i="Nouveaux messages">Nouveaux messages</button>
 <footer>
@@ -64,7 +84,13 @@ const EN = {
   'Masquer les traductions': 'Hide translations', 'Afficher les traductions': 'Show translations', 'Texte d\'origine': 'Original text',
   'Toutes mes chaînes': 'All my channels', 'Aucune chaîne ne peut écrire pour le moment': 'No channel can write right now', 'Écrire dans le chat': 'Write in chat',
   'Connecte Twitch pour écrire ici': 'Connect Twitch to write here', 'Les messages de tes chaînes arriveront ici.': 'Messages from your channels will show up here.',
-  'Régie ne répond pas.': 'Régie isn\'t responding.', 'à connecter': 'not connected', 'Connecte une chaîne pour écrire ici': 'Connect a channel to write here', 'Anonyme': 'Anonymous', 'Live': 'Live', 'Modo': 'Mod', 'VIP': 'VIP', 'Abo': 'Sub',
+  'Régie ne répond pas.': 'Régie isn\'t responding.',
+  'Modérer': 'Moderate', 'Masquer': 'Hide', 'Supprimer': 'Delete', 'Exclure': 'Timeout', 'Bannir': 'Ban', 'Confirmer le ban': 'Confirm ban', 'Répondre': 'Reply',
+  'Masquer ce message de l\'écran et d\'ici': 'Hide this message from the screen and from here', 'Supprimer aussi le message sur la plateforme': 'Also delete the message on the platform',
+  'Spectateurs bloqués': 'Blocked viewers', 'Personne n\'est bloqué.': 'Nobody is blocked.', 'Débloquer': 'Unblock', 'pour toujours': 'forever', 'jusqu\'à': 'until',
+  'Message masqué.': 'Message hidden.', 'Message supprimé sur': 'Message deleted on', 'Message masqué ici.': 'Message hidden here.',
+  'exclu': 'timed out', 'banni': 'banned', 'sur': 'on', 'dans Régie': 'in Régie', 'débloqué': 'unblocked', 'débanni sur': 'unbanned on',
+  '1 min': '1 min', '10 min': '10 min', '1 h': '1 h', 'Ses messages ne passent plus chez toi (écran, voix, commandes, jeux).': 'Their messages no longer go through on your side (screen, voice, commands, games).', 'à connecter': 'not connected', 'Connecte une chaîne pour écrire ici': 'Connect a channel to write here', 'Anonyme': 'Anonymous', 'Live': 'Live', 'Modo': 'Mod', 'VIP': 'VIP', 'Abo': 'Sub',
 };
 let lang = 'fr';
 const t = (fr) => (lang === 'en' && EN[fr]) || fr;
@@ -96,6 +122,8 @@ let targets = [];
 let canAll = false;
 let tr = { enabled: false, mode: 'below', showLang: true };
 let showTr = true;
+let mod = { blocked: [], caps: {} };
+let openRow = null;
 const items = [];
 try { size = Number(localStorage.getItem('dockSize')) || 14; events = localStorage.getItem('dockEvents') !== '0'; showTr = localStorage.getItem('dockTr') !== '0'; } catch { /* préférence facultative */ }
 document.documentElement.style.setProperty('--size', `${size}px`);
@@ -156,7 +184,96 @@ function row(e) {
     }
   }
   if (isChat && targets.some((c) => e.text && e.text.toLowerCase().includes(`@${String(c.label).replace(/^@/, '').toLowerCase()}`))) n.classList.add('me');
+  if (isChat && !e.user?.owner) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'mod-btn'; b.textContent = '⋯'; b.title = t('Modérer'); b.setAttribute('aria-label', `${t('Modérer')} : ${name}`); b.setAttribute('aria-expanded', 'false');
+    b.onclick = (ev) => { ev.stopPropagation(); toggleMod(n, e); };
+    n.append(b);
+  }
   return n;
+}
+
+// ---------- Modération ----------
+const DUR = [[60, '1 min'], [600, '10 min'], [3600, '1 h']];
+function closeMod() { if (!openRow) return; openRow.querySelector('.modbar')?.remove(); openRow.classList.remove('open'); openRow.querySelector('.mod-btn')?.setAttribute('aria-expanded', 'false'); openRow = null; }
+function toggleMod(n, e) {
+  const was = openRow === n;
+  closeMod();
+  if (was) return;
+  const caps = mod.caps[e.accountId] || {};
+  const bar = document.createElement('div');
+  bar.className = 'modbar';
+  const btn = (label, fn, cls = '', title = '') => { const b = document.createElement('button'); b.type = 'button'; b.textContent = t(label); if (cls) b.className = cls; if (title) b.title = t(title); b.onclick = (x) => { x.stopPropagation(); fn(b); }; bar.append(b); return b; };
+  btn('Masquer', () => act(e, 'hide'), '', 'Masquer ce message de l\'écran et d\'ici');
+  if (caps.delete && e.msgId) btn('Supprimer', () => act(e, 'delete'), '', 'Supprimer aussi le message sur la plateforme');
+  const l = document.createElement('span'); l.className = 'lbl'; l.textContent = t('Exclure'); bar.append(l);
+  for (const [sec, label] of DUR) btn(label, () => act(e, 'timeout', sec));
+  btn('Bannir', (b) => { if (!b.classList.contains('sure')) { b.classList.add('sure'); b.textContent = t('Confirmer le ban'); return; } act(e, 'ban'); }, 'danger');
+  btn('Répondre', () => { closeMod(); const x = $('text'); x.value = `@${e.user?.name || e.user?.display || ''} ${x.value}`; x.focus(); });
+  const notes = [];
+  if (!caps.timeout || !caps.ban) notes.push(caps.reason || '');
+  notes.push('Ses messages ne passent plus chez toi (écran, voix, commandes, jeux).');
+  const note = document.createElement('p'); note.className = 'modnote'; note.textContent = notes.filter(Boolean).map(t).join(' '); bar.append(note);
+  n.append(bar);
+  n.classList.add('open');
+  n.querySelector('.mod-btn')?.setAttribute('aria-expanded', 'true');
+  openRow = n;
+  bar.querySelector('button')?.focus();
+}
+function say(text, warn = false) {
+  const st = $('status');
+  st.textContent = text; st.className = warn ? 'warn' : '';
+  clearTimeout(say.t); say.t = setTimeout(() => { st.textContent = ''; }, warn ? 9000 : 4000);
+}
+async function act(e, action, seconds) {
+  closeMod();
+  const r = await fetch(q('/dock/mod'), { method: 'POST', body: JSON.stringify({ action, id: e.id, seconds }) }).then((x) => x.json()).catch(() => ({ ok: false, error: t('Régie ne répond pas.') }));
+  if (!r.ok) { say(r.error || '', true); return; }
+  const who = e.user?.display || e.user?.name || '';
+  const plat = NAMES[e.platform] || e.platform;
+  const dur = DUR.find(([s]) => s === seconds)?.[1] || '';
+  const where = r.native === 'ok' ? `${t('sur')} ${plat}` : t('dans Régie');
+  const extra = r.native === 'error' ? ` ${plat} : ${r.error}` : (r.native === 'unsupported' && r.error ? ` ${r.error}` : '');
+  if (action === 'hide') say(t('Message masqué.'));
+  else if (action === 'delete') say(r.native === 'ok' ? `${t('Message supprimé sur')} ${plat}.` : `${t('Message masqué ici.')}${extra}`, r.native !== 'ok');
+  else if (action === 'timeout') say(`${who} ${t('exclu')} ${t(dur)} ${where}.${extra}`, r.native !== 'ok');
+  else if (action === 'ban') say(`${who} ${t('banni')} ${where}.${extra}`, r.native !== 'ok');
+  state(false);
+}
+// Retire des messages masqués (ici, et à l'écran par Régie).
+function drop(ids) {
+  const set = new Set(ids || []);
+  for (let i = items.length - 1; i >= 0; i -= 1) if (set.has(items[i].id)) items.splice(i, 1);
+  for (const id of set) $('feed').querySelector(`.m[data-id="${CSS.escape(id)}"]`)?.remove();
+  if (openRow && !openRow.isConnected) openRow = null;
+}
+function blockedPanel(show) {
+  const box = $('blocked');
+  if (show === undefined) show = box.hidden;
+  box.hidden = !show;
+  if (!show) return;
+  box.textContent = '';
+  const h = document.createElement('h2'); h.textContent = t('Spectateurs bloqués'); box.append(h);
+  const list = (mod.blocked || []).slice().reverse();
+  if (!list.length) { const p = document.createElement('p'); p.textContent = t('Personne n\'est bloqué.'); box.append(p); return; }
+  for (const b of list) {
+    const row = document.createElement('div'); row.className = 'bl';
+    const dot = document.createElement('i'); dot.className = 'p'; dot.style.background = COLORS[b.platform] || '#fff';
+    const name = document.createElement('span'); name.textContent = b.display || b.name;
+    const when = document.createElement('small');
+    when.textContent = b.until ? `${t('jusqu\'à')} ${new Date(b.until).toLocaleTimeString(lang === 'en' ? 'en-GB' : 'fr-FR', { hour: '2-digit', minute: '2-digit' })}` : t('pour toujours');
+    const un = document.createElement('button'); un.type = 'button'; un.textContent = t('Débloquer');
+    un.onclick = async () => {
+      const r = await fetch(q('/dock/unblock'), { method: 'POST', body: JSON.stringify({ platform: b.platform, id: b.id, name: b.name }) }).then((x) => x.json()).catch(() => ({ ok: false, error: t('Régie ne répond pas.') }));
+      if (!r.ok) { say(r.error || '', true); return; }
+      const plat = NAMES[b.platform] || b.platform;
+      say(r.native === 'ok' ? `${b.display || b.name} ${t('débanni sur')} ${plat}.` : `${b.display || b.name} ${t('débloqué')}.${r.native === 'error' ? ` ${plat} : ${r.error}` : ''}`, r.native === 'error');
+      await state(false);
+      blockedPanel(true);
+    };
+    row.append(dot, name, when, un);
+    box.append(row);
+  }
 }
 const showable = (e) => (e.type === 'chat' || (events && TEXT[e.type])) && (filter === 'all' || e.platform === filter);
 
@@ -215,6 +332,10 @@ function tabs() {
   const tool = (txt, label, on, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = `tool${on ? ' on' : ''}`; b.textContent = txt; b.title = label; b.setAttribute('aria-label', label); b.onclick = fn; box.append(b); };
   tool(lang === 'en' ? 'E' : 'É', t(events ? 'Masquer les événements' : 'Afficher les événements'), events, () => { events = !events; try { localStorage.setItem('dockEvents', events ? '1' : '0'); } catch { /* facultatif */ } tabs(); redraw(); });
   if (tr.enabled) tool('文', t(showTr ? 'Masquer les traductions' : 'Afficher les traductions'), showTr, () => { showTr = !showTr; try { localStorage.setItem('dockTr', showTr ? '1' : '0'); } catch { /* facultatif */ } tabs(); redraw(); });
+  const nb = (mod.blocked || []).length;
+  tool('', t('Spectateurs bloqués') + (nb ? ` (${nb})` : ''), !$('blocked').hidden, () => { blockedPanel(); tabs(); });
+  const bb = box.lastChild; bb.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M3.7 12.3l8.6-8.6"/></svg>';
+  if (nb) { const n = document.createElement('span'); n.className = 'n'; n.textContent = nb > 99 ? '99+' : String(nb); bb.append(n); }
   tool('A−', t('Réduire le texte'), false, () => zoom(-1));
   tool('A+', t('Agrandir le texte'), false, () => zoom(1));
 }
@@ -254,6 +375,7 @@ async function state(first) {
     if (d.tr) tr = d.tr;
     if (first || relang) staticLabels();
     $('notice').textContent = d.notice ? t(d.notice) : '';
+    if (d.mod) { mod = d.mod; if (!$('blocked').hidden) blockedPanel(true); }
     // Rattrapage : les messages que Régie a reçus mais que le dock n'a pas eus (coupure de quelques
     // secondes, OBS qui recharge le dock) sont remis à leur place, dans l'ordre.
     const have = new Set(items.map((e) => e.id));
@@ -269,12 +391,13 @@ function connect() {
   const ws = new WebSocket(`ws://${location.host}/ws?k=${encodeURIComponent(k)}&dock=1`);
   // À la reconnexion, on récupère tout de suite ce qui est arrivé pendant la coupure.
   ws.onopen = () => { if (opened) state(false); opened = true; };
-  ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.t === 'ev') add(d.ev); else if (d.t === 'evx') patch(d); };
+  ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.t === 'ev') add(d.ev); else if (d.t === 'evx') patch(d); else if (d.t === 'evdel') drop(d.ids); };
   ws.onclose = () => setTimeout(connect, 2000);
 }
 
 $('feed').addEventListener('scroll', () => { if (stuck()) $('more').hidden = true; });
 $('more').onclick = toEnd;
+addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMod(); if (!$('blocked').hidden) { blockedPanel(false); tabs(); } } });
 $('form').onsubmit = async (e) => {
   e.preventDefault();
   const box = $('text');

@@ -5,6 +5,7 @@ const WebSocket = require('ws');
 const SCOPES = [
   'moderator:read:followers', 'channel:read:subscriptions', 'bits:read', 'channel:read:redemptions',
   'channel:read:hype_train', 'user:read:chat', 'user:write:chat', 'clips:edit', 'channel:read:vips',
+  'moderator:manage:banned_users', 'moderator:manage:chat_messages',
 ].join(' ');
 
 const ID_URL = 'https://id.twitch.tv/oauth2';
@@ -47,7 +48,7 @@ function normalize(subType, e) {
     case 'channel.chat.message': {
       const ids = (e.badges || []).map((b) => b.set_id);
       return {
-        type: 'chat', text: e.message?.text || '', color: e.color || '',
+        type: 'chat', text: e.message?.text || '', color: e.color || '', msgId: e.message_id || '',
         user: user(e.chatter_user_id, e.chatter_user_login, e.chatter_user_name, {
           mod: ids.includes('moderator'), sub: ids.includes('subscriber') || ids.includes('founder'), vip: ids.includes('vip'), owner: ids.includes('broadcaster'),
         }),
@@ -249,6 +250,23 @@ class TwitchConnector extends EventEmitter {
     }
     const id = d.data?.[0]?.id;
     return { id, url: `https://clips.twitch.tv/${id}`, editUrl: d.data?.[0]?.edit_url };
+  }
+
+  // Modération avec l'API officielle : supprimer un message, exclure, bannir, débannir.
+  modCaps() { return { delete: true, timeout: true, ban: true, unban: true }; }
+
+  async moderate(action, { userId, msgId, seconds, reason }) {
+    const ids = `broadcaster_id=${this.userId}&moderator_id=${this.userId}`;
+    try {
+      if (action === 'delete') return await this.helix(`/moderation/chat?${ids}&message_id=${encodeURIComponent(msgId)}`, { method: 'DELETE' });
+      if (action === 'unban') return await this.helix(`/moderation/bans?${ids}&user_id=${encodeURIComponent(userId)}`, { method: 'DELETE' });
+      const data = { user_id: String(userId), reason: String(reason || '').slice(0, 500) };
+      if (action === 'timeout') data.duration = Math.max(1, Math.min(1209600, Math.round(seconds || 600)));
+      return await this.helix(`/moderation/bans?${ids}`, { method: 'POST', body: JSON.stringify({ data }) });
+    } catch (e) {
+      if (/scope|missing|authoriz|unauthorized/i.test(e.message)) throw new Error('Reconnecte ta chaîne Twitch (Connexions) pour autoriser la modération.');
+      throw e;
+    }
   }
 
   async send(text) {

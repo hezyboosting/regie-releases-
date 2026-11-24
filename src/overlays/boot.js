@@ -381,6 +381,8 @@ async function onMessage(msg) {
     mod.update?.(msg.overlay.settings, msg.data);
   } else {
     if (filtered(msg)) return;
+    // Message masqué ou spectateur bloqué depuis le chat unifié : il disparaît de l'écran.
+    if (msg.t === 'evdel') { for (const id of msg.ids || []) root.querySelectorAll(`[data-id="${CSS.escape(id)}"]`).forEach((n) => n.remove()); return; }
     if (msg.t === 'vars') { decorVars = msg.vars || {}; if (usesVars()) paintDecor(); if (libre()) scheduleCards(); }
     mod?.on?.(msg);
     if (msg.t === 'sound') playSound(msg.sound, msg.volume);

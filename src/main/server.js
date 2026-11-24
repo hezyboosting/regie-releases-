@@ -76,6 +76,19 @@ class OverlayServer {
     if (url.searchParams.get('k') !== this.token) return this.send(res, 403, 'Lien invalide. Copie à nouveau le lien depuis Régie.');
     if (p === '/dock' && req.method === 'GET') return this.sendFile(res, this.overlaysDir, 'dock.html', req);
     if (p === '/dock/state' && req.method === 'GET') return this.send(res, 200, JSON.stringify(this.dock.state()), 'application/json');
+    // Modération depuis le chat unifié : masquer, supprimer, exclure, bannir, débloquer.
+    if ((p === '/dock/mod' || p === '/dock/unblock') && req.method === 'POST') {
+      let body = '';
+      req.on('data', (d) => { if (body.length < 4000) body += d; });
+      req.on('end', async () => {
+        try {
+          const d = JSON.parse(body);
+          const r = p === '/dock/mod' ? await this.dock.moderate(d) : await this.dock.unblock(d);
+          this.send(res, 200, JSON.stringify({ ok: true, ...r }), 'application/json');
+        } catch (e) { this.send(res, 200, JSON.stringify({ ok: false, error: e.message }), 'application/json'); }
+      });
+      return undefined;
+    }
     if (p === '/dock/send' && req.method === 'POST') {
       let body = '';
       req.on('data', (d) => { if (body.length < 8000) body += d; });

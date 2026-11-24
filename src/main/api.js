@@ -59,7 +59,7 @@ function createApi(ctx) {
     timers: s().tools.timers.map((t) => engine.timerView(t)), obs: { ...s().obs, password: '', hasPassword: Boolean(s().obs.password), state: obs.state, detail: obs.detail, streaming: obs.streaming },
     settings: s().settings, keys: keyStatus(), feed: engine.feed.slice(-120), gifts: engine.giftsForApp(), giftCacheAt: s().giftCacheAt || 0, port: server.port, quota: { used: engine.quota().used(), max: DAILY_QUOTA }, inputAvailable: input.available,
     media: listMedia(), admin: license.realRole() === 'admin' && license.isAdmin() ? { draft: s().adminDraft, issued: s().issuedKeys } : null,
-    ranks: s().ranks, rewards: s().rewards, chatPlays: s().chatPlays, plinko: s().plinko, webChat: engine.webchat ? engine.webchat.status() : {}, discord: { ...s().discord, hasHook: Boolean(vault.get('key:discordWebhook')) }, arena: s().arena, boss: s().boss, gaming: s().gaming, sounds: s().sounds, deck: s().deck, clips: s().clips, scenes: s().scenes, keysCfg: s().keys, recapCfg: s().recap, chatTranslate: s().chatTranslate, hasDeepl: Boolean(vault.get('key:deeplKey')), vpadCfg: { ...(s().vpad || {}), ...(engine.vpad ? engine.vpad.status() : { state: 'off', error: '' }) }, padInputs: PAD_INPUTS, rconPresets: RCON_PRESETS,
+    ranks: s().ranks, rewards: s().rewards, chatPlays: s().chatPlays, plinko: s().plinko, webChat: engine.webchat ? engine.webchat.status() : {}, discord: { ...s().discord, hasHook: Boolean(vault.get('key:discordWebhook')) }, arena: s().arena, boss: s().boss, gaming: s().gaming, sounds: s().sounds, deck: s().deck, clips: s().clips, scenes: s().scenes, keysCfg: s().keys, recapCfg: s().recap, chatTranslate: s().chatTranslate, moderation: engine.moderationState(), hasDeepl: Boolean(vault.get('key:deeplKey')), vpadCfg: { ...(s().vpad || {}), ...(engine.vpad ? engine.vpad.status() : { state: 'off', error: '' }) }, padInputs: PAD_INPUTS, rconPresets: RCON_PRESETS,
     session: viewers.giftView(), boards: viewers.boards(10), vars: engine.liveVars(), templates: allTemplates(), themes: THEMES, bosses: BOSSES, keyNames: keyNames(), overlayToken: s().settings.overlayToken,
     gameCatalog: GAMES, statLabels: STAT_LABEL, gameView: engine.gameView(), gameRunning: hub.running, gameLinks: hub.linked, gameLive: engine.gameLive, goalHistory: s().goalHistory, minigame: engine.minigames.view(), minigames: s().minigames,
     padPacks: s().padPacks || [], packParts: PACK_PARTS.map(({ key, label }) => ({ key, label })), packRights: RIGHTS, pads: input.pads(), colorways: COLORWAYS, finishGroups: FINISH_GROUPS, padZones: PAD_ZONES, padZoneNames: PAD_ZONE_NAMES, modules: MODULES, tiers: TIERS, deckLink: server.deckLink(), spotifyHistory: spotify.history,
@@ -388,6 +388,9 @@ function createApi(ctx) {
 
     // Écrit sur une chaîne, ou sur toutes à la fois. Chaque chaîne part de son côté : si l'une échoue,
     // les autres reçoivent quand même le message, et on dit laquelle a coincé et pourquoi.
+    // Modération (chat unifié et page Chat) : voir engine.moderate / engine.unblock.
+    moderate(d) { return engine.moderate(d || {}); },
+    unblockViewer(d) { return engine.unblock(d || {}, d?.withPlatform !== false); },
     async sendChat(text, target) {
       const msg = String(text || '').trim();
       if (!msg) return { sent: [], failed: [] };
