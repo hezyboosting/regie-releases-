@@ -1,6 +1,15 @@
 // Nouveautés montrées dans « Quoi de neuf » après une mise à jour. La plus récente en premier.
 const CHANGELOG = [
   {
+    version: '2.25.0',
+    title: 'Recherche dans le chat multi',
+    items: [
+      'Nouvelle loupe en haut du chat multi (ou Ctrl+F) : cherche un pseudo ou un mot dans les derniers messages, sans te soucier des majuscules ni des accents. Les mots trouvés sont surlignés, avec l\'heure de chaque message.',
+      'Filtres rapides : mentions de ta chaîne, questions, soutiens (cadeaux, abonnements, bits, dons, raids) et repères (premier message, habitués, gros soutiens).',
+      'Clique sur un résultat pour le retrouver à sa place dans le chat. Échap efface la recherche, puis la ferme.',
+    ],
+  },
+  {
     version: '2.24.0',
     title: 'Repères dans le chat, avertissements, modération en raccourci',
     items: [

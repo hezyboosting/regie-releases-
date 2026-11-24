@@ -56,6 +56,20 @@ footer { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8
 .bl .p { width: 7px; height: 7px; border-radius: 50%; flex: none; } .bl span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .bl small { color: var(--faint); }
 .bl button { flex: none; height: 24px; padding: 0 9px; border-radius: 7px; background: var(--s2); font-size: 12px; font-weight: 600; }
 .bl .nm { flex: 1; min-width: 0; height: auto; padding: 0; background: none; text-align: left; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .bl .nm:hover { text-decoration: underline; }
+/* Recherche */
+#find { flex: none; margin: 0 8px 6px; } #find[hidden] { display: none; }
+.find-box { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 4px 0 10px; border-radius: 17px; background: var(--s1); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); } .find-box:focus-within { box-shadow: inset 0 0 0 1.5px var(--ice); }
+.find-box svg { flex: none; width: 14px; height: 14px; color: var(--faint); }
+#q { flex: 1; min-width: 0; height: 100%; border: 0; background: none; outline: 0; font-size: 13px; } #q::-webkit-search-cancel-button { display: none; }
+.find-box .x { width: 26px; height: 26px; font-size: 16px; }
+.chips { display: flex; gap: 4px; margin-top: 6px; overflow-x: auto; scrollbar-width: none; }
+.chip { flex: none; height: 26px; padding: 0 10px; border-radius: 13px; background: var(--s1); color: var(--mute); font-size: 12px; } .chip:hover { color: var(--text); }
+.chip[aria-pressed="true"] { background: var(--ice); color: #211700; font-weight: 600; }
+#findCount { display: block; margin: 5px 2px 0; color: var(--faint); font-size: 11.5px; } #findCount:empty { display: none; }
+.m mark { background: rgba(255,178,36,.32); color: inherit; border-radius: 3px; padding: 0 1px; }
+.m .tm { margin-right: 6px; color: var(--faint); font-size: .78em; font-variant-numeric: tabular-nums; }
+.searching .m { cursor: pointer; }
+.m.flash { animation: flash 1.6s ease-out; } @keyframes flash { 0%, 30% { background: rgba(255,178,36,.28); } 100% { background: transparent; } }
 /* Repères : premier message, habitué, gros soutien */
 .m .tg { display: inline-block; margin-right: 5px; padding: 0 6px; border-radius: 5px; font-size: .74em; font-weight: 700; line-height: 1.55; vertical-align: .08em; }
 .m .tg.new { background: var(--ice); color: #211700; } .m .tg.regular { background: rgba(62,220,142,.18); color: #8FE9BC; } .m .tg.fan { background: rgba(255,210,74,.18); color: #FFD979; }
@@ -96,6 +110,11 @@ footer { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8
 </head>
 <body>
 <header id="tabs"></header>
+<div id="find" hidden>
+  <div class="find-box"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.6"/><path d="M10.4 10.4L14 14"/></svg><input id="q" type="search" autocomplete="off" spellcheck="false" maxlength="60" placeholder="Chercher un pseudo ou un mot" aria-label="Chercher dans le chat" data-aria="Chercher dans le chat"><button type="button" class="x" id="qx" aria-label="Fermer la recherche" data-aria="Fermer la recherche">×</button></div>
+  <div class="chips" id="chips" role="group" aria-label="Filtres" data-aria="Filtres"></div>
+  <span id="findCount" aria-live="polite"></span>
+</div>
 <div id="notice" role="status"></div>
 <div id="status" role="status" aria-live="polite"></div>
 <div id="spot" hidden></div>
@@ -140,6 +159,9 @@ const EN = {
   'Connecte ta chaîne Twitch ou ton compte Kick (Connexions) pour régler le chat d\'ici.': 'Connect your Twitch channel or Kick account (Connections) to change chat settings here.',
   'Premier message': 'First message', 'Habitué': 'Regular', 'Gros soutien': 'Big supporter', 'Premier message ici': 'First message here', 'Vient souvent': 'Comes often', 'Soutient beaucoup la chaîne': 'Supports the channel a lot',
   'Avertir': 'Warn', 'Avertir dans le chat (sanction automatique au dernier avertissement)': 'Warn in chat (automatic sanction at the last warning)', 'averti': 'warned', 'Averti': 'Warned', 'Avertissements :': 'Warnings:', 'Effacer': 'Clear', 'Avertissements effacés.': 'Warnings cleared.',
+  'Chercher dans le chat': 'Search the chat', 'Chercher un pseudo ou un mot': 'Search a username or a word', 'Fermer la recherche': 'Close search', 'Filtres': 'Filters',
+  'Tous les messages': 'All messages', 'Mentions': 'Mentions', 'Questions': 'Questions', 'Soutiens': 'Support', 'Repères': 'Markers',
+  'Aucun message ne correspond.': 'No message matches.', 'résultat': 'result', 'résultats': 'results', 'dans les derniers messages': 'in the latest messages', 'Clique sur un message pour le retrouver dans le chat.': 'Click a message to find it in the chat.',
   '1 min': '1 min', '10 min': '10 min', '1 h': '1 h', 'Ses messages ne passent plus chez toi (écran, voix, commandes, jeux).': 'Their messages no longer go through on your side (screen, voice, commands, games).', 'à connecter': 'not connected', 'Connecte une chaîne pour écrire ici': 'Connect a channel to write here', 'Anonyme': 'Anonymous', 'Live': 'Live', 'Modo': 'Mod', 'VIP': 'VIP', 'Abo': 'Sub',
 };
 let lang = 'fr';
@@ -217,6 +239,7 @@ function row(e) {
     n.append(g);
   }
   if (isChat && e.tags?.includes('new')) n.classList.add('first');
+  if (searching() && e.ts) { const tm = document.createElement('time'); tm.className = 'tm'; tm.textContent = hm(e.ts); dot.after(tm); }
   const who = document.createElement(isChat ? 'span' : 'b');
   who.className = 'who'; who.textContent = name;
   if (isChat) who.style.color = e.color || COLORS[e.platform] || 'inherit';
@@ -241,12 +264,16 @@ function row(e) {
       n.append(s);
     }
   }
-  if (isChat && targets.some((c) => e.text && e.text.toLowerCase().includes(`@${String(c.label).replace(/^@/, '').toLowerCase()}`))) n.classList.add('me');
+  if (isChat && mentions(e)) n.classList.add('me');
   if (isChat && !e.user?.owner) {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'mod-btn'; b.textContent = '⋯'; b.title = t('Modérer'); b.setAttribute('aria-label', `${t('Modérer')} : ${name}`); b.setAttribute('aria-expanded', 'false');
     b.onclick = (ev) => { ev.stopPropagation(); toggleMod(n, e); };
     n.append(b);
+  }
+  if (searching()) {
+    if (find.q) markIn(n, find.q);
+    n.onclick = (x) => { if (x.target.closest('button, .who, .modbar') || !getSelection().isCollapsed) return; jumpTo(e.id); };
   }
   return n;
 }
@@ -551,15 +578,117 @@ function spotBar() {
   b.append(txt, x);
   if (spot.until) spotBar.t = setTimeout(spotBar, spot.until - Date.now() + 50);
 }
-const showable = (e) => (e.type === 'chat' || (events && TEXT[e.type])) && (filter === 'all' || e.platform === filter);
+// ---------- Recherche ----------
+// Dans les messages gardés par le dock (les 600 derniers) : pseudo ou mot, sans tenir compte
+// des majuscules ni des accents, avec des filtres rapides.
+const find = { open: false, q: '', kind: 'all' };
+const KINDS = [['all', 'Tous les messages'], ['mentions', 'Mentions'], ['questions', 'Questions'], ['support', 'Soutiens'], ['tags', 'Repères']];
+const SUPPORT = new Set(['gift', 'sub', 'resub', 'giftsub', 'bits', 'superchat', 'supersticker', 'member', 'milestone', 'raid', 'superfan']);
+const fold = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const searching = () => find.open && (find.q.trim() !== '' || find.kind !== 'all');
+function mentions(e) {
+  if (e.type !== 'chat' || !e.text) return false;
+  const txt = fold(e.text);
+  return targets.some((c) => { const l = fold(String(c.label || '').replace(/^@/, '')); return l && (txt.includes(`@${l}`) || new RegExp(`(^|\\W)${l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\W|$)`).test(txt)); });
+}
+function matches(e) {
+  const k = find.kind;
+  if (k === 'mentions' && !mentions(e)) return false;
+  if (k === 'questions' && !(e.type === 'chat' && /\?|^!question/i.test(e.text || ''))) return false;
+  if (k === 'support' && !SUPPORT.has(e.type)) return false;
+  if (k === 'tags' && !e.tags?.length) return false;
+  const q = fold(find.q.trim().replace(/^@/, ''));
+  if (!q) return true;
+  return [e.user?.display, e.user?.name, e.type === 'chat' ? e.text : evText(e), e.translation?.text].some((v) => fold(v).includes(q));
+}
+// Surligne la recherche dans le pseudo et le texte (pas dans les badges).
+function markIn(n, raw) {
+  const q = fold(raw.trim().replace(/^@/, ''));
+  if (!q) return;
+  const walk = document.createTreeWalker(n, NodeFilter.SHOW_TEXT, { acceptNode: (t) => (t.parentElement.closest('.b, .tg, .lg, .tm, button') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
+  const nodes = [];
+  while (walk.nextNode()) nodes.push(walk.currentNode);
+  for (const tn of nodes) {
+    const src = tn.nodeValue;
+    let flat = '';
+    const at = [];
+    for (let i = 0; i < src.length; i += 1) { const f = fold(src[i]); for (const ch of f) { flat += ch; at.push(i); } }
+    const hits = [];
+    for (let i = flat.indexOf(q); i >= 0; i = flat.indexOf(q, i + q.length)) hits.push([at[i], at[i + q.length - 1] + 1]);
+    if (!hits.length) continue;
+    const frag = document.createDocumentFragment();
+    let pos = 0;
+    for (const [a, b] of hits) {
+      if (a < pos) continue;
+      if (a > pos) frag.append(document.createTextNode(src.slice(pos, a)));
+      const mk2 = document.createElement('mark'); mk2.textContent = src.slice(a, b); frag.append(mk2);
+      pos = b;
+    }
+    if (pos < src.length) frag.append(document.createTextNode(src.slice(pos)));
+    tn.replaceWith(frag);
+  }
+}
+function chips() {
+  const box = $('chips');
+  box.textContent = '';
+  for (const [id, label] of KINDS) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.textContent = t(label); b.setAttribute('aria-pressed', String(find.kind === id));
+    b.onclick = () => { find.kind = id; chips(); redraw(); };
+    box.append(b);
+  }
+}
+function openFind() {
+  find.open = true;
+  $('find').hidden = false;
+  chips();
+  $('q').focus();
+  $('q').select();
+  tabs();
+  redraw();
+}
+function closeFind() {
+  find.open = false; find.q = ''; find.kind = 'all';
+  $('q').value = '';
+  $('find').hidden = true;
+  $('findCount').textContent = '';
+  tabs();
+  redraw();
+}
+// Retrouver un résultat dans le chat : la recherche se ferme et le message clignote à sa place.
+function jumpTo(id) {
+  find.open = false; find.q = ''; find.kind = 'all';
+  $('q').value = '';
+  $('find').hidden = true;
+  $('findCount').textContent = '';
+  tabs();
+  redraw(true);
+  const n = $('feed').querySelector(`.m[data-id="${CSS.escape(id)}"]`);
+  if (!n) { toEnd(); return; }
+  n.scrollIntoView({ block: 'center' });
+  n.classList.add('flash');
+  setTimeout(() => n.classList.remove('flash'), 1700);
+  $('more').hidden = stuck();
+}
+const showable = (e) => {
+  if (filter !== 'all' && e.platform !== filter) return false;
+  if (searching()) return (e.type === 'chat' || TEXT[e.type]) && (events || e.type === 'chat' || find.kind === 'support') && matches(e);
+  return e.type === 'chat' || (events && TEXT[e.type]);
+};
 
-function redraw() {
+function redraw(all = false) {
   const f = $('feed');
   f.textContent = '';
-  const list = items.filter(showable).slice(-300);
+  f.classList.toggle('searching', searching());
+  const found = items.filter(showable);
+  const list = all ? found : found.slice(-300);
   for (const e of list) f.append(row(e));
-  if (!list.length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = t('Les messages de tes chaînes arriveront ici.'); f.append(p); }
-  toEnd();
+  if (!list.length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = t(searching() ? 'Aucun message ne correspond.' : 'Les messages de tes chaînes arriveront ici.'); f.append(p); }
+  countFound(found.length);
+  if (!all) toEnd();
+}
+function countFound(nb) {
+  $('findCount').textContent = searching() ? `${nb} ${t(nb > 1 ? 'résultats' : 'résultat')} ${t('dans les derniers messages')}.${nb ? ` ${t('Clique sur un message pour le retrouver dans le chat.')}` : ''}` : '';
 }
 
 function add(e) {
@@ -571,6 +700,7 @@ function add(e) {
   const f = $('feed');
   const keep = stuck();
   f.querySelector('.empty')?.remove();
+  if (searching()) countFound(items.filter(showable).length);
   f.append(row(e));
   while (f.children.length > 300) f.firstChild.remove();
   if (keep) toEnd(); else $('more').hidden = false;
@@ -608,6 +738,8 @@ function tabs() {
   const tool = (txt, label, on, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = `tool${on ? ' on' : ''}`; b.textContent = txt; b.title = label; b.setAttribute('aria-label', label); b.onclick = fn; box.append(b); };
   tool(lang === 'en' ? 'E' : 'É', t(events ? 'Masquer les événements' : 'Afficher les événements'), events, () => { events = !events; try { localStorage.setItem('dockEvents', events ? '1' : '0'); } catch { /* facultatif */ } tabs(); redraw(); });
   if (tr.enabled) tool('文', t(showTr ? 'Masquer les traductions' : 'Afficher les traductions'), showTr, () => { showTr = !showTr; try { localStorage.setItem('dockTr', showTr ? '1' : '0'); } catch { /* facultatif */ } tabs(); redraw(); });
+  tool('', t('Chercher dans le chat'), find.open, () => { if (find.open) closeFind(); else openFind(); });
+  box.lastChild.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.6"/><path d="M10.4 10.4L14 14"/></svg>';
   tool('', t('Réglages du chat'), sheet === 'chat', () => { if (sheet === 'chat') closeSheet(); else openChat(); });
   box.lastChild.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4.5h6M12 4.5h1.5M2.5 11.5H4M7.5 11.5h6"/><circle cx="10.2" cy="4.5" r="1.7"/><circle cx="5.8" cy="11.5" r="1.7"/></svg>';
   const nb = (mod.blocked || []).length;
@@ -676,7 +808,16 @@ function connect() {
 
 $('feed').addEventListener('scroll', () => { if (stuck()) $('more').hidden = true; });
 $('more').onclick = toEnd;
-addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMod(); if (sheet) closeSheet(); } });
+addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); openFind(); return; }
+  if (e.key !== 'Escape') return;
+  if (openRow) { closeMod(); return; }
+  if (sheet) { closeSheet(); return; }
+  if (find.open) { if (find.q && document.activeElement === $('q')) { find.q = ''; $('q').value = ''; redraw(); } else closeFind(); }
+});
+let qTimer = null;
+$('q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(() => { find.q = $('q').value; redraw(); }, 120); });
+$('qx').onclick = closeFind;
 $('form').onsubmit = async (e) => {
   e.preventDefault();
   const box = $('text');

@@ -80,6 +80,8 @@ Avertissements : action `warn` de `/dock/mod` ou commande `!avertir pseudo raiso
 
 Actions `chatMode` (`mode`, `state` on/off/toggle, `value`), `clearChat`, `spotlight` (le message déclencheur sans le mot de la commande, sinon le dernier message) et `spotlightClear`, utilisables partout où il y a des actions (commandes, automatisations, télécommande, raccourcis).
 
+Recherche : dans le dock seulement, sur les 600 messages qu'il garde (pseudo, texte, traduction, texte des événements), sans majuscules ni accents (`fold`). Filtres `mentions`, `questions`, `support`, `tags`. Un clic sur un résultat ferme la recherche et fait clignoter le message à sa place (`jumpTo`). Ctrl+F ouvre, Échap efface puis ferme.
+
 Routes du dock : `POST /dock/mod` (`{action: hide|delete|timeout|ban, id, seconds}`) et `POST /dock/unblock` (`{platform, id, name}`). Les overlays reçoivent `{t:'evdel', ids}` pour retirer les messages masqués.
 
 ## Images de rang et manette
